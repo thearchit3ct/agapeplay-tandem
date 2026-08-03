@@ -47,9 +47,27 @@ Le projet est au stade de conception et de cadrage du MVP.
 
 Voir [`docs/PRODUCT-VISION.md`](docs/PRODUCT-VISION.md) pour le périmètre détaillé.
 
+## Documentation
+
+- [Stratégie produit](docs/00-STRATEGIE.md)
+- [État de l'art](docs/01-ETAT-DE-L-ART.md)
+- [Positionnement et différenciation](docs/02-POSITIONNEMENT.md)
+- [Personas et parcours](docs/03-PERSONAS-PARCOURS.md)
+- [Spécification fonctionnelle](docs/04-SPECIFICATION-FONCTIONNELLE.md)
+- [Architecture web et mobile](docs/05-ARCHITECTURE-WEB-MOBILE.md)
+- [Données, sécurité et confiance](docs/06-DONNEES-SECURITE-CONFIANCE.md)
+- [Contenu et gouvernance éditoriale](docs/07-CONTENU-EDITORIAL.md)
+- [Métriques et expérimentation](docs/08-METRIQUES-EXPERIMENTS.md)
+- [Roadmap](docs/09-ROADMAP.md)
+- [Plan de recherche](docs/10-PLAN-DE-RECHERCHE.md)
+- [Carte du backlog GitHub](docs/11-ISSUE-MAP.md)
+- [Décisions d'architecture](docs/12-DECISIONS-ARCHITECTURE.md)
+
 ## Contribuer
 
 Les retours sur les parcours, l'expérience utilisateur, la sécurité et les usages en église sont les bienvenus. Consultez [`CONTRIBUTING.md`](CONTRIBUTING.md) avant d'ouvrir une issue ou une pull request.
+
+Pour les signalements sensibles, consultez [`SECURITY.md`](SECURITY.md). Les échanges communautaires suivent [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 ## Licence
 

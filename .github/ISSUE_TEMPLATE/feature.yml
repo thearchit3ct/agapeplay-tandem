@@ -1,0 +1,36 @@
+name: Fonctionnalité
+description: Proposer une fonctionnalité alignée avec la vision produit
+title: "[FEATURE] "
+labels:
+  - type:feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci. Décrivez d'abord le besoin utilisateur et le résultat attendu.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problème utilisateur
+      description: Qui rencontre quel problème, dans quel contexte ?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Résultat attendu
+      description: Comment saurons-nous que la fonctionnalité aide réellement ?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Périmètre proposé
+      description: Ce qui est inclus et explicitement exclu.
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risques produit, sécurité ou données
+      description: Données sensibles, modération, permissions, impact spirituel ou accessibilité.
+    validations:
+      required: true

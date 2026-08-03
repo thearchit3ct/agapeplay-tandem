@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation produit
+    url: https://github.com/thearchit3ct/agapeplay-tandem/tree/main/docs
+    about: Consulter la vision, la spécification et la roadmap avant d'ouvrir une issue.

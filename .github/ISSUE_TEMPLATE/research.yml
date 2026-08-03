@@ -1,0 +1,25 @@
+name: Recherche produit
+description: Documenter une hypothèse, un entretien ou une décision à valider
+title: "[RESEARCH] "
+labels:
+  - type:research
+body:
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothèse
+    validations:
+      required: true
+  - type: textarea
+    id: method
+    attributes:
+      label: Méthode de validation
+      description: Entretien, prototype, test de compréhension, pilote, analyse de données agrégées.
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: Critère de décision
+    validations:
+      required: true
