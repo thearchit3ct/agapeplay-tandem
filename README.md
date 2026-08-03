@@ -43,7 +43,23 @@ La première version se concentrera sur un parcours de six semaines : **Repartir
 
 ## Statut
 
-Le projet est au stade de conception et de cadrage du MVP.
+Le projet dispose maintenant d'un premier vertical slice web exécutable en mode démonstration : accueil quotidien, parcours, journal privé, tandem et changement de langue FR/EN.
+
+Les services externes (authentification, Supabase, Stripe, notifications, modération et publication dans les stores) restent volontairement simulés jusqu'à réception des accès et des décisions opérationnelles.
+
+## Développement local
+
+Prérequis : Node.js 20+ et npm.
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+L'application est ensuite disponible sur [http://localhost:5173](http://localhost:5173). Le bandeau « Mode démonstration » rappelle que les données sont conservées uniquement dans le `localStorage` du navigateur.
+
+Voir [`docs/15-MODE-DEVELOPPEMENT-SANS-SERVICES.md`](docs/15-MODE-DEVELOPPEMENT-SANS-SERVICES.md) pour la frontière entre ce prototype et les intégrations à venir.
 
 Voir [`docs/PRODUCT-VISION.md`](docs/PRODUCT-VISION.md) pour le périmètre détaillé.
 
