@@ -11,6 +11,8 @@ La CNIL classe notamment les convictions religieuses ou philosophiques parmi les
 - âge minimum : 16 ans ;
 - pas de matching public ou aléatoire ;
 - relation uniquement par invitation ou rattachement supervisé à une communauté ;
+- pour les 16–17 ans, mentor proposé par l'église et accepté par le jeune ;
+- validation manuelle par pièce contrôlée ou attestation d'église, sans copie conservée ;
 - journaux privés par défaut ;
 - partage actionné par l'utilisateur, écran par écran ;
 - pas de publicité ciblée à partir du contenu spirituel ;
@@ -24,7 +26,7 @@ La CNIL classe notamment les convictions religieuses ou philosophiques parmi les
 | Donnée | Participant | Binôme | Mentor | Responsable |
 |---|---:|---:|---:|---:|
 | Profil public minimal | Oui | Oui si partagé | Oui si groupe | Oui si groupe |
-| Progression de séance | Oui | Optionnel | Oui, agrégée | Oui, agrégée |
+| Progression de séance | Oui | Optionnel | Signaux minimaux si affecté | Non, statistique agrégée uniquement |
 | Journal privé | Oui | Non par défaut | Non | Non |
 | Réponse partagée | Oui | Oui | Selon règle du groupe | Selon permission |
 | Demande d'aide | Oui | Selon choix | Oui | Oui si escalade |
@@ -51,7 +53,11 @@ La CNIL classe notamment les convictions religieuses ou philosophiques parmi les
 - protocole de réponse aux signalements ;
 - séparation entre accompagnement spirituel et urgence médicale ou psychologique ;
 - répertoire d'orientation vers les responsables humains et services locaux ;
-- pas de conversation privée entre mineur et adulte dans le MVP.
+- une conversation privée entre un mineur et son mentor est autorisée uniquement
+  dans le tandem proposé par l'église et accepté par le jeune ; elle reste
+  signalable, bloquable et supprimable à tout moment.
+- tout signalement grave impliquant un mineur est escaladé automatiquement à
+  AgapePlay, en plus du traitement par l'église.
 
 ## IA
 

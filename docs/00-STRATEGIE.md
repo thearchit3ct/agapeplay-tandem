@@ -60,7 +60,8 @@ Cette mesure évite de confondre l'ouverture d'une application avec une croissan
 - Aucun matching ouvert et non supervisé dans le MVP.
 - Notifications douces, désactivables et sans culpabilisation.
 - Accessibilité, faible consommation de données et usage mobile prioritaire.
-- L'IA peut aider à organiser ou reformuler, mais ne se présente jamais comme une autorité spirituelle ou un conseiller humain.
+- Aucune IA n'est utilisée dans le MVP ; une éventuelle aide éditoriale ultérieure
+  ne devra jamais se présenter comme une autorité spirituelle ou un conseiller humain.
 
 ## Périmètre de lancement
 
@@ -76,17 +77,17 @@ Le lancement se concentre sur un parcours de six semaines, une relation particip
 - check-in hebdomadaire ;
 - tableau mentor minimal ;
 - web responsive et application mobile iOS/Android ;
-- français en premier, architecture prête pour l'anglais.
+- français et anglais dès le lancement.
 
 ### Hors lancement
 
 - fil social public ;
 - matching algorithmique ouvert ;
-- enfants et adolescents ;
+- enfants et moins de 16 ans ;
 - marketplace de contenus ;
 - diagnostic psychologique ou accompagnement thérapeutique ;
 - classement public ;
-- abonnement individuel obligatoire.
+- achat de parcours premium et abonnement personnel, exclusivement sur le web.
 
 ## Modèle économique pressenti
 
@@ -94,4 +95,5 @@ Le lancement se concentre sur un parcours de six semaines, une relation particip
 - abonnement ou licence pour les églises ;
 - parcours premium produits avec des partenaires ;
 - offre d'accompagnement et de configuration pour les communautés ;
+- Stripe pour les paiements web, sans paiement intégré dans les apps mobiles ;
 - pas de publicité ciblée basée sur les données spirituelles.

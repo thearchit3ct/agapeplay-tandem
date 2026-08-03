@@ -33,7 +33,7 @@ Le backlog est organisé pour transformer la vision en produit testable. Les iss
 - compagnon Alpha et partenariat de contenu ;
 - intégration Versets Flash et Alléluia! ;
 - audio ;
-- familles et mineurs avec dispositif séparé ;
+- dispositif 16–17 ans : proposition église, vérification manuelle et formation mentor ;
 - abonnement église ;
 - IA éditoriale encadrée ;
 - intégrations partenaires.

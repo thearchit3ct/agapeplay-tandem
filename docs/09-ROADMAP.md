@@ -12,6 +12,7 @@ Objectif : confirmer le problème, le vocabulaire et le modèle d'accompagnement
 - test de trois positionnements ;
 - validation du premier parcours ;
 - protocole de sécurité et limites du MVP ;
+- protocole de vérification manuelle des mentors et d'escalade des signalements ;
 - décision sur la licence des textes bibliques.
 
 ## Phase 1 — Fondations techniques
@@ -22,6 +23,7 @@ Objectif : pouvoir livrer une première expérience testable.
 - applications web et mobile ;
 - authentification ;
 - schéma de données et RLS ;
+- entitlements et modèle de paiement web-only ;
 - design tokens ;
 - catalogue de contenu versionné ;
 - instrumentation minimale ;
@@ -38,6 +40,8 @@ Objectif : tester le cœur relationnel avec 10 à 20 binômes.
 - partage explicite ;
 - check-in hebdomadaire ;
 - blocage et signalement ;
+- validation manuelle des mentors 16–17 ans ;
+- formation mentor permanente et révocable ;
 - retours qualitatifs hebdomadaires.
 
 ## Phase 3 — Pilote église
@@ -51,6 +55,7 @@ Objectif : tester le modèle communautaire avec 2 à 4 églises.
 - export et suppression ;
 - rapport d'impact agrégé ;
 - formation mentor.
+- traitement coordonné des signalements église/AgapePlay.
 
 ## Phase 4 — Bêta publique
 
@@ -61,7 +66,7 @@ Objectif : ouvrir l'accès avec une base de confiance documentée.
 - support ;
 - politique de confidentialité ;
 - traitement des demandes de données ;
-- localisation anglaise ;
+- interface française et anglaise dès la première publication ;
 - observabilité et incident response ;
 - modèle économique église.
 

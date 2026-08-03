@@ -37,3 +37,38 @@
 **Décision** : le participant choisit explicitement le contenu partagé et le destinataire.
 
 **Raison** : les informations spirituelles et personnelles peuvent être sensibles ; la confiance est une fonctionnalité, pas un texte de politique caché.
+
+## ADR-005 — Vérification manuelle et preuve minimisée
+
+**Statut** : accepté
+
+**Décision** : un opérateur AgapePlay ou une église autorisée vérifie l'âge et
+le rôle du mentor à partir d'une pièce contrôlée ou d'une attestation officielle.
+Le système conserve le statut, la date, le validateur et le type de preuve, mais
+aucune copie de pièce par défaut.
+
+**Raison** : satisfaire le besoin de confiance tout en réduisant le risque lié
+au stockage de documents d'identité.
+
+## ADR-006 — Paiements exclusivement sur le web
+
+**Statut** : accepté
+
+**Décision** : Stripe Checkout/Billing est utilisé sur le web pour les offres
+personnelles et église. Les apps mobiles ne contiennent aucune surface d'achat
+et consomment uniquement les droits synchronisés par le backend.
+
+**Raison** : garder un parcours de paiement unique et maîtrisé. Une revue
+Apple/Google spécifique est obligatoire avant publication ; le modèle ne doit
+pas être considéré comme automatiquement accepté par les stores.
+
+## ADR-007 — Escalade des incidents impliquant un mineur
+
+**Statut** : accepté
+
+**Décision** : l'église et AgapePlay reçoivent les signalements selon leur rôle.
+Un signalement grave impliquant un mineur est automatiquement escaladé à
+AgapePlay. Le tandem peut être bloqué immédiatement pendant la revue.
+
+**Raison** : éviter qu'une église soit le seul point de traitement d'un incident
+grave et garantir une capacité de réponse plateforme.

@@ -8,6 +8,8 @@ Construire un monorepo TypeScript avec deux applications et un noyau métier par
 - **Mobile natif** : Expo + React Native + Expo Router pour iOS et Android.
 - **Backend** : Supabase Auth, PostgreSQL, Row Level Security, Realtime et Edge Functions.
 - **Contenu** : package versionné, schémas validés et workflow éditorial.
+- **Paiements** : Stripe Checkout/Billing uniquement sur le web ; entitlements
+  synchronisés dans le backend et consommés en lecture sur mobile.
 - **CI/CD** : GitHub Actions, déploiement web séparé des builds mobiles.
 
 Cette séparation est préférable à une seule interface universelle : le web est plus efficace pour l'administration et les écrans larges ; le mobile natif est plus efficace pour les notifications, le hors ligne, les liens profonds et les usages courts.
@@ -66,6 +68,10 @@ docs/
 - La synchronisation utilise une file locale et des versions de ligne.
 - Les conflits de journal sont résolus en faveur de la version la plus récente uniquement après confirmation ; aucune note ne doit être silencieusement écrasée.
 - Les conversations utilisent des canaux privés et des contrôles d'accès côté serveur.
+- Les apps mobiles n'exposent aucune surface commerciale : pas de prix, d'achat,
+  de gestion d'abonnement ni de lien d'achat web.
+- Les webhooks Stripe ne donnent jamais directement un accès ; ils mettent à
+  jour une table d'entitlements vérifiée par les politiques d'accès.
 
 ## Choix et alternatives
 
@@ -84,6 +90,7 @@ Supabase est cohérent pour un MVP : Auth, Postgres et RLS réduisent le nombre 
 ## Déploiement cible
 
 - Web : hébergeur compatible Next.js, environnements preview/staging/production.
+- Paiement web : Stripe Checkout et Billing, avec webhooks signés et journalisés.
 - Backend : Supabase staging et production séparés.
 - Mobile : builds internes, TestFlight et Google Play internal testing avant publication.
 - Secrets : jamais dans Git ; secrets séparés par environnement.

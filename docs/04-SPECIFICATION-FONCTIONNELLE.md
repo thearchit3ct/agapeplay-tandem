@@ -16,9 +16,11 @@
 
 ### EPIC A — Compte et consentement
 
-- connexion par email, lien magique et fournisseur social optionnel ;
+- connexion par email, lien magique, Google, Apple et Microsoft ;
 - choix de langue et fuseau horaire ;
-- âge minimum clairement affiché ;
+- âge minimum de 16 ans clairement affiché ;
+- vérification manuelle de l'âge et du rôle de mentor, sans conservation de
+  copie de pièce d'identité ;
 - consentement séparé pour les notifications et les communications ;
 - export et suppression du compte ;
 - session multi-appareils avec révocation.
@@ -38,6 +40,9 @@
 - invitation par lien ou email ;
 - expiration et révocation de l'invitation ;
 - consentement réciproque ;
+- proposition du mentor par l'église pour les 16–17 ans ;
+- acceptation explicite du jeune avant activation ;
+- sortie du tandem à tout moment ;
 - choix de ce qui est partagé ;
 - changement de binôme sans perte du parcours ;
 - mise en pause de la relation ;
@@ -56,7 +61,9 @@
 ### EPIC E — Communication sûre
 
 - conversation privée participant-binôme ;
-- possibilité de groupe supervisé ;
+- conversation privée limitée aux personnes du tandem ;
+- redirection volontaire vers WhatsApp, hors périmètre de modération ;
+- aucun chat de groupe, audio ou vidéo dans le MVP ;
 - notifications paramétrables ;
 - signalement d'un message ;
 - blocage ;
@@ -70,6 +77,8 @@
 - notes de suivi séparées du journal utilisateur ;
 - réponses suggérées mais jamais envoyées automatiquement ;
 - parcours de formation du mentor ;
+- formation suivie dans AgapePlay ou justificatif externe ;
+- validation permanente et révocable ;
 - permissions par groupe.
 
 ### EPIC G — Espace église
@@ -79,7 +88,8 @@
 - groupes et cohortes ;
 - affectation des mentors ;
 - sélection de parcours ;
-- statistiques agrégées ;
+- statut administratif des tandems ;
+- statistiques exclusivement globales et anonymisées ;
 - export des participants selon permission ;
 - fermeture d'une cohorte et politique de rétention.
 
@@ -100,6 +110,9 @@
 - un participant peut terminer une séance hors ligne et la synchroniser ;
 - un participant peut supprimer son compte et ses contenus ;
 - un mentor peut suivre un groupe sans accès excessif ;
+- pour un mineur, l'église voit le statut administratif sans voir les messages
+  ni le journal ;
 - un signalement arrive à un modérateur avec un statut traçable ;
 - les notifications peuvent être désactivées ;
+- aucun paiement, prix ou appel à l'achat n'apparaît dans les apps mobiles ;
 - les scénarios critiques sont testés sur web, iOS et Android.

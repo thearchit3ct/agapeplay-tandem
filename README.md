@@ -21,7 +21,7 @@ La première version se concentrera sur un parcours de six semaines : **Repartir
 - journal personnel ;
 - check-in hebdomadaire ;
 - discussion privée entre binôme ;
-- suivi de progression pour le mentor ou le responsable d'église ;
+- signaux minimaux pour le mentor et statistiques anonymisées pour le responsable d'église ;
 - notifications douces, sans pression ni classement public.
 
 ## Parcours initial
@@ -63,6 +63,7 @@ Voir [`docs/PRODUCT-VISION.md`](docs/PRODUCT-VISION.md) pour le périmètre dét
 - [Carte du backlog GitHub](docs/11-ISSUE-MAP.md)
 - [Décisions d'architecture](docs/12-DECISIONS-ARCHITECTURE.md)
 - [Intégration du parcours Alpha](docs/13-INTEGRATION-ALPHA.md)
+- [Décisions produit du cadrage](docs/14-DECISIONS-PRODUIT-2026-08-04.md)
 
 ## Contribuer
 
