@@ -70,6 +70,8 @@ Objectif : ouvrir l'accès avec une base de confiance documentée.
 - parcours familles et jeunes avec gouvernance dédiée ;
 - intégration Versets Flash ;
 - défis et jeux AgapePlay ;
+- compagnon de parcours Alpha et étude d'un partenariat officiel ;
+- parcours original Après Alpha ;
 - audio et téléchargement enrichi ;
 - intégrations calendrier et liens profonds ;
 - API partenaires sous revue de sécurité.

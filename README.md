@@ -62,6 +62,7 @@ Voir [`docs/PRODUCT-VISION.md`](docs/PRODUCT-VISION.md) pour le périmètre dét
 - [Plan de recherche](docs/10-PLAN-DE-RECHERCHE.md)
 - [Carte du backlog GitHub](docs/11-ISSUE-MAP.md)
 - [Décisions d'architecture](docs/12-DECISIONS-ARCHITECTURE.md)
+- [Intégration du parcours Alpha](docs/13-INTEGRATION-ALPHA.md)
 
 ## Contribuer
 
