@@ -49,6 +49,8 @@ const copy = {
     activeStatus: 'Actif',
     reportNotice: 'Signalement localisé dans cette démo. Il sera transmis à l’église et à AgapePlay dans la version connectée.',
     blockNotice: 'Le blocage supprimera immédiatement la relation dans la version connectée.',
+    ritual: 'Rituel du jour',
+    daysProgress: '3 repères sur 6',
   },
   en: {
     greeting: 'Good morning, Claire',
@@ -95,6 +97,8 @@ const copy = {
     activeStatus: 'Active',
     reportNotice: 'This demo keeps the report local. In the connected version, it will be sent to the church and AgapePlay.',
     blockNotice: 'Blocking will immediately remove the relationship in the connected version.',
+    ritual: 'Today’s ritual',
+    daysProgress: '3 markers out of 6',
   },
 } as const
 
@@ -235,6 +239,7 @@ function TodayView({ session, completedCount, t, onComplete, onOpenJournal, onOp
     <section className="hero-grid">
       <article className="session-card">
         <div className="session-card-top"><span className="pill">{session.theme}</span><span className="duration">{session.duration} min</span></div>
+        <div className="ritual-label"><span>{t.ritual}</span><span>{t.daysProgress}</span></div>
         <div className="session-number">0{session.day}</div>
         <h2>{session.title}</h2>
         <p className="verse">{session.verse}</p>
