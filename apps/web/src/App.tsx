@@ -179,6 +179,11 @@ function App() {
   const currentSession = journey.sessions.find((session) => !state.completedSessionIds.includes(session.id)) ?? journey.sessions[0]
   const completedCount = state.completedSessionIds.length
 
+  const showNotice = (message: string, duration = 2600) => {
+    setNotice(message)
+    window.setTimeout(() => setNotice(''), duration)
+  }
+
   useEffect(() => {
     if (!supabase) {
       setAuthLoading(false)
@@ -239,7 +244,8 @@ function App() {
         return next
       })
 
-      await client.from('profiles').upsert({ id: authSession.user.id, display_name: 'Claire', locale: state.locale })
+      const profileResult = await client.from('profiles').upsert({ id: authSession.user.id, display_name: 'Claire', locale: state.locale })
+      if (profileResult.error && !cancelled) showNotice(t.syncError, 4200)
     }
 
     void loadRemoteState()
@@ -267,11 +273,14 @@ function App() {
         journalEntries: journalEntry ? [journalEntry, ...state.journalEntries] : state.journalEntries,
       })
       if (supabase && authSession) {
-        void supabase.from('session_progress').upsert({ user_id: authSession.user.id, journey_id: 'repartir-avec-jesus', session_id: sessionId })
-        if (journalEntry) void supabase.from('journal_entries').insert({ id: journalEntry.id, user_id: authSession.user.id, text: journalEntry.text, mood: journalEntry.mood, created_at: journalEntry.createdAt })
+        void Promise.resolve(supabase.from('session_progress').upsert({ user_id: authSession.user.id, journey_id: 'repartir-avec-jesus', session_id: sessionId })).then(({ error }) => {
+          if (error) showNotice(t.syncError, 4200)
+        })
+        if (journalEntry) void Promise.resolve(supabase.from('journal_entries').insert({ id: journalEntry.id, user_id: authSession.user.id, text: journalEntry.text, mood: journalEntry.mood, created_at: journalEntry.createdAt })).then(({ error }) => {
+          if (error) showNotice(t.syncError, 4200)
+        })
       }
-      setNotice(t.completed)
-      window.setTimeout(() => setNotice(''), 2600)
+      showNotice(t.completed)
     }
   }
 
@@ -298,10 +307,11 @@ function App() {
     if (!text) return
     const entry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), text, mood: 'Présent' }
     update({ ...state, journalEntries: [entry, ...state.journalEntries] })
-    if (supabase && authSession) void supabase.from('journal_entries').insert({ id: entry.id, user_id: authSession.user.id, text: entry.text, mood: entry.mood, created_at: entry.createdAt })
+    if (supabase && authSession) void Promise.resolve(supabase.from('journal_entries').insert({ id: entry.id, user_id: authSession.user.id, text: entry.text, mood: entry.mood, created_at: entry.createdAt })).then(({ error }) => {
+      if (error) showNotice(t.syncError, 4200)
+    })
     setJournalDraft('')
-    setNotice(t.saved)
-    window.setTimeout(() => setNotice(''), 2600)
+    showNotice(t.saved)
   }
 
   const sendMessage = () => {

@@ -20,9 +20,14 @@ jamais être ajoutée à l'application web.
    SQL Editor Supabase.
 4. Configurer les URLs de redirection Auth avant d'activer les liens magiques.
 
-Le bandeau de l'application indique alors que Supabase est configuré, mais le
-mode de démonstration reste actif tant que l'authentification et la
-synchronisation ne sont pas branchées dans les dépôts applicatifs.
+Le bandeau de l'application indique alors que Supabase est configuré. Après
+connexion, les séances terminées et le journal privé sont synchronisés avec le
+compte distant ; le stockage local reste le filet de sécurité hors connexion.
+
+La migration de fondation a été appliquée au projet distant via le SQL Editor.
+Le fichier SQL reste la source de référence pour une nouvelle installation,
+même si cette première application n'est pas encore enregistrée dans
+l'historique des migrations Supabase.
 
 ## Périmètre de la migration
 
@@ -30,4 +35,5 @@ synchronisation ne sont pas branchées dans les dépôts applicatifs.
 - `session_progress` : séances terminées, sans contenu spirituel ;
 - `journal_entries` : notes privées, protégées par RLS ;
 - aucun rôle d'église, mentor ou tandem n'est encore exposé avant la migration
-  dédiée aux relations et aux permissions.
+  dédiée aux relations et aux permissions ; le tandem affiché reste une donnée
+  de démonstration locale.
