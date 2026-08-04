@@ -1,0 +1,10 @@
+import { Link } from 'expo-router'
+import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { colors, typography } from '@/theme'
+
+export default function JourneyScreen() {
+  const sessions = ['Repartir avec Jésus', 'Recevoir la paix', 'Faire un pas']
+  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.container}><Link href="/" style={styles.back}>← Aujourd’hui</Link><Text style={styles.kicker}>PARCOURS</Text><Text style={styles.title}>Repartir avec Jésus</Text><Text style={styles.description}>Un chemin en six repères pour retrouver une présence simple et honnête.</Text>{sessions.map((session, index) => <View style={styles.row} key={session}><View style={styles.badge}><Text style={styles.badgeText}>{`0${index + 1}`}</Text></View><View style={styles.rowCopy}><Text style={styles.rowKicker}>SÉANCE {index + 1} · 06 MIN</Text><Text style={styles.rowTitle}>{session}</Text></View></View>)}</ScrollView></SafeAreaView>
+}
+
+const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: colors.paper }, container: { padding: 24 }, back: { color: colors.muted, fontFamily: typography.mono, fontSize: 11, marginBottom: 54 }, kicker: { color: colors.copper, fontFamily: typography.mono, fontSize: 10, letterSpacing: 1 }, title: { color: colors.ink, fontFamily: typography.display, fontSize: 38, lineHeight: 43, marginTop: 16 }, description: { color: colors.muted, fontSize: 16, lineHeight: 24, marginTop: 16, marginBottom: 30 }, row: { borderTopWidth: 1, borderTopColor: colors.line, paddingVertical: 20, flexDirection: 'row', alignItems: 'center' }, badge: { width: 48, height: 48, borderWidth: 1, borderColor: colors.ink, justifyContent: 'center', alignItems: 'center', marginRight: 16 }, badgeText: { color: colors.ink, fontFamily: typography.mono, fontSize: 12 }, rowCopy: { flex: 1 }, rowKicker: { color: colors.copper, fontFamily: typography.mono, fontSize: 9, letterSpacing: .7 }, rowTitle: { color: colors.ink, fontFamily: typography.display, fontSize: 22, marginTop: 6 } })

@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "AgapePlay Tandem",
+    "slug": "agapeplay-tandem",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "agapeplay",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.agapeplay.tandem"
+    },
+    "android": {
+      "package": "com.agapeplay.tandem"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
