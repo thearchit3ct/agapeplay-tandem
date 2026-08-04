@@ -40,6 +40,14 @@ l'historique des migrations Supabase.
 - `profiles` : identité applicative minimale, privée par utilisateur ;
 - `session_progress` : séances terminées, sans contenu spirituel ;
 - `journal_entries` : notes privées, protégées par RLS ;
-- aucun rôle d'église, mentor ou tandem n'est encore exposé avant la migration
-  dédiée aux relations et aux permissions ; le tandem affiché reste une donnée
-  de démonstration locale.
+- `tandem_invitations` : invitations email privées, expirables et révocables ;
+- `tandems` : relation entre deux comptes, avec statut contrôlable ;
+- `tandem_messages` : messages privés limités aux membres du tandem ;
+- les profils portent aussi les consentements séparés, la confirmation d'âge
+  minimum et le statut de demande de suppression ;
+- aucun rôle d'église ou mentor n'est encore exposé avant la migration dédiée
+  aux permissions.
+
+La fonction `accept_tandem_invitation` vérifie le token, l'adresse email du
+compte connecté, l'expiration et l'auto-invitation avant de créer la relation.
+Elle s'exécute sous les permissions RLS de l'utilisateur authentifié.

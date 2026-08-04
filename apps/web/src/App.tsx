@@ -84,6 +84,29 @@ const copy = {
     sessionComplete: 'Tu as pris ce temps.',
     sessionCompleteDescription: 'Ce petit pas compte. Tu peux le laisser ici, ou le partager avec ton tandem quand tu le souhaites.',
     leaveSession: 'Quitter la séance',
+    trustTitle: 'Avant de commencer',
+    trustDescription: 'AgapePlay garde tes espaces personnels privés. Confirme les points suivants pour continuer.',
+    ageConfirm: 'J’ai 16 ans ou plus.',
+    privacyConsent: 'J’accepte la politique de confidentialité et l’usage nécessaire de mes données pour faire fonctionner mon compte.',
+    termsConsent: 'J’accepte les règles d’utilisation d’AgapePlay.',
+    continueTrust: 'Continuer',
+    trustRequired: 'Confirme les trois points pour continuer.',
+    settingsTitle: 'Réglages du compte',
+    accountStatus: 'Statut du compte',
+    deleteAccount: 'Demander la suppression',
+    deleteAccountDescription: 'Ta demande sera traitée selon la procédure de suppression documentée. Tes données locales restent disponibles jusqu’à confirmation.',
+    requestDeletion: 'Demander la suppression',
+    deletionRequested: 'Demande de suppression enregistrée.',
+    cancel: 'Annuler',
+    invite: 'Inviter mon tandem',
+    inviteDescription: 'L’invitation est privée et expire après 7 jours.',
+    inviteEmail: 'Email de la personne',
+    createInvite: 'Créer l’invitation',
+    inviteCreated: 'Invitation créée. Tu peux partager ce lien.',
+    copyInvite: 'Copier le lien',
+    inviteRequiresAuth: 'Connecte-toi pour créer une invitation privée.',
+    inviteAccepted: 'Invitation acceptée. Votre tandem est actif.',
+    inviteAcceptError: 'Cette invitation est invalide, expirée ou réservée à une autre adresse.',
   },
   en: {
     greeting: 'Good morning, Claire',
@@ -162,6 +185,29 @@ const copy = {
     sessionComplete: 'You took this time.',
     sessionCompleteDescription: 'This small step matters. Keep it here, or share it with your tandem when you are ready.',
     leaveSession: 'Leave session',
+    trustTitle: 'Before you begin',
+    trustDescription: 'AgapePlay keeps your personal spaces private. Confirm the following to continue.',
+    ageConfirm: 'I am 16 or older.',
+    privacyConsent: 'I accept the privacy policy and the data use needed to operate my account.',
+    termsConsent: 'I accept AgapePlay’s terms of use.',
+    continueTrust: 'Continue',
+    trustRequired: 'Confirm all three points to continue.',
+    settingsTitle: 'Account settings',
+    accountStatus: 'Account status',
+    deleteAccount: 'Request deletion',
+    deleteAccountDescription: 'Your request will follow the documented deletion process. Local data stays available until confirmation.',
+    requestDeletion: 'Request deletion',
+    deletionRequested: 'Deletion request recorded.',
+    cancel: 'Cancel',
+    invite: 'Invite my tandem',
+    inviteDescription: 'The invitation is private and expires after 7 days.',
+    inviteEmail: 'Person’s email',
+    createInvite: 'Create invitation',
+    inviteCreated: 'Invitation created. You can share this link.',
+    copyInvite: 'Copy link',
+    inviteRequiresAuth: 'Sign in to create a private invitation.',
+    inviteAccepted: 'Invitation accepted. Your tandem is active.',
+    inviteAcceptError: 'This invitation is invalid, expired, or reserved for another email.',
   },
 } as const
 
@@ -179,6 +225,14 @@ function App() {
   const [authSession, setAuthSession] = useState<Session | null>(null)
   const [authOpen, setAuthOpen] = useState(false)
   const [authLoading, setAuthLoading] = useState(supabaseConfigured)
+  const [trustOpen, setTrustOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [ageConfirmed, setAgeConfirmed] = useState(false)
+  const [privacyAccepted, setPrivacyAccepted] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLink, setInviteLink] = useState('')
 
   const t = copy[state.locale]
   const journey = useMemo(() => getJourney(state.locale), [state.locale])
@@ -220,15 +274,20 @@ function App() {
     let cancelled = false
 
     const loadRemoteState = async () => {
-      const [progressResult, journalResult] = await Promise.all([
+      const [progressResult, journalResult, profileResult] = await Promise.all([
         client.from('session_progress').select('session_id').eq('user_id', authSession.user.id),
         client.from('journal_entries').select('id, text, mood, created_at').eq('user_id', authSession.user.id).order('created_at', { ascending: false }),
+        client.from('profiles').select('age_confirmed_at, privacy_consent_at, terms_consent_at, account_status').eq('id', authSession.user.id).maybeSingle(),
       ])
 
       if (cancelled) return
-      if (progressResult.error || journalResult.error) {
+      if (progressResult.error || journalResult.error || profileResult.error) {
         setNotice(t.syncError)
         return
+      }
+
+      if (!profileResult.data?.age_confirmed_at || !profileResult.data.privacy_consent_at || !profileResult.data.terms_consent_at) {
+        setTrustOpen(true)
       }
 
       const remoteCompletedIds = (progressResult.data ?? []).map((row) => row.session_id)
@@ -250,8 +309,15 @@ function App() {
         return next
       })
 
-      const profileResult = await client.from('profiles').upsert({ id: authSession.user.id, display_name: 'Claire', locale: state.locale })
-      if (profileResult.error && !cancelled) showNotice(t.syncError, 4200)
+      const profileUpsertResult = await client.from('profiles').upsert({ id: authSession.user.id, display_name: 'Claire', locale: state.locale })
+      if (profileUpsertResult.error && !cancelled) showNotice(t.syncError, 4200)
+
+      const invitationToken = new URLSearchParams(window.location.search).get('invite')
+      if (invitationToken) {
+        const invitationResult = await client.rpc('accept_tandem_invitation', { p_token: invitationToken })
+        window.history.replaceState({}, '', window.location.pathname)
+        if (!cancelled) showNotice(invitationResult.error ? t.inviteAcceptError : t.inviteAccepted, 4200)
+      }
     }
 
     void loadRemoteState()
@@ -332,6 +398,56 @@ function App() {
     if (supabase) void supabase.auth.signOut()
   }
 
+  const saveTrust = async () => {
+    if (!supabase || !authSession) return
+    if (!ageConfirmed || !privacyAccepted || !termsAccepted) {
+      showNotice(t.trustRequired, 4200)
+      return
+    }
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('profiles').upsert({
+      id: authSession.user.id,
+      display_name: 'Claire',
+      locale: state.locale,
+      age_confirmed_at: now,
+      privacy_consent_at: now,
+      terms_consent_at: now,
+      account_status: 'active',
+    })
+    if (error) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    setTrustOpen(false)
+  }
+
+  const requestDeletion = async () => {
+    if (!supabase || !authSession) return
+    const { error } = await supabase.from('profiles').update({ account_status: 'deletion_requested', deletion_requested_at: new Date().toISOString() }).eq('id', authSession.user.id)
+    if (error) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    setSettingsOpen(false)
+    showNotice(t.deletionRequested, 4200)
+  }
+
+  const createInvitation = async () => {
+    if (!supabase || !authSession) {
+      showNotice(t.inviteRequiresAuth, 4200)
+      return
+    }
+    const email = inviteEmail.trim().toLowerCase()
+    if (!email) return
+    const { data, error } = await supabase.from('tandem_invitations').insert({ inviter_id: authSession.user.id, invitee_email: email }).select('token').single()
+    if (error || !data) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    setInviteLink(`${window.location.origin}/?invite=${data.token}`)
+    showNotice(t.inviteCreated, 4200)
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -359,7 +475,7 @@ function App() {
             </div>
             <span className="status-dot" aria-label={t.online} />
           </div>
-          <button className="quiet-button" onClick={() => setNotice(t.protected)}>{t.settings}</button>
+          <button className="quiet-button" onClick={() => setSettingsOpen(true)}>{t.settings}</button>
         </div>
       </aside>
 
@@ -388,6 +504,9 @@ function App() {
         {supabaseConfigured && <div className="auth-strip"><span>{authSession ? `${t.signedIn} · ${authSession.user.email ?? ''}` : t.signIn}</span>{authSession ? <button onClick={signOut}>{t.signOut}</button> : <button onClick={() => setAuthOpen(true)}>{t.signIn} →</button>}</div>}
 
         {authOpen && <AuthDialog t={t} loading={authLoading} onClose={() => setAuthOpen(false)} />}
+        {trustOpen && <TrustDialog t={t} ageConfirmed={ageConfirmed} setAgeConfirmed={setAgeConfirmed} privacyAccepted={privacyAccepted} setPrivacyAccepted={setPrivacyAccepted} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted} onSave={() => void saveTrust()} />}
+        {settingsOpen && <SettingsDialog t={t} onClose={() => setSettingsOpen(false)} onRequestDeletion={() => void requestDeletion()} />}
+        {inviteOpen && <InviteDialog t={t} email={inviteEmail} setEmail={setInviteEmail} link={inviteLink} onCreate={() => void createInvitation()} onClose={() => { setInviteOpen(false); setInviteLink('') }} />}
 
         {notice && <div className="toast" role="status">{notice}</div>}
 
@@ -417,7 +536,7 @@ function App() {
             )}
             {state.activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
             {state.activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
-            {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} draft={messageDraft} setDraft={setMessageDraft} onSend={sendMessage} t={t} />}
+            {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} draft={messageDraft} setDraft={setMessageDraft} onSend={sendMessage} onInvite={() => setInviteOpen(true)} t={t} />}
           </>
         )}
       </main>
@@ -477,6 +596,55 @@ function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClos
   </div>
 }
 
+function TrustDialog({ t, ageConfirmed, setAgeConfirmed, privacyAccepted, setPrivacyAccepted, termsAccepted, setTermsAccepted, onSave }: { t: Copy; ageConfirmed: boolean; setAgeConfirmed: (value: boolean) => void; privacyAccepted: boolean; setPrivacyAccepted: (value: boolean) => void; termsAccepted: boolean; setTermsAccepted: (value: boolean) => void; onSave: () => void }) {
+  return <div className="auth-dialog-backdrop" role="presentation">
+    <section className="auth-dialog trust-dialog" role="dialog" aria-modal="true" aria-labelledby="trust-dialog-title">
+      <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span></div>
+      <h2 id="trust-dialog-title">{t.trustTitle}</h2>
+      <p>{t.trustDescription}</p>
+      <div className="trust-checks">
+        <label><input type="checkbox" checked={ageConfirmed} onChange={(event) => setAgeConfirmed(event.target.checked)} /> <span>{t.ageConfirm}</span></label>
+        <label><input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} /> <span>{t.privacyConsent}</span></label>
+        <label><input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} /> <span>{t.termsConsent}</span></label>
+      </div>
+      <button className="primary-button" onClick={onSave}>{t.continueTrust}<span aria-hidden="true">→</span></button>
+    </section>
+  </div>
+}
+
+function SettingsDialog({ t, onClose, onRequestDeletion }: { t: Copy; onClose: () => void; onRequestDeletion: () => void }) {
+  return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
+    <section className="auth-dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" onClick={(event) => event.stopPropagation()}>
+      <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
+      <h2 id="settings-dialog-title">{t.settingsTitle}</h2>
+      <p>{t.protected}</p>
+      <div className="settings-danger-zone">
+        <strong>{t.deleteAccount}</strong>
+        <p>{t.deleteAccountDescription}</p>
+        <button className="outline-button danger" onClick={onRequestDeletion}>{t.requestDeletion}</button>
+      </div>
+    </section>
+  </div>
+}
+
+function InviteDialog({ t, email, setEmail, link, onCreate, onClose }: { t: Copy; email: string; setEmail: (value: string) => void; link: string; onCreate: () => void; onClose: () => void }) {
+  const copyLink = () => {
+    if (link) void navigator.clipboard.writeText(link)
+  }
+
+  return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
+    <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-dialog-title" onClick={(event) => event.stopPropagation()}>
+      <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
+      <h2 id="invite-dialog-title">{t.invite}</h2>
+      <p>{t.inviteDescription}</p>
+      <label htmlFor="invite-email">{t.inviteEmail}</label>
+      <input id="invite-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
+      <button className="primary-button" onClick={onCreate}>{t.createInvite}<span aria-hidden="true">→</span></button>
+      {link && <div className="invite-result"><input value={link} readOnly aria-label={t.inviteCreated} /><button className="outline-button" onClick={copyLink}>{t.copyInvite}</button></div>}
+    </section>
+  </div>
+}
+
 function NavItem({ active, label, icon, onClick }: { active: boolean; label: string; icon: string; onClick: () => void }) {
   return <button className={`nav-item ${active ? 'active' : ''}`} onClick={onClick}><span aria-hidden="true">{icon}</span>{label}</button>
 }
@@ -530,8 +698,8 @@ function JournalView({ entries, draft, setDraft, onAdd, t }: { entries: AppState
   return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.private}</span><h2>{t.journal}</h2><p>{t.emptyJournal}</p></div><span className="lock-mark" aria-hidden="true">⌁</span></div><div className="journal-composer"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={t.write} /><div className="composer-footer"><span>{t.privateOnly}</span><button className="primary-button compact" onClick={onAdd}>{t.save} <span aria-hidden="true">→</span></button></div></div><div className="journal-list">{entries.map((entry) => <article className="journal-entry" key={entry.id}><div><span className="entry-date">{new Date(entry.createdAt).toLocaleDateString()}</span><span className="entry-mood">{t.present}</span></div><p>{entry.text}</p></article>)}</div></section>
 }
 
-function TandemView({ tandem, draft, setDraft, onSend, t }: { tandem: AppState['tandem']; draft: string; setDraft: (value: string) => void; onSend: () => void; t: Copy }) {
-  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><span className="online-badge">● {t.online}</span></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">É</div><div><h3>{tandem.name}</h3><p>{t.tandemQuote}</p></div><span className="status-chip">{t.activeStatus}</span></div><div className="message-thread"><div className="message received">{tandem.lastMessage}<span>{tandem.lastMessageAt}</span></div><div className="message sent">{t.prayerPhrase}<span>{t.yesterday}</span></div></div><div className="message-composer"><input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={t.encouragement} /><button className="primary-button compact" onClick={onSend}>{t.send}</button></div><div className="safety-actions"><button className="text-button danger" onClick={() => window.alert(t.reportNotice)}>{t.report}</button><button className="text-button" onClick={() => window.alert(t.blockNotice)}>{t.block}</button></div></section>
+function TandemView({ tandem, draft, setDraft, onSend, onInvite, t }: { tandem: AppState['tandem']; draft: string; setDraft: (value: string) => void; onSend: () => void; onInvite: () => void; t: Copy }) {
+  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">É</div><div><h3>{tandem.name}</h3><p>{t.tandemQuote}</p></div><span className="status-chip">{t.activeStatus}</span></div><div className="message-thread"><div className="message received">{tandem.lastMessage}<span>{tandem.lastMessageAt}</span></div><div className="message sent">{t.prayerPhrase}<span>{t.yesterday}</span></div></div><div className="message-composer"><input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={t.encouragement} /><button className="primary-button compact" onClick={onSend}>{t.send}</button></div><div className="safety-actions"><button className="text-button danger" onClick={() => window.alert(t.reportNotice)}>{t.report}</button><button className="text-button" onClick={() => window.alert(t.blockNotice)}>{t.block}</button></div></section>
 }
 
 export default App

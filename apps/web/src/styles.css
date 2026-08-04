@@ -340,6 +340,18 @@ h3 { color: #eeeeea; font-weight: 400; }
 .auth-dialog .primary-button { margin-top: 10px; justify-self: start; }
 .auth-dialog .primary-button:disabled { cursor: wait; opacity: .55; }
 .auth-status { margin: 19px 0 0; color: #171716 !important; font-size: 11px !important; }
+.trust-dialog .primary-button { margin-top: 25px; }
+.trust-checks { display: grid; gap: 13px; margin-top: 24px; }
+.trust-checks label { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; color: #363632; font-size: 12px; line-height: 1.55; }
+.trust-checks input { margin-top: 3px; accent-color: #171716; }
+.settings-danger-zone { margin-top: 25px; padding-top: 20px; border-top: 1px solid #aaa9a1; }
+.settings-danger-zone strong { display: block; font-size: 12px; }
+.settings-danger-zone p { color: #4b4b46; font-size: 12px; line-height: 1.6; }
+.settings-danger-zone .outline-button { margin-top: 10px; }
+.section-header-actions { display: flex; align-items: flex-start; gap: 12px; }
+.invite-result { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 19px; }
+.invite-result input { min-width: 0; font-size: 10px; }
+.invite-result .outline-button { margin: 0; white-space: nowrap; }
 
 .session-flow { max-width: 900px; }
 .session-flow-top { display: flex; justify-content: space-between; align-items: center; color: #a6a6a0; font-size: 10px; margin-bottom: 13px; }
