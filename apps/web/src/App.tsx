@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import type { AppState, Locale } from './domain'
-import { supabaseConfigured } from './lib/supabaseClient'
+import { supabase, supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
 import { initialState, loadState, saveState } from './storage'
 
@@ -34,6 +36,18 @@ const copy = {
     mockDescription: 'Les données sont locales à cet appareil. Les services réels seront branchés plus tard.',
     backendReady: 'Supabase prêt · mode démonstration',
     backendReadyDescription: 'Le projet distant est configuré. L’authentification et la synchronisation seront activées ensuite.',
+    backendConnected: 'Supabase connecté',
+    backendConnectedDescription: 'Ton parcours et ton journal privé peuvent maintenant être synchronisés.',
+    signIn: 'Se connecter',
+    signedIn: 'Connecté',
+    signOut: 'Se déconnecter',
+    email: 'Adresse email',
+    magicLinkDescription: 'Reçois un lien de connexion unique, sans mot de passe.',
+    sendMagicLink: 'Recevoir mon lien',
+    magicLinkSent: 'Lien envoyé. Consulte ta boîte mail pour continuer.',
+    authError: 'Impossible de se connecter pour le moment.',
+    close: 'Fermer',
+    syncError: 'La synchronisation a rencontré un problème. Tes données locales restent disponibles.',
     next: 'Prochaine étape',
     action: 'À mettre en pratique',
     encouragement: 'Écris un encouragement…',
@@ -97,6 +111,18 @@ const copy = {
     mockDescription: 'Data is local to this device. Real services will be connected later.',
     backendReady: 'Supabase ready · demo mode',
     backendReadyDescription: 'The remote project is configured. Authentication and sync will be enabled next.',
+    backendConnected: 'Supabase connected',
+    backendConnectedDescription: 'Your journey and private journal can now be synchronized.',
+    signIn: 'Sign in',
+    signedIn: 'Signed in',
+    signOut: 'Sign out',
+    email: 'Email address',
+    magicLinkDescription: 'Receive a one-time sign-in link, with no password.',
+    sendMagicLink: 'Send my link',
+    magicLinkSent: 'Link sent. Check your inbox to continue.',
+    authError: 'Unable to sign in right now.',
+    close: 'Close',
+    syncError: 'Sync ran into a problem. Your local data is still available.',
     next: 'Next step',
     action: 'Put it into practice',
     encouragement: 'Write an encouragement…',
@@ -144,11 +170,81 @@ function App() {
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
   const [sessionStep, setSessionStep] = useState<SessionStep>('read')
   const [sessionReflection, setSessionReflection] = useState('')
+  const [authSession, setAuthSession] = useState<Session | null>(null)
+  const [authOpen, setAuthOpen] = useState(false)
+  const [authLoading, setAuthLoading] = useState(supabaseConfigured)
 
   const t = copy[state.locale]
   const journey = useMemo(() => getJourney(state.locale), [state.locale])
   const currentSession = journey.sessions.find((session) => !state.completedSessionIds.includes(session.id)) ?? journey.sessions[0]
   const completedCount = state.completedSessionIds.length
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false)
+      return
+    }
+
+    let cancelled = false
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) {
+        setAuthSession(data.session)
+        setAuthLoading(false)
+      }
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!cancelled) setAuthSession(nextSession)
+    })
+
+    return () => {
+      cancelled = true
+      listener.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    const client = supabase
+    if (!client || !authSession) return
+    let cancelled = false
+
+    const loadRemoteState = async () => {
+      const [progressResult, journalResult] = await Promise.all([
+        client.from('session_progress').select('session_id').eq('user_id', authSession.user.id),
+        client.from('journal_entries').select('id, text, mood, created_at').eq('user_id', authSession.user.id).order('created_at', { ascending: false }),
+      ])
+
+      if (cancelled) return
+      if (progressResult.error || journalResult.error) {
+        setNotice(t.syncError)
+        return
+      }
+
+      const remoteCompletedIds = (progressResult.data ?? []).map((row) => row.session_id)
+      const remoteEntries = (journalResult.data ?? []).map((row) => ({
+        id: row.id,
+        createdAt: row.created_at,
+        text: row.text,
+        mood: row.mood,
+      }))
+
+      setState((previous) => {
+        const entriesById = new Map([...previous.journalEntries, ...remoteEntries].map((entry) => [entry.id, entry]))
+        const next = {
+          ...previous,
+          completedSessionIds: [...new Set([...previous.completedSessionIds, ...remoteCompletedIds])],
+          journalEntries: [...entriesById.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        }
+        saveState(next)
+        return next
+      })
+
+      await client.from('profiles').upsert({ id: authSession.user.id, display_name: 'Claire', locale: state.locale })
+    }
+
+    void loadRemoteState()
+    return () => { cancelled = true }
+  }, [authSession?.user.id])
 
   const update = (next: AppState) => {
     setState(next)
@@ -162,13 +258,18 @@ function App() {
   const completeSession = (sessionId: string, reflection = '') => {
     if (!state.completedSessionIds.includes(sessionId)) {
       const trimmedReflection = reflection.trim()
+      const journalEntry = trimmedReflection
+        ? { id: crypto.randomUUID(), createdAt: new Date().toISOString(), text: trimmedReflection, mood: 'Présent' }
+        : null
       update({
         ...state,
         completedSessionIds: [...state.completedSessionIds, sessionId],
-        journalEntries: trimmedReflection
-          ? [{ id: crypto.randomUUID(), createdAt: new Date().toISOString(), text: trimmedReflection, mood: 'Présent' }, ...state.journalEntries]
-          : state.journalEntries,
+        journalEntries: journalEntry ? [journalEntry, ...state.journalEntries] : state.journalEntries,
       })
+      if (supabase && authSession) {
+        void supabase.from('session_progress').upsert({ user_id: authSession.user.id, journey_id: 'repartir-avec-jesus', session_id: sessionId })
+        if (journalEntry) void supabase.from('journal_entries').insert({ id: journalEntry.id, user_id: authSession.user.id, text: journalEntry.text, mood: journalEntry.mood, created_at: journalEntry.createdAt })
+      }
       setNotice(t.completed)
       window.setTimeout(() => setNotice(''), 2600)
     }
@@ -195,13 +296,9 @@ function App() {
   const addJournalEntry = () => {
     const text = journalDraft.trim()
     if (!text) return
-    update({
-      ...state,
-      journalEntries: [
-        { id: crypto.randomUUID(), createdAt: new Date().toISOString(), text, mood: 'Présent' },
-        ...state.journalEntries,
-      ],
-    })
+    const entry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), text, mood: 'Présent' }
+    update({ ...state, journalEntries: [entry, ...state.journalEntries] })
+    if (supabase && authSession) void supabase.from('journal_entries').insert({ id: entry.id, user_id: authSession.user.id, text: entry.text, mood: entry.mood, created_at: entry.createdAt })
     setJournalDraft('')
     setNotice(t.saved)
     window.setTimeout(() => setNotice(''), 2600)
@@ -214,6 +311,10 @@ function App() {
   }
 
   const resetDemo = () => update(initialState)
+
+  const signOut = () => {
+    if (supabase) void supabase.auth.signOut()
+  }
 
   return (
     <div className="app-shell">
@@ -264,9 +365,13 @@ function App() {
 
         <div className="demo-banner">
           <span className="demo-pulse" aria-hidden="true" />
-          <div><strong>{supabaseConfigured ? t.backendReady : t.mock}</strong><span>{supabaseConfigured ? t.backendReadyDescription : t.mockDescription}</span></div>
+          <div><strong>{authSession ? t.backendConnected : supabaseConfigured ? t.backendReady : t.mock}</strong><span>{authSession ? t.backendConnectedDescription : supabaseConfigured ? t.backendReadyDescription : t.mockDescription}</span></div>
           <button onClick={resetDemo}>{t.reset}</button>
         </div>
+
+        {supabaseConfigured && <div className="auth-strip"><span>{authSession ? `${t.signedIn} · ${authSession.user.email ?? ''}` : t.signIn}</span>{authSession ? <button onClick={signOut}>{t.signOut}</button> : <button onClick={() => setAuthOpen(true)}>{t.signIn} →</button>}</div>}
+
+        {authOpen && <AuthDialog t={t} loading={authLoading} onClose={() => setAuthOpen(false)} />}
 
         {notice && <div className="toast" role="status">{notice}</div>}
 
@@ -302,6 +407,39 @@ function App() {
       </main>
     </div>
   )
+}
+
+function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClose: () => void }) {
+  const [email, setEmail] = useState('')
+  const [sending, setSending] = useState(false)
+  const [status, setStatus] = useState('')
+
+  const sendMagicLink = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !email.trim()) return
+    setSending(true)
+    setStatus('')
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin },
+    })
+    setSending(false)
+    setStatus(error ? t.authError : t.magicLinkSent)
+  }
+
+  return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
+    <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title" onClick={(event) => event.stopPropagation()}>
+      <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
+      <h2 id="auth-dialog-title">{t.signIn}</h2>
+      <p>{t.magicLinkDescription}</p>
+      <form onSubmit={sendMagicLink}>
+        <label htmlFor="auth-email">{t.email}</label>
+        <input id="auth-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" />
+        <button className="primary-button" type="submit" disabled={loading || sending}>{sending ? '…' : t.sendMagicLink}<span aria-hidden="true">→</span></button>
+      </form>
+      {status && <p className="auth-status" role="status">{status}</p>}
+    </section>
+  </div>
 }
 
 function NavItem({ active, label, icon, onClick }: { active: boolean; label: string; icon: string; onClick: () => void }) {

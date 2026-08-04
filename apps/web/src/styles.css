@@ -319,6 +319,22 @@ h3 { color: #eeeeea; font-weight: 400; }
 .safety-actions { border-top-color: #4a4a45; }
 .danger { color: #eeeeea; }
 
+.auth-strip { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid #4a4a45; color: #bdbdb6; font-size: 10px; }
+.auth-strip button { border: 0; padding: 0; background: transparent; color: #eeeeea; font: 600 10px 'DM Mono', monospace; text-decoration: underline; text-underline-offset: 3px; }
+.auth-dialog-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: #000000bb; }
+.auth-dialog { width: min(100%, 430px); padding: 31px; background: var(--paper); color: var(--paper-ink); border: 2px solid #171716; box-shadow: 8px 8px 0 #000000; }
+.auth-dialog-top { display: flex; justify-content: space-between; align-items: center; }
+.auth-dialog-top .text-button { color: #171716; font-size: 20px; line-height: 1; text-decoration: none; }
+.auth-dialog h2 { margin: 28px 0 12px; }
+.auth-dialog > p { color: #4b4b46; font-size: 13px; line-height: 1.65; }
+.auth-dialog form { display: grid; gap: 9px; margin-top: 25px; }
+.auth-dialog label { color: #555550; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
+.auth-dialog input { min-width: 0; border: 1px solid #555550; border-radius: 0; padding: 12px; background: #f7f6efaa; color: #171716; outline: 0; font: 400 13px 'DM Mono', monospace; }
+.auth-dialog input:focus { border-color: #171716; box-shadow: 4px 4px 0 #77776f; }
+.auth-dialog .primary-button { margin-top: 10px; justify-self: start; }
+.auth-dialog .primary-button:disabled { cursor: wait; opacity: .55; }
+.auth-status { margin: 19px 0 0; color: #171716 !important; font-size: 11px !important; }
+
 .session-flow { max-width: 900px; }
 .session-flow-top { display: flex; justify-content: space-between; align-items: center; color: #a6a6a0; font-size: 10px; margin-bottom: 13px; }
 .session-flow-top .text-button { font-size: 10px; }
@@ -354,4 +370,7 @@ h3 { color: #eeeeea; font-weight: 400; }
   .flow-verse { font-size: 18px; margin-top: 28px; }
   .flow-actions { align-items: flex-start; flex-direction: column; gap: 16px; margin-top: 30px; }
   .flow-prompt { margin-top: 28px; }
+  .auth-strip { font-size: 9px; }
+  .auth-strip span { max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auth-dialog { padding: 24px 20px; box-shadow: 5px 5px 0 #000000; }
 }
