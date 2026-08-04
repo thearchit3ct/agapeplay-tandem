@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { AppState, Locale } from './domain'
+import { supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
 import { initialState, loadState, saveState } from './storage'
 
@@ -31,6 +32,8 @@ const copy = {
     reset: 'Réinitialiser la démo',
     mock: 'Mode démonstration',
     mockDescription: 'Les données sont locales à cet appareil. Les services réels seront branchés plus tard.',
+    backendReady: 'Supabase prêt · mode démonstration',
+    backendReadyDescription: 'Le projet distant est configuré. L’authentification et la synchronisation seront activées ensuite.',
     next: 'Prochaine étape',
     action: 'À mettre en pratique',
     encouragement: 'Écris un encouragement…',
@@ -92,6 +95,8 @@ const copy = {
     reset: 'Reset demo',
     mock: 'Demo mode',
     mockDescription: 'Data is local to this device. Real services will be connected later.',
+    backendReady: 'Supabase ready · demo mode',
+    backendReadyDescription: 'The remote project is configured. Authentication and sync will be enabled next.',
     next: 'Next step',
     action: 'Put it into practice',
     encouragement: 'Write an encouragement…',
@@ -259,7 +264,7 @@ function App() {
 
         <div className="demo-banner">
           <span className="demo-pulse" aria-hidden="true" />
-          <div><strong>{t.mock}</strong><span>{t.mockDescription}</span></div>
+          <div><strong>{supabaseConfigured ? t.backendReady : t.mock}</strong><span>{supabaseConfigured ? t.backendReadyDescription : t.mockDescription}</span></div>
           <button onClick={resetDemo}>{t.reset}</button>
         </div>
 
