@@ -37,7 +37,7 @@ export type Tandem = {
 
 export type AppState = {
   locale: Locale
-  activeTab: 'today' | 'journey' | 'tandem' | 'journal'
+  activeTab: 'today' | 'journey' | 'tandem' | 'journal' | 'mentor' | 'church'
   completedSessionIds: string[]
   journalEntries: JournalEntry[]
   tandem: Tandem

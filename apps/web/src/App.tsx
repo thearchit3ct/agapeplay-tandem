@@ -105,6 +105,30 @@ const copy = {
     messageNotifications: 'Messages du tandem',
     churchNotifications: 'Vie de l’église',
     absenceNotifications: 'Rappel après une absence',
+    mentor: 'Mentor',
+    church: 'Église',
+    workspacePending: 'Espace en préparation',
+    mentorWorkspace: 'Espace mentor',
+    churchWorkspace: 'Espace église',
+    mentorVerification: 'Vérification du mentor',
+    mentorTraining: 'Formation obligatoire',
+    pendingStatus: 'En attente',
+    requiredStatus: 'À commencer',
+    verifiedStatus: 'Vérifié',
+    completedStatus: 'Terminée',
+    mentorPrivateRule: 'Les journaux privés et conversations restent invisibles au mentor par défaut.',
+    mentorEmpty: 'Aucun participant ne t’est encore affecté.',
+    churchEmpty: 'Aucune communauté n’est encore rattachée à ce compte.',
+    churchGroups: 'Groupes actifs',
+    aggregateStats: 'Statistiques anonymisées',
+    aggregateStatsDescription: 'Les chiffres de communauté ne sont visibles que sous forme globale.',
+    roleLabel: 'Rôle',
+    memberRole: 'Membre',
+    mentorRole: 'Mentor',
+    leaderRole: 'Responsable',
+    adminRole: 'Administrateur',
+    groupsLabel: 'groupes',
+    statsEmpty: 'Les premières statistiques apparaîtront quand la communauté aura une activité suffisante.',
     invite: 'Inviter mon tandem',
     inviteDescription: 'L’invitation est privée et expire après 7 jours.',
     inviteEmail: 'Email de la personne',
@@ -216,6 +240,30 @@ const copy = {
     messageNotifications: 'Tandem messages',
     churchNotifications: 'Church life',
     absenceNotifications: 'Reminder after absence',
+    mentor: 'Mentor',
+    church: 'Church',
+    workspacePending: 'Workspace in preparation',
+    mentorWorkspace: 'Mentor workspace',
+    churchWorkspace: 'Church workspace',
+    mentorVerification: 'Mentor verification',
+    mentorTraining: 'Required training',
+    pendingStatus: 'Pending',
+    requiredStatus: 'To begin',
+    verifiedStatus: 'Verified',
+    completedStatus: 'Completed',
+    mentorPrivateRule: 'Private journals and conversations remain hidden from mentors by default.',
+    mentorEmpty: 'No participant is assigned to you yet.',
+    churchEmpty: 'No community is linked to this account yet.',
+    churchGroups: 'Active groups',
+    aggregateStats: 'Anonymous statistics',
+    aggregateStatsDescription: 'Community numbers are only shown in aggregate form.',
+    roleLabel: 'Role',
+    memberRole: 'Member',
+    mentorRole: 'Mentor',
+    leaderRole: 'Leader',
+    adminRole: 'Administrator',
+    groupsLabel: 'groups',
+    statsEmpty: 'The first statistics will appear once the community has enough activity.',
     invite: 'Invite my tandem',
     inviteDescription: 'The invitation is private and expires after 7 days.',
     inviteEmail: 'Person’s email',
@@ -236,6 +284,8 @@ const copy = {
 type Tab = AppState['activeTab']
 type SessionStep = 'read' | 'practice' | 'complete'
 type RemoteMessage = { id: string; senderId: string; body: string; createdAt: string }
+type MentorSnapshot = { verificationStatus: 'pending' | 'verified' | 'rejected' | 'revoked'; trainingStatus: 'required' | 'in_progress' | 'completed' | 'expired' } | null
+type ChurchSnapshot = { churchId: string; role: 'member' | 'mentor' | 'leader' | 'admin'; groupCount: number } | null
 
 function App() {
   const [state, setState] = useState<AppState>(() => loadState())
@@ -262,6 +312,8 @@ function App() {
   const [remoteJourney, setRemoteJourney] = useState<ReturnType<typeof getJourney> | null>(null)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [pendingSync, setPendingSync] = useState(() => readSyncQueue().length)
+  const [mentorSnapshot, setMentorSnapshot] = useState<MentorSnapshot>(null)
+  const [churchSnapshot, setChurchSnapshot] = useState<ChurchSnapshot>(null)
 
   const t = copy[state.locale]
   const fallbackJourney = useMemo(() => getJourney(state.locale), [state.locale])
@@ -394,6 +446,21 @@ function App() {
       const preferencesResult = await client.from('notification_preferences').select('sessions, messages, church, absence').eq('user_id', authSession.user.id).maybeSingle()
       if (preferencesResult.data && !preferencesResult.error && !cancelled) {
         setState((previous) => ({ ...previous, notificationPrefs: { ...previous.notificationPrefs, ...preferencesResult.data } }))
+      }
+
+      const [mentorResult, membershipResult] = await Promise.all([
+        client.from('mentor_profiles').select('verification_status, training_status').eq('user_id', authSession.user.id).maybeSingle(),
+        client.from('church_members').select('church_id, role').eq('user_id', authSession.user.id).eq('status', 'active').limit(1),
+      ])
+      if (!cancelled) {
+        setMentorSnapshot(mentorResult.data ? { verificationStatus: mentorResult.data.verification_status, trainingStatus: mentorResult.data.training_status } : null)
+        const membership = membershipResult.data?.[0]
+        if (membership) {
+          const groupMembershipResult = await client.from('group_members').select('group_id').eq('user_id', authSession.user.id)
+          setChurchSnapshot({ churchId: membership.church_id, role: membership.role, groupCount: groupMembershipResult.data?.length ?? 0 })
+        } else {
+          setChurchSnapshot(null)
+        }
       }
 
       const tandemResult = await client.from('tandems').select('id, status, created_at').or(`participant_a_id.eq.${authSession.user.id},participant_b_id.eq.${authSession.user.id}`).order('created_at', { ascending: false }).limit(1)
@@ -626,6 +693,8 @@ function App() {
           <NavItem active={state.activeTab === 'journey'} label={t.journey} onClick={() => setTab('journey')} icon="◷" />
           <NavItem active={state.activeTab === 'tandem'} label={t.tandem} onClick={() => setTab('tandem')} icon="↗" />
           <NavItem active={state.activeTab === 'journal'} label={t.journal} onClick={() => setTab('journal')} icon="▤" />
+          <NavItem active={state.activeTab === 'mentor'} label={t.mentor} onClick={() => setTab('mentor')} icon="⌁" />
+          <NavItem active={state.activeTab === 'church'} label={t.church} onClick={() => setTab('church')} icon="⌂" />
         </nav>
 
         <div className="sidebar-bottom">
@@ -701,6 +770,8 @@ function App() {
             {state.activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
             {state.activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
             {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
+            {state.activeTab === 'mentor' && <MentorView snapshot={mentorSnapshot} t={t} />}
+            {state.activeTab === 'church' && <ChurchView snapshot={churchSnapshot} t={t} />}
           </>
         )}
       </main>
@@ -815,6 +886,34 @@ function InviteDialog({ t, email, setEmail, link, onCreate, onClose }: { t: Copy
       {link && <div className="invite-result"><input value={link} readOnly aria-label={t.inviteCreated} /><button className="outline-button" onClick={copyLink}>{t.copyInvite}</button></div>}
     </section>
   </div>
+}
+
+function MentorView({ snapshot, t }: { snapshot: MentorSnapshot; t: Copy }) {
+  const verification = snapshot?.verificationStatus === 'verified' ? t.verifiedStatus : t.pendingStatus
+  const training = snapshot?.trainingStatus === 'completed' ? t.completedStatus : t.requiredStatus
+
+  return <section className="content-section workspace-section">
+    <div className="section-header"><div><span className="section-kicker">{t.mentorWorkspace}</span><h2>{t.mentorWorkspace}</h2><p>{t.mentorPrivateRule}</p></div><span className="workspace-glyph" aria-hidden="true">⌁</span></div>
+    <div className="workspace-grid">
+      <article className="workspace-card"><span className="section-kicker">{t.mentorVerification}</span><strong>{verification}</strong><p>{snapshot ? t.requiredStatus : t.mentorEmpty}</p></article>
+      <article className="workspace-card"><span className="section-kicker">{t.mentorTraining}</span><strong>{training}</strong><p>{t.mentorPrivateRule}</p></article>
+    </div>
+    {!snapshot && <div className="workspace-empty"><span className="workspace-empty-mark" aria-hidden="true">—</span><strong>{t.workspacePending}</strong><p>{t.mentorEmpty}</p></div>}
+  </section>
+}
+
+function ChurchView({ snapshot, t }: { snapshot: ChurchSnapshot; t: Copy }) {
+  const roleLabels = { member: t.memberRole, mentor: t.mentorRole, leader: t.leaderRole, admin: t.adminRole }
+  return <section className="content-section workspace-section">
+    <div className="section-header"><div><span className="section-kicker">{t.churchWorkspace}</span><h2>{t.churchWorkspace}</h2><p>{t.aggregateStatsDescription}</p></div><span className="workspace-glyph" aria-hidden="true">⌂</span></div>
+    {!snapshot ? <div className="workspace-empty"><span className="workspace-empty-mark" aria-hidden="true">—</span><strong>{t.workspacePending}</strong><p>{t.churchEmpty}</p></div> : <>
+      <div className="workspace-grid">
+        <article className="workspace-card"><span className="section-kicker">{t.roleLabel}</span><strong>{roleLabels[snapshot.role]}</strong><p>{t.churchWorkspace}</p></article>
+        <article className="workspace-card"><span className="section-kicker">{t.churchGroups}</span><strong>{snapshot.groupCount}</strong><p>{t.groupsLabel}</p></article>
+      </div>
+      <div className="workspace-empty"><span className="workspace-empty-mark" aria-hidden="true">◌</span><strong>{t.aggregateStats}</strong><p>{t.statsEmpty}</p></div>
+    </>}
+  </section>
 }
 
 function NavItem({ active, label, icon, onClick }: { active: boolean; label: string; icon: string; onClick: () => void }) {
