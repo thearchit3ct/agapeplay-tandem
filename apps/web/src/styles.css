@@ -319,10 +319,39 @@ h3 { color: #eeeeea; font-weight: 400; }
 .safety-actions { border-top-color: #4a4a45; }
 .danger { color: #eeeeea; }
 
+.session-flow { max-width: 900px; }
+.session-flow-top { display: flex; justify-content: space-between; align-items: center; color: #a6a6a0; font-size: 10px; margin-bottom: 13px; }
+.session-flow-top .text-button { font-size: 10px; }
+.flow-progress { height: 4px; background: #3e3e3a; margin-bottom: 28px; }
+.flow-progress span { display: block; height: 100%; background: #eeeeea; transition: width .35s steps(4, end); }
+.flow-step { min-height: 530px; padding: 52px 58px; background-color: var(--paper); background-image: radial-gradient(#17171622 .7px, transparent .7px); background-size: 5px 5px; border: 2px solid #171716; box-shadow: 8px 8px 0 #000000; position: relative; overflow: hidden; }
+.flow-step::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0, transparent 23px, #1717160d 24px, #1717160d 25px); pointer-events: none; }
+.flow-step > * { position: relative; z-index: 1; }
+.flow-step .section-kicker { color: #555550; }
+.flow-step h2 { max-width: 690px; margin: 17px 0 15px; }
+.flow-description { max-width: 570px; color: #4b4b46; font-size: 14px; line-height: 1.7; }
+.flow-verse { max-width: 700px; margin-top: 36px; padding: 25px 0; border-top: 1px solid #8f8f88; border-bottom: 1px solid #8f8f88; color: #171716; font: 400 23px/1.45 'Special Elite', serif; }
+.flow-actions { display: flex; align-items: center; gap: 24px; margin-top: 38px; }
+.flow-actions .primary-button { margin-top: 0; }
+.flow-prompt { max-width: 700px; margin-top: 36px; }
+.flow-prompt > span { display: block; color: #555550; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 10px; }
+.flow-prompt textarea { width: 100%; min-height: 145px; resize: vertical; border: 1px solid #555550; border-radius: 0; padding: 15px; background: #f7f6efaa; color: #171716; outline: 0; font: 400 14px/1.65 'DM Mono', monospace; }
+.flow-prompt textarea:focus { border-color: #171716; box-shadow: 4px 4px 0 #77776f; }
+.flow-prompt textarea::placeholder { color: #898982; }
+.flow-done { display: flex; flex-direction: column; justify-content: center; }
+.flow-mark { width: 44px; height: 44px; display: grid; place-items: center; margin-bottom: 35px; border: 2px solid #171716; color: #171716; font: 400 24px 'Special Elite', serif; }
+.flow-done .flow-actions { flex-wrap: wrap; }
+
 @media (max-width: 620px) {
   .sidebar { background: #0b0b0b; border-top-color: #eeeeea; }
   .nav-item.active { background: #eeeeea; border-top-color: #eeeeea; }
   .nav-item.active span { color: #111111; }
   .session-card { box-shadow: 5px 5px 0 #000000; }
   .side-note, .prompt-panel, .tandem-mini { box-shadow: 4px 4px 0 #000000; }
+  .session-flow-top { margin-bottom: 10px; }
+  .flow-step { min-height: 540px; padding: 34px 22px; box-shadow: 5px 5px 0 #000000; }
+  .flow-step h2 { font-size: 34px; }
+  .flow-verse { font-size: 18px; margin-top: 28px; }
+  .flow-actions { align-items: flex-start; flex-direction: column; gap: 16px; margin-top: 30px; }
+  .flow-prompt { margin-top: 28px; }
 }

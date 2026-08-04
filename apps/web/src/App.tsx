@@ -51,6 +51,19 @@ const copy = {
     blockNotice: 'Le blocage supprimera immédiatement la relation dans la version connectée.',
     ritual: 'Rituel du jour',
     daysProgress: '3 repères sur 6',
+    sessionRead: 'Recevoir',
+    sessionReadDescription: 'Lis doucement. Rien à réussir, seulement un moment pour être présent.',
+    sessionPractice: 'Répondre',
+    sessionPracticeDescription: 'Garde une phrase, une image ou une prière qui vient maintenant.',
+    sessionReflectionPlaceholder: 'J’écris ce que je veux garder…',
+    optional: 'Facultatif',
+    beginReflection: 'Prendre ce temps',
+    finishSession: 'Terminer la séance',
+    backToToday: 'Revenir à aujourd’hui',
+    openJournal: 'Ouvrir mon journal',
+    sessionComplete: 'Tu as pris ce temps.',
+    sessionCompleteDescription: 'Ce petit pas compte. Tu peux le laisser ici, ou le partager avec ton tandem quand tu le souhaites.',
+    leaveSession: 'Quitter la séance',
   },
   en: {
     greeting: 'Good morning, Claire',
@@ -99,16 +112,33 @@ const copy = {
     blockNotice: 'Blocking will immediately remove the relationship in the connected version.',
     ritual: 'Today’s ritual',
     daysProgress: '3 markers out of 6',
+    sessionRead: 'Receive',
+    sessionReadDescription: 'Read slowly. There is nothing to achieve, only a moment to be present.',
+    sessionPractice: 'Respond',
+    sessionPracticeDescription: 'Keep one sentence, image, or prayer that comes to you now.',
+    sessionReflectionPlaceholder: 'Write what you want to keep…',
+    optional: 'Optional',
+    beginReflection: 'Take this time',
+    finishSession: 'Finish session',
+    backToToday: 'Back to today',
+    openJournal: 'Open my journal',
+    sessionComplete: 'You took this time.',
+    sessionCompleteDescription: 'This small step matters. Keep it here, or share it with your tandem when you are ready.',
+    leaveSession: 'Leave session',
   },
 } as const
 
 type Tab = AppState['activeTab']
+type SessionStep = 'read' | 'practice' | 'complete'
 
 function App() {
   const [state, setState] = useState<AppState>(() => loadState())
   const [journalDraft, setJournalDraft] = useState('')
   const [messageDraft, setMessageDraft] = useState('')
   const [notice, setNotice] = useState('')
+  const [openSessionId, setOpenSessionId] = useState<string | null>(null)
+  const [sessionStep, setSessionStep] = useState<SessionStep>('read')
+  const [sessionReflection, setSessionReflection] = useState('')
 
   const t = copy[state.locale]
   const journey = useMemo(() => getJourney(state.locale), [state.locale])
@@ -124,12 +154,37 @@ function App() {
 
   const toggleLocale = (locale: Locale) => update({ ...state, locale })
 
-  const completeSession = (sessionId: string) => {
+  const completeSession = (sessionId: string, reflection = '') => {
     if (!state.completedSessionIds.includes(sessionId)) {
-      update({ ...state, completedSessionIds: [...state.completedSessionIds, sessionId] })
+      const trimmedReflection = reflection.trim()
+      update({
+        ...state,
+        completedSessionIds: [...state.completedSessionIds, sessionId],
+        journalEntries: trimmedReflection
+          ? [{ id: crypto.randomUUID(), createdAt: new Date().toISOString(), text: trimmedReflection, mood: 'Présent' }, ...state.journalEntries]
+          : state.journalEntries,
+      })
       setNotice(t.completed)
       window.setTimeout(() => setNotice(''), 2600)
     }
+  }
+
+  const openSession = (sessionId: string) => {
+    setOpenSessionId(sessionId)
+    setSessionStep('read')
+    setSessionReflection('')
+  }
+
+  const leaveSession = () => {
+    setOpenSessionId(null)
+    setSessionStep('read')
+    setSessionReflection('')
+  }
+
+  const finishSession = () => {
+    if (!openSessionId) return
+    completeSession(openSessionId, sessionReflection)
+    setSessionStep('complete')
   }
 
   const addJournalEntry = () => {
@@ -210,19 +265,35 @@ function App() {
 
         {notice && <div className="toast" role="status">{notice}</div>}
 
-        {state.activeTab === 'today' && (
-          <TodayView
-            session={currentSession}
-            completedCount={completedCount}
+        {openSessionId ? (
+          <SessionFlow
+            session={journey.sessions.find((session) => session.id === openSessionId) ?? currentSession}
+            step={sessionStep}
+            reflection={sessionReflection}
+            setReflection={setSessionReflection}
             t={t}
-            onComplete={() => completeSession(currentSession.id)}
-            onOpenJournal={() => setTab('journal')}
-            onOpenTandem={() => setTab('tandem')}
+            onBegin={() => setSessionStep('practice')}
+            onFinish={finishSession}
+            onLeave={leaveSession}
+            onOpenJournal={() => { leaveSession(); setTab('journal') }}
           />
+        ) : (
+          <>
+            {state.activeTab === 'today' && (
+              <TodayView
+                session={currentSession}
+                completedCount={completedCount}
+                t={t}
+                onStart={() => openSession(currentSession.id)}
+                onOpenJournal={() => setTab('journal')}
+                onOpenTandem={() => setTab('tandem')}
+              />
+            )}
+            {state.activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
+            {state.activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
+            {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} draft={messageDraft} setDraft={setMessageDraft} onSend={sendMessage} t={t} />}
+          </>
         )}
-        {state.activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onComplete={completeSession} />}
-        {state.activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
-        {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} draft={messageDraft} setDraft={setMessageDraft} onSend={sendMessage} t={t} />}
       </main>
     </div>
   )
@@ -234,7 +305,7 @@ function NavItem({ active, label, icon, onClick }: { active: boolean; label: str
 
 type Copy = (typeof copy)['fr'] | (typeof copy)['en']
 
-function TodayView({ session, completedCount, t, onComplete, onOpenJournal, onOpenTandem }: { session: ReturnType<typeof getJourney>['sessions'][number]; completedCount: number; t: Copy; onComplete: () => void; onOpenJournal: () => void; onOpenTandem: () => void }) {
+function TodayView({ session, completedCount, t, onStart, onOpenJournal, onOpenTandem }: { session: ReturnType<typeof getJourney>['sessions'][number]; completedCount: number; t: Copy; onStart: () => void; onOpenJournal: () => void; onOpenTandem: () => void }) {
   return <>
     <section className="hero-grid">
       <article className="session-card">
@@ -244,7 +315,7 @@ function TodayView({ session, completedCount, t, onComplete, onOpenJournal, onOp
         <h2>{session.title}</h2>
         <p className="verse">{session.verse}</p>
         <div className="session-footer"><span>{t.week}</span><span>{completedCount} / 3 séances testées</span></div>
-        <button className="primary-button" onClick={onComplete}>{completedCount ? t.resume : t.continue}<span aria-hidden="true">→</span></button>
+        <button className="primary-button" onClick={onStart}>{completedCount ? t.resume : t.continue}<span aria-hidden="true">→</span></button>
       </article>
       <aside className="side-note">
         <span className="section-kicker">{t.next}</span>
@@ -261,8 +332,20 @@ function TodayView({ session, completedCount, t, onComplete, onOpenJournal, onOp
   </>
 }
 
-function JourneyView({ journey, completedIds, t, onComplete }: { journey: ReturnType<typeof getJourney>; completedIds: string[]; t: Copy; onComplete: (sessionId: string) => void }) {
-  return <section className="content-section"><div className="section-header"><div><span className="section-kicker">{journey.eyebrow}</span><h2>{journey.title}</h2><p>{journey.description}</p></div><span className="journey-duration">{journey.duration}</span></div><div className="progress-track"><span style={{ width: `${Math.min(100, (completedIds.length / 6) * 100)}%` }} /></div><div className="session-list">{journey.sessions.map((session) => { const done = completedIds.includes(session.id); return <article className={`session-row ${done ? 'done' : ''}`} key={session.id}><div className="day-badge">{done ? '✓' : `0${session.day}`}</div><div className="session-row-copy"><span>{session.theme} · {session.duration} min</span><h3>{session.title}</h3><p>{session.prompt}</p></div><button className={done ? 'completed-button' : 'small-button'} onClick={done ? undefined : () => onComplete(session.id)}>{done ? t.completed : t.continue}</button></article> })}</div></section>
+function JourneyView({ journey, completedIds, t, onStart }: { journey: ReturnType<typeof getJourney>; completedIds: string[]; t: Copy; onStart: (sessionId: string) => void }) {
+  return <section className="content-section"><div className="section-header"><div><span className="section-kicker">{journey.eyebrow}</span><h2>{journey.title}</h2><p>{journey.description}</p></div><span className="journey-duration">{journey.duration}</span></div><div className="progress-track"><span style={{ width: `${Math.min(100, (completedIds.length / 6) * 100)}%` }} /></div><div className="session-list">{journey.sessions.map((session) => { const done = completedIds.includes(session.id); return <article className={`session-row ${done ? 'done' : ''}`} key={session.id}><div className="day-badge">{done ? '✓' : `0${session.day}`}</div><div className="session-row-copy"><span>{session.theme} · {session.duration} min</span><h3>{session.title}</h3><p>{session.prompt}</p></div><button className={done ? 'completed-button' : 'small-button'} onClick={done ? undefined : () => onStart(session.id)}>{done ? t.completed : t.continue}</button></article> })}</div></section>
+}
+
+function SessionFlow({ session, step, reflection, setReflection, t, onBegin, onFinish, onLeave, onOpenJournal }: { session: ReturnType<typeof getJourney>['sessions'][number]; step: SessionStep; reflection: string; setReflection: (value: string) => void; t: Copy; onBegin: () => void; onFinish: () => void; onLeave: () => void; onOpenJournal: () => void }) {
+  const stepIndex = step === 'read' ? 1 : step === 'practice' ? 2 : 3
+
+  return <section className="session-flow content-section">
+    <div className="session-flow-top"><button className="text-button" onClick={onLeave}>← {t.leaveSession}</button><span>{session.duration} min · {stepIndex}/3</span></div>
+    <div className="flow-progress" aria-label={`${stepIndex} / 3`}><span style={{ width: `${(stepIndex / 3) * 100}%` }} /></div>
+    {step === 'read' && <div className="flow-step"><span className="section-kicker">{t.sessionRead}</span><h2>{session.title}</h2><p className="flow-description">{t.sessionReadDescription}</p><div className="flow-verse">{session.verse}</div><div className="flow-actions"><button className="primary-button" onClick={onBegin}>{t.beginReflection}<span aria-hidden="true">→</span></button></div></div>}
+    {step === 'practice' && <div className="flow-step"><span className="section-kicker">{t.sessionPractice}</span><h2>{session.prompt}</h2><p className="flow-description">{t.sessionPracticeDescription}</p><div className="flow-prompt"><span>{t.optional}</span><textarea value={reflection} onChange={(event) => setReflection(event.target.value)} placeholder={t.sessionReflectionPlaceholder} /></div><div className="flow-actions"><button className="primary-button" onClick={onFinish}>{t.finishSession}<span aria-hidden="true">→</span></button></div></div>}
+    {step === 'complete' && <div className="flow-step flow-done"><div className="flow-mark" aria-hidden="true">✓</div><span className="section-kicker">{t.sessionComplete}</span><h2>{session.title}</h2><p className="flow-description">{t.sessionCompleteDescription}</p><div className="flow-actions"><button className="primary-button" onClick={onLeave}>{t.backToToday}<span aria-hidden="true">→</span></button><button className="text-button" onClick={onOpenJournal}>{t.openJournal} ↗</button></div></div>}
+  </section>
 }
 
 function JournalView({ entries, draft, setDraft, onAdd, t }: { entries: AppState['journalEntries']; draft: string; setDraft: (value: string) => void; onAdd: () => void; t: Copy }) {
