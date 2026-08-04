@@ -45,7 +45,6 @@ const copy = {
     magicLinkDescription: 'Reçois un lien de connexion unique, sans mot de passe.',
     sendMagicLink: 'Recevoir mon lien',
     continueWithGoogle: 'Continuer avec Google',
-    continueWithApple: 'Continuer avec Apple',
     continueWithMicrosoft: 'Continuer avec Microsoft',
     orEmail: 'ou avec ton email',
     magicLinkSent: 'Lien envoyé. Consulte ta boîte mail pour continuer.',
@@ -124,7 +123,6 @@ const copy = {
     magicLinkDescription: 'Receive a one-time sign-in link, with no password.',
     sendMagicLink: 'Send my link',
     continueWithGoogle: 'Continue with Google',
-    continueWithApple: 'Continue with Apple',
     continueWithMicrosoft: 'Continue with Microsoft',
     orEmail: 'or with your email',
     magicLinkSent: 'Link sent. Check your inbox to continue.',
@@ -432,7 +430,7 @@ function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClos
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState('')
 
-  const signInWithProvider = async (provider: 'google' | 'apple' | 'azure') => {
+  const signInWithProvider = async (provider: 'google' | 'azure') => {
     if (!supabase) return
     setSending(true)
     setStatus('')
@@ -466,7 +464,6 @@ function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClos
       <p>{t.magicLinkDescription}</p>
       <div className="provider-grid">
         <button type="button" onClick={() => void signInWithProvider('google')} disabled={loading || sending}>{t.continueWithGoogle}</button>
-        <button type="button" onClick={() => void signInWithProvider('apple')} disabled={loading || sending}>{t.continueWithApple}</button>
         <button type="button" onClick={() => void signInWithProvider('azure')} disabled={loading || sending}>{t.continueWithMicrosoft}</button>
       </div>
       <div className="auth-divider"><span>{t.orEmail}</span></div>

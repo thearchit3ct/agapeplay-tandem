@@ -21,7 +21,7 @@ jamais être ajoutée à l'application web.
 4. Configurer les URLs de redirection Auth avant d'activer les liens magiques et
    les fournisseurs OAuth.
 
-Les boutons Google, Apple et Microsoft sont disponibles dans l'application.
+Les boutons Google et Microsoft sont disponibles dans l'application.
 Chaque fournisseur doit être activé dans Supabase Auth avec ses identifiants et
 avec l'URL de redirection de l'application ; tant qu'un fournisseur n'est pas
 configuré, son erreur est affichée sans interrompre le mode local.
