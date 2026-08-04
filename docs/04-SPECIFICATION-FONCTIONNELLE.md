@@ -16,7 +16,7 @@
 
 ### EPIC A — Compte et consentement
 
-- connexion par email, lien magique, Google, Apple et Microsoft ;
+- connexion par email, lien magique, Google et Microsoft ;
 - choix de langue et fuseau horaire ;
 - âge minimum de 16 ans clairement affiché ;
 - vérification manuelle de l'âge et du rôle de mentor, sans conservation de
