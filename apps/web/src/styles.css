@@ -327,6 +327,12 @@ h3 { color: #eeeeea; font-weight: 400; }
 .auth-dialog-top .text-button { color: #171716; font-size: 20px; line-height: 1; text-decoration: none; }
 .auth-dialog h2 { margin: 28px 0 12px; }
 .auth-dialog > p { color: #4b4b46; font-size: 13px; line-height: 1.65; }
+.provider-grid { display: grid; gap: 8px; margin-top: 22px; }
+.provider-grid button { width: 100%; min-height: 40px; border: 1px solid #555550; border-radius: 0; background: transparent; color: #171716; font: 600 11px 'DM Mono', monospace; text-align: left; padding: 10px 12px; }
+.provider-grid button:hover { background: #171716; color: #eeeeea; }
+.provider-grid button:disabled { cursor: wait; opacity: .55; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 0; color: #77776f; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
+.auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: #b5b5ad; }
 .auth-dialog form { display: grid; gap: 9px; margin-top: 25px; }
 .auth-dialog label { color: #555550; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
 .auth-dialog input { min-width: 0; border: 1px solid #555550; border-radius: 0; padding: 12px; background: #f7f6efaa; color: #171716; outline: 0; font: 400 13px 'DM Mono', monospace; }

@@ -18,7 +18,13 @@ jamais être ajoutée à l'application web.
 2. Renseigner l'URL du projet et la clé publique.
 3. Exécuter `supabase/migrations/20260804_000001_tandem_foundation.sql` dans le
    SQL Editor Supabase.
-4. Configurer les URLs de redirection Auth avant d'activer les liens magiques.
+4. Configurer les URLs de redirection Auth avant d'activer les liens magiques et
+   les fournisseurs OAuth.
+
+Les boutons Google, Apple et Microsoft sont disponibles dans l'application.
+Chaque fournisseur doit être activé dans Supabase Auth avec ses identifiants et
+avec l'URL de redirection de l'application ; tant qu'un fournisseur n'est pas
+configuré, son erreur est affichée sans interrompre le mode local.
 
 Le bandeau de l'application indique alors que Supabase est configuré. Après
 connexion, les séances terminées et le journal privé sont synchronisés avec le

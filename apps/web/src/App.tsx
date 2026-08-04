@@ -44,6 +44,10 @@ const copy = {
     email: 'Adresse email',
     magicLinkDescription: 'Reçois un lien de connexion unique, sans mot de passe.',
     sendMagicLink: 'Recevoir mon lien',
+    continueWithGoogle: 'Continuer avec Google',
+    continueWithApple: 'Continuer avec Apple',
+    continueWithMicrosoft: 'Continuer avec Microsoft',
+    orEmail: 'ou avec ton email',
     magicLinkSent: 'Lien envoyé. Consulte ta boîte mail pour continuer.',
     authError: 'Impossible de se connecter pour le moment.',
     close: 'Fermer',
@@ -119,6 +123,10 @@ const copy = {
     email: 'Email address',
     magicLinkDescription: 'Receive a one-time sign-in link, with no password.',
     sendMagicLink: 'Send my link',
+    continueWithGoogle: 'Continue with Google',
+    continueWithApple: 'Continue with Apple',
+    continueWithMicrosoft: 'Continue with Microsoft',
+    orEmail: 'or with your email',
     magicLinkSent: 'Link sent. Check your inbox to continue.',
     authError: 'Unable to sign in right now.',
     close: 'Close',
@@ -424,6 +432,20 @@ function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClos
   const [sending, setSending] = useState(false)
   const [status, setStatus] = useState('')
 
+  const signInWithProvider = async (provider: 'google' | 'apple' | 'azure') => {
+    if (!supabase) return
+    setSending(true)
+    setStatus('')
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin },
+    })
+    if (error) {
+      setSending(false)
+      setStatus(t.authError)
+    }
+  }
+
   const sendMagicLink = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!supabase || !email.trim()) return
@@ -442,6 +464,12 @@ function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClos
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="auth-dialog-title">{t.signIn}</h2>
       <p>{t.magicLinkDescription}</p>
+      <div className="provider-grid">
+        <button type="button" onClick={() => void signInWithProvider('google')} disabled={loading || sending}>{t.continueWithGoogle}</button>
+        <button type="button" onClick={() => void signInWithProvider('apple')} disabled={loading || sending}>{t.continueWithApple}</button>
+        <button type="button" onClick={() => void signInWithProvider('azure')} disabled={loading || sending}>{t.continueWithMicrosoft}</button>
+      </div>
+      <div className="auth-divider"><span>{t.orEmail}</span></div>
       <form onSubmit={sendMagicLink}>
         <label htmlFor="auth-email">{t.email}</label>
         <input id="auth-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" />
