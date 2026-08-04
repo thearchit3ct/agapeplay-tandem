@@ -26,6 +26,11 @@ Chaque fournisseur doit être activé dans Supabase Auth avec ses identifiants e
 avec l'URL de redirection de l'application ; tant qu'un fournisseur n'est pas
 configuré, son erreur est affichée sans interrompre le mode local.
 
+État du projet distant au 4 août 2026 : le lien magique email est actif ; Google
+et Microsoft (Azure) sont encore désactivés. Leur activation nécessite les
+identifiants OAuth créés dans les consoles Google Cloud et Microsoft Entra ID,
+qui ne doivent jamais être commités dans ce dépôt.
+
 Le bandeau de l'application indique alors que Supabase est configuré. Après
 connexion, les séances terminées et le journal privé sont synchronisés avec le
 compte distant ; le stockage local reste le filet de sécurité hors connexion.
@@ -43,6 +48,8 @@ l'historique des migrations Supabase.
 - `tandem_invitations` : invitations email privées, expirables et révocables ;
 - `tandems` : relation entre deux comptes, avec statut contrôlable ;
 - `tandem_messages` : messages privés limités aux membres du tandem ;
+- `tandem_reports` : signalements séparés du contenu spirituel, visibles par
+  leur auteur et destinés au traitement de modération ;
 - les profils portent aussi les consentements séparés, la confirmation d'âge
   minimum et le statut de demande de suppression ;
 - aucun rôle d'église ou mentor n'est encore exposé avant la migration dédiée

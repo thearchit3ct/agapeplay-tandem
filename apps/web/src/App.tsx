@@ -107,6 +107,10 @@ const copy = {
     inviteRequiresAuth: 'Connecte-toi pour créer une invitation privée.',
     inviteAccepted: 'Invitation acceptée. Votre tandem est actif.',
     inviteAcceptError: 'Cette invitation est invalide, expirée ou réservée à une autre adresse.',
+    blockedStatus: 'Bloqué',
+    blockedNotice: 'Cette relation est maintenant bloquée.',
+    reportSent: 'Signalement transmis à la modération.',
+    messageUnavailable: 'La conversation est indisponible pour le moment.',
   },
   en: {
     greeting: 'Good morning, Claire',
@@ -208,11 +212,16 @@ const copy = {
     inviteRequiresAuth: 'Sign in to create a private invitation.',
     inviteAccepted: 'Invitation accepted. Your tandem is active.',
     inviteAcceptError: 'This invitation is invalid, expired, or reserved for another email.',
+    blockedStatus: 'Blocked',
+    blockedNotice: 'This relationship is now blocked.',
+    reportSent: 'Report sent to moderation.',
+    messageUnavailable: 'The conversation is unavailable right now.',
   },
 } as const
 
 type Tab = AppState['activeTab']
 type SessionStep = 'read' | 'practice' | 'complete'
+type RemoteMessage = { id: string; senderId: string; body: string; createdAt: string }
 
 function App() {
   const [state, setState] = useState<AppState>(() => loadState())
@@ -233,6 +242,9 @@ function App() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteLink, setInviteLink] = useState('')
+  const [remoteTandemId, setRemoteTandemId] = useState<string | null>(null)
+  const [remoteTandemStatus, setRemoteTandemStatus] = useState<'active' | 'paused' | 'blocked' | 'ended' | null>(null)
+  const [remoteMessages, setRemoteMessages] = useState<RemoteMessage[]>([])
 
   const t = copy[state.locale]
   const journey = useMemo(() => getJourney(state.locale), [state.locale])
@@ -312,6 +324,21 @@ function App() {
       const profileUpsertResult = await client.from('profiles').upsert({ id: authSession.user.id, display_name: 'Claire', locale: state.locale })
       if (profileUpsertResult.error && !cancelled) showNotice(t.syncError, 4200)
 
+      const tandemResult = await client.from('tandems').select('id, status, created_at').or(`participant_a_id.eq.${authSession.user.id},participant_b_id.eq.${authSession.user.id}`).order('created_at', { ascending: false }).limit(1)
+      const remoteTandem = tandemResult.data?.[0]
+      if (tandemResult.error) {
+        if (!cancelled) showNotice(t.syncError, 4200)
+      } else if (remoteTandem) {
+        setRemoteTandemId(remoteTandem.id)
+        setRemoteTandemStatus(remoteTandem.status)
+        const messagesResult = await client.from('tandem_messages').select('id, sender_id, body, created_at').eq('tandem_id', remoteTandem.id).order('created_at', { ascending: true })
+        if (messagesResult.error) {
+          if (!cancelled) showNotice(t.syncError, 4200)
+        } else {
+          setRemoteMessages((messagesResult.data ?? []).map((message) => ({ id: message.id, senderId: message.sender_id, body: message.body, createdAt: message.created_at })))
+        }
+      }
+
       const invitationToken = new URLSearchParams(window.location.search).get('invite')
       if (invitationToken) {
         const invitationResult = await client.rpc('accept_tandem_invitation', { p_token: invitationToken })
@@ -386,10 +413,45 @@ function App() {
     showNotice(t.saved)
   }
 
-  const sendMessage = () => {
-    if (!messageDraft.trim()) return
-    update({ ...state, tandem: { ...state.tandem, lastMessage: messageDraft.trim(), lastMessageAt: 'À l’instant' } })
+  const sendMessage = async () => {
+    const body = messageDraft.trim()
+    if (!body || remoteTandemStatus === 'blocked' || remoteTandemStatus === 'ended') return
+    if (supabase && authSession && remoteTandemId) {
+      const { data, error } = await supabase.from('tandem_messages').insert({ tandem_id: remoteTandemId, sender_id: authSession.user.id, body }).select('id, sender_id, body, created_at').single()
+      if (error || !data) {
+        showNotice(t.messageUnavailable, 4200)
+        return
+      }
+      setRemoteMessages((previous) => [...previous, { id: data.id, senderId: data.sender_id, body: data.body, createdAt: data.created_at }])
+      setMessageDraft('')
+      return
+    }
+    if (!body) return
+    update({ ...state, tandem: { ...state.tandem, lastMessage: body, lastMessageAt: 'À l’instant' } })
     setMessageDraft('')
+  }
+
+  const blockTandem = async () => {
+    if (!supabase || !authSession || !remoteTandemId) {
+      showNotice(t.blockNotice, 4200)
+      return
+    }
+    const { error } = await supabase.from('tandems').update({ status: 'blocked', ended_at: new Date().toISOString() }).eq('id', remoteTandemId)
+    if (error) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    setRemoteTandemStatus('blocked')
+    showNotice(t.blockedNotice, 4200)
+  }
+
+  const reportTandem = async () => {
+    if (!supabase || !authSession || !remoteTandemId) {
+      showNotice(t.reportNotice, 4200)
+      return
+    }
+    const { error } = await supabase.from('tandem_reports').insert({ tandem_id: remoteTandemId, reporter_id: authSession.user.id, reason: 'Signalement depuis la conversation' })
+    showNotice(error ? t.syncError : t.reportSent, 4200)
   }
 
   const resetDemo = () => update(initialState)
@@ -536,7 +598,7 @@ function App() {
             )}
             {state.activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
             {state.activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
-            {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} draft={messageDraft} setDraft={setMessageDraft} onSend={sendMessage} onInvite={() => setInviteOpen(true)} t={t} />}
+            {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
           </>
         )}
       </main>
@@ -698,8 +760,9 @@ function JournalView({ entries, draft, setDraft, onAdd, t }: { entries: AppState
   return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.private}</span><h2>{t.journal}</h2><p>{t.emptyJournal}</p></div><span className="lock-mark" aria-hidden="true">⌁</span></div><div className="journal-composer"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={t.write} /><div className="composer-footer"><span>{t.privateOnly}</span><button className="primary-button compact" onClick={onAdd}>{t.save} <span aria-hidden="true">→</span></button></div></div><div className="journal-list">{entries.map((entry) => <article className="journal-entry" key={entry.id}><div><span className="entry-date">{new Date(entry.createdAt).toLocaleDateString()}</span><span className="entry-mood">{t.present}</span></div><p>{entry.text}</p></article>)}</div></section>
 }
 
-function TandemView({ tandem, draft, setDraft, onSend, onInvite, t }: { tandem: AppState['tandem']; draft: string; setDraft: (value: string) => void; onSend: () => void; onInvite: () => void; t: Copy }) {
-  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">É</div><div><h3>{tandem.name}</h3><p>{t.tandemQuote}</p></div><span className="status-chip">{t.activeStatus}</span></div><div className="message-thread"><div className="message received">{tandem.lastMessage}<span>{tandem.lastMessageAt}</span></div><div className="message sent">{t.prayerPhrase}<span>{t.yesterday}</span></div></div><div className="message-composer"><input value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={t.encouragement} /><button className="primary-button compact" onClick={onSend}>{t.send}</button></div><div className="safety-actions"><button className="text-button danger" onClick={() => window.alert(t.reportNotice)}>{t.report}</button><button className="text-button" onClick={() => window.alert(t.blockNotice)}>{t.block}</button></div></section>
+function TandemView({ tandem, messages, currentUserId, status, draft, setDraft, onSend, onBlock, onReport, onInvite, t }: { tandem: AppState['tandem']; messages: RemoteMessage[]; currentUserId?: string; status: 'active' | 'paused' | 'blocked' | 'ended' | null; draft: string; setDraft: (value: string) => void; onSend: () => void; onBlock: () => void; onReport: () => void; onInvite: () => void; t: Copy }) {
+  const isBlocked = status === 'blocked' || status === 'ended'
+  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {isBlocked ? t.blockedStatus : t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">É</div><div><h3>{tandem.name}</h3><p>{t.tandemQuote}</p></div><span className="status-chip">{isBlocked ? t.blockedStatus : t.activeStatus}</span></div><div className="message-thread">{messages.length ? messages.map((message) => <div className={`message ${message.senderId === currentUserId ? 'sent' : 'received'}`} key={message.id}>{message.body}<span>{new Date(message.createdAt).toLocaleString()}</span></div>) : <><div className="message received">{tandem.lastMessage}<span>{tandem.lastMessageAt}</span></div><div className="message sent">{t.prayerPhrase}<span>{t.yesterday}</span></div></>}</div><div className="message-composer"><input disabled={isBlocked} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={isBlocked ? t.messageUnavailable : t.encouragement} /><button disabled={isBlocked} className="primary-button compact" onClick={onSend}>{t.send}</button></div><div className="safety-actions"><button className="text-button danger" onClick={onReport}>{t.report}</button><button className="text-button" onClick={onBlock}>{t.block}</button></div></section>
 }
 
 export default App

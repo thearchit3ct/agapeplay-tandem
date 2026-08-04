@@ -316,6 +316,7 @@ h3 { color: #eeeeea; font-weight: 400; }
 .message.sent { color: #eeeeea; border-right-color: #eeeeea; }
 .message-composer input { border-color: #8f8f88; border-radius: 0; background: #171716; color: #eeeeea; }
 .message-composer input:focus { border-color: #eeeeea; box-shadow: 4px 4px 0 #77776f; }
+.message-composer input:disabled, .message-composer button:disabled { cursor: not-allowed; opacity: .55; }
 .safety-actions { border-top-color: #4a4a45; }
 .danger { color: #eeeeea; }
 
