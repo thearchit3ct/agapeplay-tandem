@@ -18,6 +18,8 @@ export const copy = {
     saved: 'Votre espace reste privé.',
     offline: 'Hors ligne · vos actions seront synchronisées.',
     language: 'Langue',
+    signIn: 'Se connecter',
+    signedIn: 'Connecté',
   },
   en: {
     eyebrow: 'AGAPEPLAY / TANDEM',
@@ -36,5 +38,7 @@ export const copy = {
     saved: 'Your space stays private.',
     offline: 'Offline · your actions will sync later.',
     language: 'Language',
+    signIn: 'Sign in',
+    signedIn: 'Signed in',
   },
 } as const

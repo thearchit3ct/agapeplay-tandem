@@ -1,17 +1,28 @@
-import { Link } from 'expo-router'
-import { useMemo, useState } from 'react'
+import { Link, useFocusEffect } from 'expo-router'
+import { Session } from '@supabase/supabase-js'
+import { useCallback, useMemo, useState } from 'react'
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { copy, Locale } from '@/content'
 import { colors, typography } from '@/theme'
+import { flushProgressQueue } from '@/offlineQueue'
+import { supabase } from '@/supabase'
 
 export default function HomeScreen() {
   const [locale, setLocale] = useState<Locale>('fr')
   const [offline, setOffline] = useState(false)
+  const [session, setSession] = useState<Session | null>(null)
   const t = useMemo(() => copy[locale], [locale])
+
+  useFocusEffect(useCallback(() => {
+    let active = true
+    void supabase?.auth.getSession().then(({ data }) => { if (active) setSession(data.session) })
+    void flushProgressQueue()
+    return () => { active = false }
+  }, []))
 
   return <SafeAreaView style={styles.safe}>
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.topline}><Text style={styles.eyebrow}>{t.eyebrow}</Text><Pressable accessibilityRole="button" accessibilityLabel={t.language} onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}><Text style={styles.locale}>{locale.toUpperCase()}</Text></Pressable></View>
+      <View style={styles.topline}><Text style={styles.eyebrow}>{t.eyebrow}</Text><View style={styles.topActions}><Pressable accessibilityRole="button" accessibilityLabel={t.language} onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}><Text style={styles.locale}>{locale.toUpperCase()}</Text></Pressable><Link href="/auth" asChild><Pressable><Text style={styles.authLink}>{session ? t.signedIn : t.signIn}</Text></Pressable></Link></View></View>
       {offline && <Pressable style={styles.offline} onPress={() => setOffline(false)}><Text style={styles.offlineText}>{t.offline}</Text></Pressable>}
       <Text style={styles.greeting}>{t.greeting}</Text>
       <Text style={styles.subtitle}>{t.subtitle}</Text>
@@ -41,6 +52,8 @@ const styles = StyleSheet.create({
   topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 48 },
   eyebrow: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, letterSpacing: 1.4 },
   locale: { color: colors.ink, fontFamily: typography.mono, fontSize: 11, borderBottomWidth: 1, borderBottomColor: colors.ink, paddingBottom: 3 },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  authLink: { color: colors.copper, fontFamily: typography.mono, fontSize: 10 },
   greeting: { color: colors.ink, fontFamily: typography.display, fontSize: 42, lineHeight: 46, maxWidth: 330 },
   subtitle: { color: colors.muted, fontSize: 16, lineHeight: 24, marginTop: 12, marginBottom: 28, maxWidth: 310 },
   offline: { borderWidth: 1, borderColor: colors.copper, padding: 11, marginBottom: 20 },
