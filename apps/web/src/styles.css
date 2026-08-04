@@ -246,6 +246,7 @@ h1, h2, h3 { font-family: 'Special Elite', serif; }
 h1 { color: #eeeeea; font-weight: 400; letter-spacing: .01em; }
 h2 { color: #171716; font-weight: 400; letter-spacing: .01em; }
 h3 { color: #eeeeea; font-weight: 400; }
+.content-section h2 { color: #eeeeea; }
 .subtitle { color: #a6a6a0; }
 .locale-switcher { border-bottom-color: #4a4a45; }
 .locale-switcher button { color: #8f8f88; font-family: 'DM Mono', monospace; }
