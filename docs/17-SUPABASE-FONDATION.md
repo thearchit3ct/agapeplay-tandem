@@ -50,6 +50,15 @@ l'historique des migrations Supabase.
 - `tandem_messages` : messages privés limités aux membres du tandem ;
 - `tandem_reports` : signalements séparés du contenu spirituel, visibles par
   leur auteur et destinés au traitement de modération ;
+- `content_journeys` et `content_sessions` : catalogue éditorial publié,
+  bilingue et versionnable ;
+- `notification_preferences` : rappels séparés par catégorie ;
+- `churches`, `church_groups`, `church_members` et `group_members` : première
+  fondation des communautés ;
+- `mentor_profiles` et `mentor_assignments` : vérification, formation et
+  affectation sans exposition du journal privé ;
+- `analytics_events` et `community_stats_daily` : événements anonymisés et
+  statistiques agrégées ;
 - les profils portent aussi les consentements séparés, la confirmation d'âge
   minimum et le statut de demande de suppression ;
 - aucun rôle d'église ou mentor n'est encore exposé avant la migration dédiée

@@ -4,6 +4,8 @@ import type { Session } from '@supabase/supabase-js'
 import type { AppState, Locale } from './domain'
 import { supabase, supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
+import { loadPublishedJourney } from './content'
+import { enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
 import { initialState, loadState, saveState } from './storage'
 
 const copy = {
@@ -98,6 +100,11 @@ const copy = {
     requestDeletion: 'Demander la suppression',
     deletionRequested: 'Demande de suppression enregistrée.',
     cancel: 'Annuler',
+    notificationDescription: 'Choisis les rappels qui te servent, séparément.',
+    sessionNotifications: 'Séances quotidiennes',
+    messageNotifications: 'Messages du tandem',
+    churchNotifications: 'Vie de l’église',
+    absenceNotifications: 'Rappel après une absence',
     invite: 'Inviter mon tandem',
     inviteDescription: 'L’invitation est privée et expire après 7 jours.',
     inviteEmail: 'Email de la personne',
@@ -111,6 +118,7 @@ const copy = {
     blockedNotice: 'Cette relation est maintenant bloquée.',
     reportSent: 'Signalement transmis à la modération.',
     messageUnavailable: 'La conversation est indisponible pour le moment.',
+    offline: 'Hors connexion · les changements seront synchronisés au retour.',
   },
   en: {
     greeting: 'Good morning, Claire',
@@ -203,6 +211,11 @@ const copy = {
     requestDeletion: 'Request deletion',
     deletionRequested: 'Deletion request recorded.',
     cancel: 'Cancel',
+    notificationDescription: 'Choose the reminders that serve you, separately.',
+    sessionNotifications: 'Daily sessions',
+    messageNotifications: 'Tandem messages',
+    churchNotifications: 'Church life',
+    absenceNotifications: 'Reminder after absence',
     invite: 'Invite my tandem',
     inviteDescription: 'The invitation is private and expires after 7 days.',
     inviteEmail: 'Person’s email',
@@ -216,6 +229,7 @@ const copy = {
     blockedNotice: 'This relationship is now blocked.',
     reportSent: 'Report sent to moderation.',
     messageUnavailable: 'The conversation is unavailable right now.',
+    offline: 'Offline · changes will sync when you are back online.',
   },
 } as const
 
@@ -245,9 +259,13 @@ function App() {
   const [remoteTandemId, setRemoteTandemId] = useState<string | null>(null)
   const [remoteTandemStatus, setRemoteTandemStatus] = useState<'active' | 'paused' | 'blocked' | 'ended' | null>(null)
   const [remoteMessages, setRemoteMessages] = useState<RemoteMessage[]>([])
+  const [remoteJourney, setRemoteJourney] = useState<ReturnType<typeof getJourney> | null>(null)
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine)
+  const [pendingSync, setPendingSync] = useState(() => readSyncQueue().length)
 
   const t = copy[state.locale]
-  const journey = useMemo(() => getJourney(state.locale), [state.locale])
+  const fallbackJourney = useMemo(() => getJourney(state.locale), [state.locale])
+  const journey = remoteJourney ?? fallbackJourney
   const currentSession = journey.sessions.find((session) => !state.completedSessionIds.includes(session.id)) ?? journey.sessions[0]
   const completedCount = state.completedSessionIds.length
 
@@ -255,6 +273,55 @@ function App() {
     setNotice(message)
     window.setTimeout(() => setNotice(''), duration)
   }
+
+  useEffect(() => {
+    const client = supabase
+    if (!client) return
+    let cancelled = false
+    void loadPublishedJourney(client, state.locale).then((nextJourney) => {
+      if (!cancelled) setRemoteJourney(nextJourney)
+    })
+    return () => { cancelled = true }
+  }, [state.locale])
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    const client = supabase
+    if (!client || !authSession || !isOnline) return
+    let cancelled = false
+
+    const flushQueue = async () => {
+      for (const operation of readSyncQueue()) {
+        if (cancelled) return
+        let error: unknown = null
+        if (operation.kind === 'session_progress') {
+          error = (await client.from('session_progress').upsert(operation.payload as { user_id: string; journey_id: string; session_id: string })).error
+        } else if (operation.kind === 'journal_entry') {
+          error = (await client.from('journal_entries').upsert(operation.payload as { id: string; user_id: string; text: string; mood: string; created_at: string })).error
+        } else if (operation.kind === 'tandem_message') {
+          error = (await client.from('tandem_messages').upsert(operation.payload as { id: string; tandem_id: string; sender_id: string; body: string })).error
+        } else {
+          error = (await client.from('notification_preferences').upsert(operation.payload as { user_id: string; sessions: boolean; messages: boolean; church: boolean; absence: boolean; updated_at: string })).error
+        }
+        if (error) break
+        removeSync(operation.id)
+      }
+      if (!cancelled) setPendingSync(readSyncQueue().length)
+    }
+
+    void flushQueue()
+    return () => { cancelled = true }
+  }, [authSession?.user.id, isOnline])
 
   useEffect(() => {
     if (!supabase) {
@@ -324,6 +391,11 @@ function App() {
       const profileUpsertResult = await client.from('profiles').upsert({ id: authSession.user.id, display_name: 'Claire', locale: state.locale })
       if (profileUpsertResult.error && !cancelled) showNotice(t.syncError, 4200)
 
+      const preferencesResult = await client.from('notification_preferences').select('sessions, messages, church, absence').eq('user_id', authSession.user.id).maybeSingle()
+      if (preferencesResult.data && !preferencesResult.error && !cancelled) {
+        setState((previous) => ({ ...previous, notificationPrefs: { ...previous.notificationPrefs, ...preferencesResult.data } }))
+      }
+
       const tandemResult = await client.from('tandems').select('id, status, created_at').or(`participant_a_id.eq.${authSession.user.id},participant_b_id.eq.${authSession.user.id}`).order('created_at', { ascending: false }).limit(1)
       const remoteTandem = tandemResult.data?.[0]
       if (tandemResult.error) {
@@ -373,10 +445,18 @@ function App() {
       })
       if (supabase && authSession) {
         void Promise.resolve(supabase.from('session_progress').upsert({ user_id: authSession.user.id, journey_id: 'repartir-avec-jesus', session_id: sessionId })).then(({ error }) => {
-          if (error) showNotice(t.syncError, 4200)
+          if (error) {
+            enqueueSync({ id: `progress:${authSession.user.id}:${sessionId}`, kind: 'session_progress', payload: { user_id: authSession.user.id, journey_id: 'repartir-avec-jesus', session_id: sessionId } })
+            setPendingSync(readSyncQueue().length)
+            showNotice(t.offline, 4200)
+          }
         })
         if (journalEntry) void Promise.resolve(supabase.from('journal_entries').insert({ id: journalEntry.id, user_id: authSession.user.id, text: journalEntry.text, mood: journalEntry.mood, created_at: journalEntry.createdAt })).then(({ error }) => {
-          if (error) showNotice(t.syncError, 4200)
+          if (error) {
+            enqueueSync({ id: `journal:${journalEntry.id}`, kind: 'journal_entry', payload: { id: journalEntry.id, user_id: authSession.user.id, text: journalEntry.text, mood: journalEntry.mood, created_at: journalEntry.createdAt } })
+            setPendingSync(readSyncQueue().length)
+            showNotice(t.offline, 4200)
+          }
         })
       }
       showNotice(t.completed)
@@ -407,7 +487,11 @@ function App() {
     const entry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), text, mood: 'Présent' }
     update({ ...state, journalEntries: [entry, ...state.journalEntries] })
     if (supabase && authSession) void Promise.resolve(supabase.from('journal_entries').insert({ id: entry.id, user_id: authSession.user.id, text: entry.text, mood: entry.mood, created_at: entry.createdAt })).then(({ error }) => {
-      if (error) showNotice(t.syncError, 4200)
+      if (error) {
+        enqueueSync({ id: `journal:${entry.id}`, kind: 'journal_entry', payload: { id: entry.id, user_id: authSession.user.id, text: entry.text, mood: entry.mood, created_at: entry.createdAt } })
+        setPendingSync(readSyncQueue().length)
+        showNotice(t.offline, 4200)
+      }
     })
     setJournalDraft('')
     showNotice(t.saved)
@@ -417,8 +501,11 @@ function App() {
     const body = messageDraft.trim()
     if (!body || remoteTandemStatus === 'blocked' || remoteTandemStatus === 'ended') return
     if (supabase && authSession && remoteTandemId) {
-      const { data, error } = await supabase.from('tandem_messages').insert({ tandem_id: remoteTandemId, sender_id: authSession.user.id, body }).select('id, sender_id, body, created_at').single()
+      const messageId = crypto.randomUUID()
+      const { data, error } = await supabase.from('tandem_messages').insert({ id: messageId, tandem_id: remoteTandemId, sender_id: authSession.user.id, body }).select('id, sender_id, body, created_at').single()
       if (error || !data) {
+        enqueueSync({ id: `message:${messageId}`, kind: 'tandem_message', payload: { id: messageId, tandem_id: remoteTandemId, sender_id: authSession.user.id, body } })
+        setPendingSync(readSyncQueue().length)
         showNotice(t.messageUnavailable, 4200)
         return
       }
@@ -494,6 +581,19 @@ function App() {
     showNotice(t.deletionRequested, 4200)
   }
 
+  const toggleNotification = async (key: keyof AppState['notificationPrefs'], value: boolean) => {
+    const notificationPrefs = { ...state.notificationPrefs, [key]: value }
+    update({ ...state, notificationPrefs })
+    if (supabase && authSession) {
+      const { error } = await supabase.from('notification_preferences').upsert({ user_id: authSession.user.id, ...notificationPrefs, updated_at: new Date().toISOString() })
+      if (error) {
+        enqueueSync({ id: `notifications:${authSession.user.id}`, kind: 'notification_preferences', payload: { user_id: authSession.user.id, ...notificationPrefs, updated_at: new Date().toISOString() } })
+        setPendingSync(readSyncQueue().length)
+        showNotice(t.offline, 4200)
+      }
+    }
+  }
+
   const createInvitation = async () => {
     if (!supabase || !authSession) {
       showNotice(t.inviteRequiresAuth, 4200)
@@ -563,11 +663,13 @@ function App() {
           <button onClick={resetDemo}>{t.reset}</button>
         </div>
 
+        {(!isOnline || pendingSync > 0) && <div className="offline-banner" role="status">{t.offline}{pendingSync > 0 ? ` · ${pendingSync}` : ''}</div>}
+
         {supabaseConfigured && <div className="auth-strip"><span>{authSession ? `${t.signedIn} · ${authSession.user.email ?? ''}` : t.signIn}</span>{authSession ? <button onClick={signOut}>{t.signOut}</button> : <button onClick={() => setAuthOpen(true)}>{t.signIn} →</button>}</div>}
 
         {authOpen && <AuthDialog t={t} loading={authLoading} onClose={() => setAuthOpen(false)} />}
         {trustOpen && <TrustDialog t={t} ageConfirmed={ageConfirmed} setAgeConfirmed={setAgeConfirmed} privacyAccepted={privacyAccepted} setPrivacyAccepted={setPrivacyAccepted} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted} onSave={() => void saveTrust()} />}
-        {settingsOpen && <SettingsDialog t={t} onClose={() => setSettingsOpen(false)} onRequestDeletion={() => void requestDeletion()} />}
+        {settingsOpen && <SettingsDialog t={t} prefs={state.notificationPrefs} onToggle={(key, value) => void toggleNotification(key, value)} onClose={() => setSettingsOpen(false)} onRequestDeletion={() => void requestDeletion()} />}
         {inviteOpen && <InviteDialog t={t} email={inviteEmail} setEmail={setInviteEmail} link={inviteLink} onCreate={() => void createInvitation()} onClose={() => { setInviteOpen(false); setInviteLink('') }} />}
 
         {notice && <div className="toast" role="status">{notice}</div>}
@@ -674,12 +776,20 @@ function TrustDialog({ t, ageConfirmed, setAgeConfirmed, privacyAccepted, setPri
   </div>
 }
 
-function SettingsDialog({ t, onClose, onRequestDeletion }: { t: Copy; onClose: () => void; onRequestDeletion: () => void }) {
+function SettingsDialog({ t, prefs, onToggle, onClose, onRequestDeletion }: { t: Copy; prefs: AppState['notificationPrefs']; onToggle: (key: keyof AppState['notificationPrefs'], value: boolean) => void; onClose: () => void; onRequestDeletion: () => void }) {
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
     <section className="auth-dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="settings-dialog-title">{t.settingsTitle}</h2>
       <p>{t.protected}</p>
+      <div className="notification-settings">
+        <strong>{t.notifications}</strong>
+        <p>{t.notificationDescription}</p>
+        <label><input type="checkbox" checked={prefs.sessions} onChange={(event) => onToggle('sessions', event.target.checked)} /> <span>{t.sessionNotifications}</span></label>
+        <label><input type="checkbox" checked={prefs.messages} onChange={(event) => onToggle('messages', event.target.checked)} /> <span>{t.messageNotifications}</span></label>
+        <label><input type="checkbox" checked={prefs.church} onChange={(event) => onToggle('church', event.target.checked)} /> <span>{t.churchNotifications}</span></label>
+        <label><input type="checkbox" checked={prefs.absence} onChange={(event) => onToggle('absence', event.target.checked)} /> <span>{t.absenceNotifications}</span></label>
+      </div>
       <div className="settings-danger-zone">
         <strong>{t.deleteAccount}</strong>
         <p>{t.deleteAccountDescription}</p>

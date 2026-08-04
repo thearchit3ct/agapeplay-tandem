@@ -18,6 +18,7 @@ export const initialState: AppState = {
     sessions: true,
     messages: true,
     church: false,
+    absence: true,
   },
 }
 
@@ -33,4 +34,3 @@ export const loadState = (): AppState => {
 export const saveState = (state: AppState) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
-

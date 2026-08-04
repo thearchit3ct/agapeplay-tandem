@@ -45,5 +45,6 @@ export type AppState = {
     sessions: boolean
     messages: boolean
     church: boolean
+    absence: boolean
   }
 }
