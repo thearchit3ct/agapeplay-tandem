@@ -7,7 +7,7 @@ import { getJourney } from './mockData'
 import { loadPublishedJourney } from '@agapeplay/content'
 import { enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
 import { initialState, loadState, saveState } from './storage'
-import { copy } from './i18n/copy'
+import { copy } from '@agapeplay/content/copy/web'
 import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot } from '@agapeplay/domain'
 import {
   AuthDialog, TrustDialog, SettingsDialog, InviteDialog, MentorView, ChurchView,

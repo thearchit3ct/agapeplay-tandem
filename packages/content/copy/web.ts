@@ -1,17 +1,22 @@
 /**
- * Textes de l'interface, par langue.
+ * Textes de l'interface web, par langue.
  *
- * Extrait de App.tsx le 05/08/2026 : le fichier faisait 977 lignes, dont 272
+ * Extrait d'App.tsx le 05/08/2026 : le fichier faisait 977 lignes, dont 272
  * pour ce seul objet. Le sortir rend les deux lisibles — et le jour où une
  * troisième langue arrive, elle se pose ici sans toucher à la logique.
+ *
+ * Déplacé dans packages/content le 05/08/2026, aux côtés des textes du mobile.
+ * Les deux jeux restent distincts : voir shared.ts pour ce qu'ils ont
+ * réellement en commun.
  */
+import { sharedLabels } from './shared'
+
 export const copy = {
   fr: {
+    ...sharedLabels.fr,
     greeting: 'Bonjour, Claire',
     subtitle: 'Un petit pas, accompagné.',
     today: "Aujourd'hui",
-    journey: 'Parcours',
-    tandem: 'Tandem',
     journal: 'Journal',
     continue: 'Commencer la séance',
     resume: 'Reprendre la séance',
@@ -29,7 +34,6 @@ export const copy = {
     settings: 'Réglages',
     notifications: 'Notifications',
     emptyJournal: 'Ton journal est un espace à toi. Rien ne sera partagé sans ton choix.',
-    language: 'Langue',
     reset: 'Réinitialiser la démo',
     mock: 'Mode démonstration',
     mockDescription: 'Les données sont locales à cet appareil. Les services réels seront branchés plus tard.',
@@ -37,8 +41,6 @@ export const copy = {
     backendReadyDescription: 'Le projet distant est configuré. L’authentification et la synchronisation seront activées ensuite.',
     backendConnected: 'Supabase connecté',
     backendConnectedDescription: 'Ton parcours et ton journal privé peuvent maintenant être synchronisés.',
-    signIn: 'Se connecter',
-    signedIn: 'Connecté',
     signOut: 'Se déconnecter',
     email: 'Adresse email',
     magicLinkDescription: 'Reçois un lien de connexion unique, sans mot de passe.',
@@ -142,11 +144,10 @@ export const copy = {
     offline: 'Hors connexion · les changements seront synchronisés au retour.',
   },
   en: {
+    ...sharedLabels.en,
     greeting: 'Good morning, Claire',
     subtitle: 'One small step, with someone beside you.',
     today: 'Today',
-    journey: 'Journey',
-    tandem: 'Tandem',
     journal: 'Journal',
     continue: 'Start session',
     resume: 'Resume session',
@@ -164,7 +165,6 @@ export const copy = {
     settings: 'Settings',
     notifications: 'Notifications',
     emptyJournal: 'Your journal is yours. Nothing is shared without your choice.',
-    language: 'Language',
     reset: 'Reset demo',
     mock: 'Demo mode',
     mockDescription: 'Data is local to this device. Real services will be connected later.',
@@ -172,8 +172,6 @@ export const copy = {
     backendReadyDescription: 'The remote project is configured. Authentication and sync will be enabled next.',
     backendConnected: 'Supabase connected',
     backendConnectedDescription: 'Your journey and private journal can now be synchronized.',
-    signIn: 'Sign in',
-    signedIn: 'Signed in',
     signOut: 'Sign out',
     email: 'Email address',
     magicLinkDescription: 'Receive a one-time sign-in link, with no password.',

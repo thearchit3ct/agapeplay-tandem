@@ -1,14 +1,24 @@
 /**
  * Textes de l'écran d'accueil mobile.
  *
- * Déplacé le 05/08/2026 depuis `apps/mobile/src/content.ts`. Attention : ce
- * n'est pas le même jeu de textes que `apps/web/src/i18n/copy.ts`, qui en
- * compte bien plus et diverge sur les clés communes. Les réunir est un autre
- * lot (docs/19, P0 n°3).
+ * Déplacé le 05/08/2026 depuis `apps/mobile/src/content.ts`. Ce n'est pas un
+ * sous-ensemble de web.ts : sur les 11 clés que les deux fichiers partagent,
+ * cinq seulement disent la même chose (elles vivent dans shared.ts) et les
+ * autres répondent à des besoins différents — le web personnalise son
+ * `greeting`, le mobile non ; son `offline` est plus court parce que l'écran
+ * l'est.
+ *
+ * `saved` s'appelle ici `privacyNote` : sous ce nom commun, le web confirmait
+ * un enregistrement (« Ajouté à ton journal ») quand le mobile rassurait
+ * (« Votre espace reste privé »). Deux sens, deux noms. Le texte affiché n'a
+ * pas changé.
  */
+
+import { sharedLabels } from './shared'
 
 export const copy = {
   fr: {
+    ...sharedLabels.fr,
     eyebrow: 'AGAPEPLAY / TANDEM',
     greeting: 'Un petit pas, aujourd’hui.',
     subtitle: 'Un temps simple pour revenir à l’essentiel.',
@@ -18,20 +28,16 @@ export const copy = {
     verse: '« Venez à moi, vous tous qui êtes fatigués… »',
     prompt: 'Qu’est-ce que tu peux déposer maintenant ?',
     start: 'Commencer',
-    journey: 'Parcours',
-    tandem: 'Tandem',
     journal: 'Journal privé',
     today: 'Aujourd’hui',
-    saved: 'Votre espace reste privé.',
+    privacyNote: 'Votre espace reste privé.',
     offline: 'Hors ligne · vos actions seront synchronisées.',
-    language: 'Langue',
-    signIn: 'Se connecter',
-    signedIn: 'Connecté',
     reminder: 'Rappel quotidien',
     reminderOn: 'Rappel activé à 08:00',
     reminderOff: 'Activer le rappel quotidien',
   },
   en: {
+    ...sharedLabels.en,
     eyebrow: 'AGAPEPLAY / TANDEM',
     greeting: 'One small step, today.',
     subtitle: 'A simple moment to return to what matters.',
@@ -41,15 +47,10 @@ export const copy = {
     verse: '“Come to me, all you who are weary…”',
     prompt: 'What can you lay down right now?',
     start: 'Begin',
-    journey: 'Journey',
-    tandem: 'Tandem',
     journal: 'Private journal',
     today: 'Today',
-    saved: 'Your space stays private.',
+    privacyNote: 'Your space stays private.',
     offline: 'Offline · your actions will sync later.',
-    language: 'Language',
-    signIn: 'Sign in',
-    signedIn: 'Signed in',
     reminder: 'Daily reminder',
     reminderOn: 'Reminder set for 08:00',
     reminderOff: 'Turn on daily reminder',
