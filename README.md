@@ -43,9 +43,16 @@ La première version se concentrera sur un parcours de six semaines : **Repartir
 
 ## Statut
 
-Le projet dispose maintenant d'un premier vertical slice web exécutable en mode démonstration : accueil quotidien, parcours, journal privé, tandem et changement de langue FR/EN.
+Le projet dispose d'une application web React/Vite connectable à Supabase et
+d'un socle mobile Expo/React Native. Le participant peut consulter un parcours,
+terminer une séance, tenir un journal privé, inviter un tandem et échanger dans
+une conversation protégée. Le mobile ajoute l'authentification par lien
+magique, la progression hors ligne, les rappels locaux et les deep links
+d'invitation.
 
-Les services externes (authentification, Supabase, Stripe, notifications, modération et publication dans les stores) restent volontairement simulés jusqu'à réception des accès et des décisions opérationnelles.
+Les tableaux de bord mentor/église, le contenu complet du parcours, les
+notifications push distantes, les builds stores, Stripe, la conformité et la
+modération opérationnelle restent à finaliser.
 
 ## Développement local
 
@@ -55,6 +62,8 @@ Prérequis : Node.js 20+ et npm.
 npm install
 npm run dev
 npm run build
+npm run mobile:typecheck
+npm run mobile:export
 ```
 
 L'application est ensuite disponible sur [http://localhost:5173](http://localhost:5173). Le bandeau « Mode démonstration » rappelle que les données sont conservées uniquement dans le `localStorage` du navigateur.
@@ -62,6 +71,8 @@ L'application est ensuite disponible sur [http://localhost:5173](http://localhos
 Voir [`docs/15-MODE-DEVELOPPEMENT-SANS-SERVICES.md`](docs/15-MODE-DEVELOPPEMENT-SANS-SERVICES.md) pour la frontière entre ce prototype et les intégrations à venir.
 
 Voir [`docs/PRODUCT-VISION.md`](docs/PRODUCT-VISION.md) pour le périmètre détaillé.
+
+Voir [`docs/19-ETAT-COMPLET-DU-PROJET-2026-08-05.md`](docs/19-ETAT-COMPLET-DU-PROJET-2026-08-05.md) pour l'état détaillé du projet et le backlog restant.
 
 ## Documentation
 
@@ -80,6 +91,7 @@ Voir [`docs/PRODUCT-VISION.md`](docs/PRODUCT-VISION.md) pour le périmètre dét
 - [Décisions d'architecture](docs/12-DECISIONS-ARCHITECTURE.md)
 - [Intégration du parcours Alpha](docs/13-INTEGRATION-ALPHA.md)
 - [Décisions produit du cadrage](docs/14-DECISIONS-PRODUIT-2026-08-04.md)
+- [État complet du projet](docs/19-ETAT-COMPLET-DU-PROJET-2026-08-05.md)
 
 ## Contribuer
 
