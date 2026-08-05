@@ -74,11 +74,17 @@ describe('loadPublishedJourney — résolution par langue', () => {
 
   it('ne laisse aucun texte de l’autre langue passer dans le résultat', async () => {
     const { client } = published()
+    const french = JSON.stringify(await loadPublishedJourney(client, 'fr'))
     const english = JSON.stringify(await loadPublishedJourney(client, 'en'))
 
     // Une inversion de ternaire ne se voit pas champ par champ si le test se
     // contente de vérifier la présence des textes attendus : elle se voit à
     // l'absence des autres.
+    //
+    // La première assertion est l'ancre : sans elle, réécrire les fixtures
+    // sans le marqueur « FR » viderait la seconde de son sens tout en la
+    // laissant au vert.
+    expect(french).toContain('FR')
     expect(english).not.toContain('FR')
   })
 })
