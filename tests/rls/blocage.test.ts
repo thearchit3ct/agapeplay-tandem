@@ -181,11 +181,20 @@ describe('poser un blocage', () => {
   })
 
   it('TÉMOIN — bloquer en son propre nom fonctionne', async () => {
-    await expect(
-      commeUtilisateur(claire, (client) =>
-        client.query("update public.tandems set status = 'blocked', blocked_by = $2 where id = $1", [tandemId, claire.id]),
-      ),
-    ).resolves.toBeDefined()
+    // On compte les lignes touchées, et pas seulement l'absence d'erreur : un
+    // UPDATE refusé par le `using` d'une politique ne lève rien, il modifie
+    // zéro ligne. « ça n'a pas planté » ne prouverait donc rien.
+    const pose = await commeUtilisateur(claire, async (client) => {
+      const { rowCount } = await client.query(
+        "update public.tandems set status = 'blocked', blocked_by = $2 where id = $1", [tandemId, claire.id],
+      )
+      const { rows } = await client.query<{ status: string; blocked_by: string }>(
+        'select status, blocked_by::text from public.tandems where id = $1', [tandemId],
+      )
+      return { lignesModifiees: rowCount, ...rows[0] }
+    })
+
+    expect(pose).toEqual({ lignesModifiees: 1, status: 'blocked', blocked_by: claire.id })
   })
 
   it('GARDE — on ne bloque pas au nom d’un autre', async () => {
@@ -252,10 +261,17 @@ describe('la colonne blocked_by', () => {
   it('n’accepte qu’un participant du tandem', async () => {
     const tiers = await commeService((client) => creerUtilisateur(client, `tiers-chk-${Date.now()}@test.local`))
 
+    // `commeService` n'ouvre pas de transaction : on la pose ici pour ne pas
+    // laisser en base la ligne fautive du jour où la contrainte disparaîtrait.
     await expect(
-      commeService((client) =>
-        client.query('update public.tandems set blocked_by = $2 where id = $1', [tandemId, tiers.id]),
-      ),
+      commeService(async (client) => {
+        await client.query('begin')
+        try {
+          await client.query('update public.tandems set blocked_by = $2 where id = $1', [tandemId, tiers.id])
+        } finally {
+          await client.query('rollback').catch(() => {})
+        }
+      }),
     ).rejects.toThrow(/tandems_blocked_by_participant_chk/)
   })
 })
