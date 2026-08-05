@@ -14,9 +14,12 @@
     "mobile:typecheck": "npm --workspace apps/mobile run typecheck",
     "mobile:export": "npm --workspace apps/mobile run export:web",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:rls": "vitest run --config vitest.rls.config.mts"
   },
   "devDependencies": {
+    "@types/pg": "^8.20.4",
+    "pg": "^8.22.0",
     "vitest": "^4.1.10"
   }
 }
