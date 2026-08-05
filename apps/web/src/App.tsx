@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import type { AppState, Locale } from './domain'
+import type { AppState, Locale } from '@agapeplay/domain'
 import { supabase, supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
 import { loadPublishedJourney } from './content'
 import { enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
 import { initialState, loadState, saveState } from './storage'
 import { copy } from './i18n/copy'
-import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot } from './types'
+import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot } from '@agapeplay/domain'
 import {
   AuthDialog, TrustDialog, SettingsDialog, InviteDialog, MentorView, ChurchView,
   NavItem, TodayView, JourneyView, SessionFlow, JournalView, TandemView,

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Journey, Locale, Session } from './domain'
+import type { Journey, Locale, Session } from '@agapeplay/domain'
 
 const CONTENT_CACHE_KEY = 'agapeplay-tandem-published-content'
 

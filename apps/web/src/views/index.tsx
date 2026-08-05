@@ -11,10 +11,10 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import type { AppState } from '../domain'
+import type { AppState } from '@agapeplay/domain'
 import { getJourney } from '../mockData'
 import type { Copy } from '../i18n/copy'
-import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot } from '../types'
+import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot } from '@agapeplay/domain'
 
 export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClose: () => void }) {
   const [email, setEmail] = useState('')
