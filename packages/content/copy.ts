@@ -1,4 +1,11 @@
-export type Locale = 'fr' | 'en'
+/**
+ * Textes de l'écran d'accueil mobile.
+ *
+ * Déplacé le 05/08/2026 depuis `apps/mobile/src/content.ts`. Attention : ce
+ * n'est pas le même jeu de textes que `apps/web/src/i18n/copy.ts`, qui en
+ * compte bien plus et diverge sur les clés communes. Les réunir est un autre
+ * lot (docs/19, P0 n°3).
+ */
 
 export const copy = {
   fr: {

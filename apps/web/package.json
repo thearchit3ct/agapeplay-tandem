@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@agapeplay/domain": "*",
+    "@agapeplay/content": "*",
     "@supabase/supabase-js": "^2.112.0",
     "react": "latest",
     "react-dom": "latest",

@@ -1,3 +1,11 @@
+/**
+ * Catalogue de parcours : lecture du contenu publié dans Supabase, avec un
+ * cache local pour rester lisible hors ligne.
+ *
+ * Déplacé le 05/08/2026 depuis `apps/web/src/content.ts`. Le cache s'appuie
+ * encore sur `localStorage` : seul le web consomme ce module aujourd'hui. Le
+ * jour où le mobile chargera le contenu publié, ce stockage devra être injecté.
+ */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Journey, Locale, Session } from '@agapeplay/domain'
 
