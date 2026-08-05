@@ -135,7 +135,7 @@ export const copy = {
     inviteCreated: 'Invitation créée. Tu peux partager ce lien.',
     copyInvite: 'Copier le lien',
     inviteRequiresAuth: 'Connecte-toi pour créer une invitation privée.',
-    inviteAccepted: 'Invitation acceptée. Votre tandem est actif.',
+    inviteAccepted: 'Invitation acceptée. Ton tandem est actif.',
     inviteAcceptError: 'Cette invitation est invalide, expirée ou réservée à une autre adresse.',
     blockedStatus: 'Bloqué',
     blockedNotice: 'Cette relation est maintenant bloquée.',

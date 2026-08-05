@@ -14,7 +14,7 @@ export default function InviteScreen() {
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session) { if (active) setMessage('Connecte-toi pour accepter ton invitation.'); return }
       const { error } = await supabase.rpc('accept_tandem_invitation', { p_token: token })
-      if (active) setMessage(error ? 'Cette invitation est invalide ou expirée.' : 'Invitation acceptée. Votre tandem est actif.')
+      if (active) setMessage(error ? 'Cette invitation est invalide ou expirée.' : 'Invitation acceptée. Ton tandem est actif.')
     }
     void accept()
     return () => { active = false }
