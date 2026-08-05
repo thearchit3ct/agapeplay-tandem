@@ -1,4 +1,4 @@
-import type { AppState } from './domain'
+import type { AppState } from '@agapeplay/domain'
 
 const STORAGE_KEY = 'agapeplay-tandem-demo-state'
 

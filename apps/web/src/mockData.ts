@@ -1,4 +1,4 @@
-import type { Journey, Locale, Session } from './domain'
+import type { Journey, Locale, Session } from '@agapeplay/domain'
 
 const frenchSessions: Session[] = [
   {

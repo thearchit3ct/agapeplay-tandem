@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@agapeplay/api": "*",
+    "@agapeplay/content": "*",
+    "@agapeplay/domain": "*",
     "@supabase/supabase-js": "^2.112.0",
     "react": "latest",
     "react-dom": "latest",

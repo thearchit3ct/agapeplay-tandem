@@ -1,0 +1,11 @@
+{
+  "name": "@agapeplay/content",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./journey.ts",
+  "types": "./journey.ts",
+  "dependencies": {
+    "@agapeplay/domain": "*",
+    "@supabase/supabase-js": "^2.112.0"
+  }
+}
