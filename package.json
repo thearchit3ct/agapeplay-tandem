@@ -1,13 +1,22 @@
 {
   "name": "agapeplay-tandem",
   "private": true,
-  "workspaces": ["apps/web", "apps/mobile", "packages/*"],
+  "workspaces": [
+    "apps/web",
+    "apps/mobile",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm --workspace apps/web run dev",
     "build": "npm --workspace apps/web run build",
     "preview": "npm --workspace apps/web run preview",
     "mobile:start": "npm --workspace apps/mobile run start",
     "mobile:typecheck": "npm --workspace apps/mobile run typecheck",
-    "mobile:export": "npm --workspace apps/mobile run export:web"
+    "mobile:export": "npm --workspace apps/mobile run export:web",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
   }
 }
