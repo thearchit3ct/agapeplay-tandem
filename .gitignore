@@ -9,3 +9,6 @@ coverage/
 .turbo/
 .vite/
 *.tsbuildinfo
+
+# Base Supabase jetable montée par npm run test:rls
+.rls-stack/
