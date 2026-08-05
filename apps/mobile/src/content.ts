@@ -20,6 +20,9 @@ export const copy = {
     language: 'Langue',
     signIn: 'Se connecter',
     signedIn: 'Connecté',
+    reminder: 'Rappel quotidien',
+    reminderOn: 'Rappel activé à 08:00',
+    reminderOff: 'Activer le rappel quotidien',
   },
   en: {
     eyebrow: 'AGAPEPLAY / TANDEM',
@@ -40,5 +43,8 @@ export const copy = {
     language: 'Language',
     signIn: 'Sign in',
     signedIn: 'Signed in',
+    reminder: 'Daily reminder',
+    reminderOn: 'Reminder set for 08:00',
+    reminderOff: 'Turn on daily reminder',
   },
 } as const

@@ -1,16 +1,18 @@
 import { Link, useFocusEffect } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { copy, Locale } from '@/content'
 import { colors, typography } from '@/theme'
 import { flushProgressQueue } from '@/offlineQueue'
 import { supabase } from '@/supabase'
+import { readReminderPreference, setDailyReminder } from '@/notifications'
 
 export default function HomeScreen() {
   const [locale, setLocale] = useState<Locale>('fr')
   const [offline, setOffline] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
+  const [reminderEnabled, setReminderEnabled] = useState(false)
   const t = useMemo(() => copy[locale], [locale])
 
   useFocusEffect(useCallback(() => {
@@ -19,6 +21,13 @@ export default function HomeScreen() {
     void flushProgressQueue()
     return () => { active = false }
   }, []))
+
+  useEffect(() => { void readReminderPreference().then(setReminderEnabled) }, [])
+
+  const toggleReminder = async () => {
+    const next = await setDailyReminder(!reminderEnabled)
+    setReminderEnabled(next)
+  }
 
   return <SafeAreaView style={styles.safe}>
     <ScrollView contentContainerStyle={styles.container}>
@@ -41,6 +50,7 @@ export default function HomeScreen() {
         <Link href="/journey" asChild><Pressable style={styles.navCard}><Text style={styles.navIndex}>01</Text><Text style={styles.navTitle}>{t.journey}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
         <Link href="/tandem" asChild><Pressable style={styles.navCard}><Text style={styles.navIndex}>02</Text><Text style={styles.navTitle}>{t.tandem}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
         <Pressable style={styles.navCard} onPress={() => setOffline(!offline)}><Text style={styles.navIndex}>03</Text><Text style={styles.navTitle}>{t.journal}</Text><Text style={styles.navArrow}>⌁</Text></Pressable>
+        <Pressable style={styles.reminderCard} onPress={() => void toggleReminder()}><Text style={styles.navIndex}>04</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.reminder}</Text><Text style={styles.reminderStatus}>{reminderEnabled ? t.reminderOn : t.reminderOff}</Text></View><Text style={styles.navArrow}>{reminderEnabled ? '●' : '○'}</Text></Pressable>
       </View>
     </ScrollView>
   </SafeAreaView>
@@ -75,4 +85,7 @@ const styles = StyleSheet.create({
   navIndex: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, width: 32 },
   navTitle: { color: colors.ink, fontFamily: typography.display, fontSize: 20, flex: 1 },
   navArrow: { color: colors.ink, fontSize: 20 },
+  reminderCard: { borderWidth: 1, borderColor: colors.copper, padding: 17, minHeight: 76, flexDirection: 'row', alignItems: 'center' },
+  reminderCopy: { flex: 1 },
+  reminderStatus: { color: colors.muted, fontFamily: typography.mono, fontSize: 9, marginTop: 5 },
 })
