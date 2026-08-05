@@ -18,6 +18,9 @@ export default defineConfig({
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],
     include: ['{packages,apps}/**/*.test.ts', 'tests/**/*.test.ts'],
-    exclude: ['**/node_modules/**'],
+    // `tests/rls` exige Docker et une base Postgres : c'est `npm run test:rls`.
+    // Sans cette exclusion, `npm test` les ramasse et ne passe que si une base
+    // traîne encore — un vert qui dépend de l'état de la machine.
+    exclude: ['**/node_modules/**', 'tests/rls/**'],
   },
 })
