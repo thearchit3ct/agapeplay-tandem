@@ -73,6 +73,7 @@ describe('textes réellement partagés', () => {
       for (const [key, value] of Object.entries(sharedLabels[locale])) {
         expect({ [key]: (webCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
         expect({ [key]: (mobileCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
+        expect({ [key]: (mobileTandemCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
       }
     }
   })

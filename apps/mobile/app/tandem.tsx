@@ -57,6 +57,15 @@ export default function TandemScreen() {
     return () => { active = false }
   }, [])
 
+  // Le web efface ses messages au bout de quelques secondes ; ici il n'y a pas
+  // de `showNotice`, et une phrase laissée là finirait par annoncer la reprise
+  // d'une conversation qu'on a quittée depuis longtemps.
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(''), 4200)
+    return () => clearTimeout(timer)
+  }, [notice])
+
   const affordance = unblockAffordance({
     status: tandem?.status ?? null,
     blockedBy: tandem?.blockedBy ?? null,
