@@ -8,9 +8,10 @@ import { loadPublishedJourney } from '@agapeplay/content'
 import { enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
 import { initialState, loadState, saveState } from './storage'
 import { copy } from '@agapeplay/content/copy/web'
-import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot } from '@agapeplay/domain'
+import { unblockAffordance } from '@agapeplay/domain'
+import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus } from '@agapeplay/domain'
 import {
-  AuthDialog, TrustDialog, SettingsDialog, InviteDialog, MentorView, ChurchView,
+  AuthDialog, TrustDialog, SettingsDialog, InviteDialog, UnblockDialog, MentorView, ChurchView,
   NavItem, TodayView, JourneyView, SessionFlow, JournalView, TandemView,
 } from './views'
 
@@ -36,7 +37,9 @@ function App() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [remoteTandemId, setRemoteTandemId] = useState<string | null>(null)
-  const [remoteTandemStatus, setRemoteTandemStatus] = useState<'active' | 'paused' | 'blocked' | 'ended' | null>(null)
+  const [remoteTandemStatus, setRemoteTandemStatus] = useState<TandemStatus | null>(null)
+  const [remoteTandemBlockedBy, setRemoteTandemBlockedBy] = useState<string | null>(null)
+  const [unblockOpen, setUnblockOpen] = useState(false)
   const [remoteMessages, setRemoteMessages] = useState<RemoteMessage[]>([])
   const [remoteJourney, setRemoteJourney] = useState<ReturnType<typeof getJourney> | null>(null)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
@@ -47,6 +50,12 @@ function App() {
   const t = copy[state.locale]
   const fallbackJourney = useMemo(() => getJourney(state.locale), [state.locale])
   const journey = remoteJourney ?? fallbackJourney
+  // Une seule règle, partagée avec le mobile : voir packages/domain/src/blocking.ts.
+  const affordance = unblockAffordance({
+    status: remoteTandemStatus,
+    blockedBy: remoteTandemBlockedBy,
+    currentUserId: authSession?.user.id,
+  })
   const currentSession = journey.sessions.find((session) => !state.completedSessionIds.includes(session.id)) ?? journey.sessions[0]
   const completedCount = state.completedSessionIds.length
 
@@ -192,13 +201,19 @@ function App() {
         }
       }
 
-      const tandemResult = await client.from('tandems').select('id, status, created_at').or(`participant_a_id.eq.${authSession.user.id},participant_b_id.eq.${authSession.user.id}`).order('created_at', { ascending: false }).limit(1)
+      // `blocked_by` fait partie de la sélection depuis le 06/08/2026 : sans
+      // elle, l'écran savait qu'un tandem était bloqué mais pas par qui, et ne
+      // pouvait donc montrer le chemin de déblocage qu'à celui qui a bloqué.
+      // `tandems_select_member` ne regarde pas le statut : la ligne — et cette
+      // colonne — restent lisibles par les deux participants même bloquées.
+      const tandemResult = await client.from('tandems').select('id, status, blocked_by, created_at').or(`participant_a_id.eq.${authSession.user.id},participant_b_id.eq.${authSession.user.id}`).order('created_at', { ascending: false }).limit(1)
       const remoteTandem = tandemResult.data?.[0]
       if (tandemResult.error) {
         if (!cancelled) showNotice(t.syncError, 4200)
       } else if (remoteTandem) {
         setRemoteTandemId(remoteTandem.id)
         setRemoteTandemStatus(remoteTandem.status)
+        setRemoteTandemBlockedBy(remoteTandem.blocked_by)
         const messagesResult = await client.from('tandem_messages').select('id, sender_id, body, created_at').eq('tandem_id', remoteTandem.id).order('created_at', { ascending: true })
         if (messagesResult.error) {
           if (!cancelled) showNotice(t.syncError, 4200)
@@ -331,7 +346,36 @@ function App() {
       return
     }
     setRemoteTandemStatus('blocked')
+    setRemoteTandemBlockedBy(authSession.user.id)
     showNotice(t.blockedNotice, 4200)
+  }
+
+  const unblockTandem = async () => {
+    setUnblockOpen(false)
+    if (!supabase || !authSession || !remoteTandemId) {
+      showNotice(t.blockNotice, 4200)
+      return
+    }
+    // Le geste symétrique de `blockTandem`, et il doit défaire les trois champs
+    // que celui-ci a posés. `blocked_by` remis à NULL n'est pas de la cosmétique :
+    // `tandems_update_member` exige `auth.uid() = blocked_by` pour tout passage à
+    // `blocked`, si bien qu'un `blocked_by` resté sur l'ancien bloqueur
+    // empêcherait l'autre participant de bloquer un jour à son tour.
+    //
+    // Côté politique, la levée passe parce que `using` (ancienne ligne, encore
+    // `blocked`) reconnaît `blocked_by`, et que `with check` (nouvelle ligne,
+    // `active`) sort par la branche `status <> 'blocked'`.
+    const { error } = await supabase
+      .from('tandems')
+      .update({ status: 'active', blocked_by: null, ended_at: null })
+      .eq('id', remoteTandemId)
+    if (error) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    setRemoteTandemStatus('active')
+    setRemoteTandemBlockedBy(null)
+    showNotice(t.unblockedNotice, 4200)
   }
 
   const reportTandem = async () => {
@@ -475,6 +519,7 @@ function App() {
         {trustOpen && <TrustDialog t={t} ageConfirmed={ageConfirmed} setAgeConfirmed={setAgeConfirmed} privacyAccepted={privacyAccepted} setPrivacyAccepted={setPrivacyAccepted} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted} onSave={() => void saveTrust()} />}
         {settingsOpen && <SettingsDialog t={t} prefs={state.notificationPrefs} onToggle={(key, value) => void toggleNotification(key, value)} onClose={() => setSettingsOpen(false)} onRequestDeletion={() => void requestDeletion()} />}
         {inviteOpen && <InviteDialog t={t} email={inviteEmail} setEmail={setInviteEmail} link={inviteLink} onCreate={() => void createInvitation()} onClose={() => { setInviteOpen(false); setInviteLink('') }} />}
+        {unblockOpen && <UnblockDialog t={t} onConfirm={() => void unblockTandem()} onClose={() => setUnblockOpen(false)} />}
 
         {notice && <div className="toast" role="status">{notice}</div>}
 
@@ -504,7 +549,7 @@ function App() {
             )}
             {state.activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
             {state.activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
-            {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
+            {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
             {state.activeTab === 'mentor' && <MentorView snapshot={mentorSnapshot} t={t} />}
             {state.activeTab === 'church' && <ChurchView snapshot={churchSnapshot} t={t} />}
           </>

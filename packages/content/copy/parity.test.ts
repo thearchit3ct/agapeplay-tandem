@@ -16,6 +16,7 @@
 import { describe, expect, it } from 'vitest'
 import { copy as webCopy } from './web'
 import { copy as mobileCopy } from './mobile-home'
+import { copy as mobileTandemCopy } from './mobile-tandem'
 import { sharedLabels } from './shared'
 
 /**
@@ -28,12 +29,14 @@ import { sharedLabels } from './shared'
 const homographes: Record<string, ReadonlySet<string>> = {
   'web.ts': new Set(['tandem', 'journal', 'notifications', 'participant', 'mentor', 'mentorRole']),
   'mobile-home.ts': new Set(['tandem', 'eyebrow']),
+  'mobile-tandem.ts': new Set(['tandem']),
   'shared.ts': new Set(['tandem']),
 }
 
 const catalogues = {
   'web.ts': webCopy,
   'mobile-home.ts': mobileCopy,
+  'mobile-tandem.ts': mobileTandemCopy,
   'shared.ts': sharedLabels,
 } as const
 
@@ -70,6 +73,7 @@ describe('textes réellement partagés', () => {
       for (const [key, value] of Object.entries(sharedLabels[locale])) {
         expect({ [key]: (webCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
         expect({ [key]: (mobileCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
+        expect({ [key]: (mobileTandemCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
       }
     }
   })
