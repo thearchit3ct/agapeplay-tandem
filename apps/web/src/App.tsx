@@ -319,7 +319,13 @@ function App() {
       showNotice(t.blockNotice, 4200)
       return
     }
-    const { error } = await supabase.from('tandems').update({ status: 'blocked', ended_at: new Date().toISOString() }).eq('id', remoteTandemId)
+    // `blocked_by` n'est pas décoratif : la politique RLS refuse un passage à
+    // `blocked` qui ne nomme pas son auteur, et c'est cette colonne qui décidera
+    // ensuite qui peut lever le blocage et qui garde l'accès à l'historique.
+    const { error } = await supabase
+      .from('tandems')
+      .update({ status: 'blocked', blocked_by: authSession.user.id, ended_at: new Date().toISOString() })
+      .eq('id', remoteTandemId)
     if (error) {
       showNotice(t.syncError, 4200)
       return
