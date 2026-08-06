@@ -72,7 +72,7 @@ Voir [`docs/15-MODE-DEVELOPPEMENT-SANS-SERVICES.md`](docs/15-MODE-DEVELOPPEMENT-
 
 Voir [`docs/PRODUCT-VISION.md`](docs/PRODUCT-VISION.md) pour le périmètre détaillé.
 
-Voir [`docs/19-ETAT-COMPLET-DU-PROJET-2026-08-05.md`](docs/19-ETAT-COMPLET-DU-PROJET-2026-08-05.md) pour l'état détaillé du projet et le backlog restant.
+Voir [`docs/21-ETAT-DU-PROJET-2026-08-06.md`](docs/21-ETAT-DU-PROJET-2026-08-06.md) pour l'état réel du projet, ce qui reste à faire, et les pièges déjà mesurés.
 
 ## Documentation
 
