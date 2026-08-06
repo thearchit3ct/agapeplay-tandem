@@ -1,5 +1,11 @@
 # État complet du projet AgapePlay Tandem
 
+> ⚠️ **Document daté du 5 août 2026, antérieur à la campagne de sécurité du 6.**
+> Sa description de l'état du projet — notamment sur les tests, les politiques
+> RLS et le backlog — n'est plus exacte. Pour l'état réel, lire
+> [`21-ETAT-DU-PROJET-2026-08-06.md`](./21-ETAT-DU-PROJET-2026-08-06.md).
+> Il reste utile pour ce qu'il dit de la vision et du périmètre produit.
+
 **Dernière mise à jour :** 5 août 2026  
 **Dépôt :** `thearchit3ct/agapeplay-tandem`  
 **Branche publiée :** `main`  
