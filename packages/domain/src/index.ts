@@ -6,9 +6,13 @@
  * côté du monorepo — `Locale` existait en double, dans le web et dans le
  * mobile. Un seul endroit, désormais, pour dire ce qu'est une séance.
  *
- * Ce paquet ne contient que des types : rien ici ne dépend d'un navigateur,
- * d'un stockage ni de React.
+ * Ce paquet ne contenait que des types jusqu'au 06/08/2026, où `blocking.ts`
+ * y a ajouté la première règle exécutable : rien ici ne dépend d'un navigateur,
+ * d'un stockage ni de React, et c'est ce qui la rend testable sans base.
  */
+
+export { unblockAffordance } from './blocking'
+export type { TandemStatus, TandemBlockView, UnblockAffordance } from './blocking'
 
 export type Locale = 'fr' | 'en'
 
