@@ -65,6 +65,47 @@ const accepter = (qui: Utilisateur, token: string) =>
     return rows[0].id
   })
 
+describe('émettre une invitation', () => {
+  // Le premier maillon du chemin, et un chemin de production : `App.tsx:406`
+  // insère directement dans `tandem_invitations` depuis le client. Les autres
+  // tests de ce fichier montent leurs invitations en `commeService`, donc hors
+  // RLS ; ces deux-là exercent l'émission telle qu'un utilisateur la vit.
+
+  it('TÉMOIN — on invite en son propre nom', async () => {
+    const emetteur = await commeService((client) => creerUtilisateur(client, `emetteur-${marque()}@test.local`))
+
+    const emise = await commeUtilisateur(emetteur, async (client) => {
+      const { rows, rowCount } = await client.query<{ token: string; status: string }>(
+        'insert into public.tandem_invitations (inviter_id, invitee_email) values ($1, $2) returning token, status',
+        [emetteur.id, `destinataire-${marque()}@test.local`],
+      )
+      return { rowCount, ...rows[0] }
+    })
+
+    expect(emise).toEqual({ rowCount: 1, token: expect.any(String), status: 'pending' })
+  })
+
+  it('GARDE — on n’invite pas au nom de quelqu’un d’autre', async () => {
+    // Sinon le code d'invitation arriverait au destinataire sous l'identité
+    // d'un tiers — un adulte pourrait faire porter son invitation par un
+    // mentor connu de la personne visée.
+    const suffixe = marque()
+    const [usurpateur, usurpe] = await commeService(async (client) => [
+      await creerUtilisateur(client, `usurpateur-${suffixe}@test.local`),
+      await creerUtilisateur(client, `usurpe-${suffixe}@test.local`),
+    ])
+
+    await expect(
+      commeUtilisateur(usurpateur, (client) =>
+        client.query('insert into public.tandem_invitations (inviter_id, invitee_email) values ($1, $2)', [
+          usurpe.id,
+          `cible-${suffixe}@test.local`,
+        ]),
+      ),
+    ).rejects.toThrow(/row-level security/i)
+  })
+})
+
 describe('accepter une invitation', () => {
   it('TÉMOIN — l’invitée voit bien l’invitation qui lui est adressée', async () => {
     // Sans ce témoin, un échec de l'acceptation pourrait tenir au décor plutôt

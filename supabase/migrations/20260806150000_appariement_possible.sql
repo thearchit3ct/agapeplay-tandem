@@ -95,10 +95,19 @@ grant insert on public.tandems to authenticated;
 -- `with check`, lui, **lève**, et remonte jusqu'à l'utilisateur. Fermer un
 -- contournement en en ouvrant un autre n'aurait rien réparé.
 --
--- Coût de ce choix, à savoir : une fenêtre de concurrence (le blocage arrive
--- entre l'évaluation du prédicat et le commit) qu'un index unique n'aurait pas.
--- Elle est étroite, et l'index existant continue d'interdire deux tandems
--- actifs pour la même paire.
+-- Coût de ce choix, à énoncer exactement : un prédicat de politique ne verrouille
+-- rien. `tandem_paire_bloquee` est `stable`, elle lit le snapshot de la
+-- transaction et ne voit pas une écriture non encore validée. Deux transactions
+-- simultanées — l'une qui pose le blocage, l'autre qui accepte l'invitation — ne
+-- se croisent sur aucun verrou, et l'index unique ne les rattrape pas puisqu'on
+-- a précisément choisi de ne pas l'élargir. **Le ré-appariement autour d'un
+-- blocage est donc fermé de façon sûre en séquentiel, et reste théoriquement
+-- franchissable en concurrence.** L'index existant continue par ailleurs
+-- d'interdire deux tandems actifs pour la même paire.
+--
+-- L'arbitrage est reprenable : élargir `tandems_active_pair_idx` à `'blocked'`
+-- fermerait cette fenêtre, au prix de réécrire `accept_tandem_invitation` pour
+-- que la collision cesse d'être avalée silencieusement.
 --
 -- ---------------------------------------------------------------------------
 -- Pourquoi une fonction plutôt qu'un `not exists` en clair
