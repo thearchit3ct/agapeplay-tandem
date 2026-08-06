@@ -2,15 +2,18 @@
  * ADR-002, règle 4 : le signalement est visible de la modération, pas de la
  * personne signalée.
  *
- * Le schéma tient la seconde moitié et pas la première. `reports_select_reporter`
- * (migration 005) n'ouvre la lecture qu'à `auth.uid() = reporter_id` : la
- * personne signalée ne voit rien — c'est acquis, et testé. En revanche **aucune
- * politique de modération n'existe** dans les sept migrations : pas de rôle
- * modérateur, pas de table d'équipe, aucune lecture élargie. La modération ne
- * peut lire que par `service_role`, qui contourne la RLS — et aucun code du
- * dépôt ne l'utilise.
+ * Ce fichier a longtemps constaté que le schéma ne tenait que la seconde moitié
+ * de cette règle. `reports_select_reporter` (migration `…_000005`) n'ouvre la
+ * lecture qu'à `auth.uid() = reporter_id` : la personne signalée ne voit rien,
+ * c'est acquis et testé plus bas. Mais aucune politique de modération n'existait
+ * dans les sept premières migrations — pas de rôle modérateur, pas de table
+ * d'équipe, aucune lecture élargie —, et un signalement partait donc dans une
+ * table que personne ne lisait.
  *
- * On ne l'invente pas ici : on constate, et on le signale comme écart.
+ * `20260806163000_role_moderateur` a comblé l'écart, et le dernier test de ce
+ * fichier — qui annonçait devoir devenir une garde le jour venu — l'est devenu.
+ * Ce qui relève de la modération elle-même vit dans `moderation.test.ts` ; ici
+ * on garde le signalement : qui peut en poser un, et qui ne doit pas le voir.
  */
 import { beforeAll, describe, expect, it } from 'vitest'
 import { commeAnonyme, commeService, commeUtilisateur, creerUtilisateur, type Utilisateur } from './harnais'
@@ -105,19 +108,34 @@ describe('signaler quelqu’un', () => {
     ).rejects.toThrow(/permission denied/i)
   })
 
-  it('ÉCART ADR-002 — aucune politique n’ouvre les signalements à la modération', async () => {
-    // Le seul chemin de lecture des signalements passe par `reporter_id`. On
-    // le vérifie sur le schéma lui-même plutôt que par déduction : si une
-    // politique de modération est ajoutée un jour, ce test rougira et devra
-    // être réécrit en garde — c'est le signal attendu.
+  it('GARDE — deux chemins de lecture, et deux seulement', async () => {
+    // Ce test constatait l'écart de l'ADR-002 : aucune politique n'ouvrait les
+    // signalements à la modération. `20260806163000_role_moderateur` l'a
+    // comblé, et le test devient ce que son ancienne rédaction annonçait — une
+    // garde sur le jeu exact des politiques.
+    //
+    // On le vérifie sur le schéma plutôt que par déduction, parce que les
+    // politiques SELECT permissives s'additionnent : une troisième, ajoutée
+    // sans qu'on y prenne garde, élargirait la lecture sans faire rougir aucun
+    // test de comportement de ce fichier.
     const politiques = await commeService(async (client) => {
-      const { rows } = await client.query<{ policyname: string; qual: string | null; roles: string }>(
-        "select policyname, qual, roles::text from pg_policies where schemaname = 'public' and tablename = 'tandem_reports' and cmd = 'SELECT'",
+      const { rows } = await client.query<{ policyname: string; qual: string | null }>(
+        "select policyname, qual from pg_policies where schemaname = 'public' and tablename = 'tandem_reports' and cmd = 'SELECT' order by policyname",
       )
       return rows
     })
 
-    expect(politiques.map((politique) => politique.policyname)).toEqual(['reports_select_reporter'])
-    expect(politiques[0].qual).toContain('reporter_id')
+    expect(politiques.map((politique) => politique.policyname)).toEqual([
+      'reports_select_moderator',
+      'reports_select_reporter',
+    ])
+
+    // Le chemin modération passe par la fonction, jamais par une lecture
+    // directe de `tandem_moderators` : cette table n'a aucun `grant`, une
+    // politique qui l'interrogerait en clair échouerait sur les droits de
+    // l'appelant — et l'y ouvrir publierait la liste des modérateurs.
+    expect(politiques[0].qual).toContain('tandem_est_moderateur()')
+    expect(politiques[0].qual).not.toContain('tandem_moderators')
+    expect(politiques[1].qual).toContain('reporter_id')
   })
 })
