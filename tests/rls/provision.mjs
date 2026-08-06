@@ -1,17 +1,17 @@
 /**
  * Monte une base Supabase locale jetable à partir des migrations du dépôt.
  *
- * Le dépôt nomme ses migrations `20260804_000001_…` — huit chiffres. Le CLI
- * attend quatorze : il tronque la version à `20260804`, considère les sept
- * fichiers comme une seule et même version, et casse sur collision de clé
- * primaire au deuxième. Mesuré : la base s'arrête à 3 tables sur 18.
+ * Les migrations sont copiées telles quelles depuis `supabase/migrations`.
+ * Elles portent toutes un préfixe à quatorze chiffres, ce qui est la seule
+ * forme que le CLI sache lire — voir `migrations.test.ts`, qui l'exige sans
+ * avoir besoin d'une base.
  *
- * On ne renomme donc rien dans le dépôt — l'historique du projet distant
- * enregistre ces migrations sous d'autres versions, et les réconcilier est une
- * décision de l'utilisateur. Le harnais **copie** les fichiers dans un dossier
- * temporaire en les renumérotant, dans leur ordre lexicographique actuel. Les
- * tests deviennent indépendants du nommage du dépôt, et le jour où
- * l'utilisateur tranche, il n'y a rien à refaire ici.
+ * Ce harnais a longtemps renuméroté les fichiers en les copiant, parce que le
+ * dépôt les nommait sur huit chiffres : le CLI tronquait alors la version à
+ * `20260804`, prenait les sept fichiers pour une seule et même version, et
+ * cassait sur collision de clé primaire au deuxième. Mesuré à l'époque : la
+ * base s'arrêtait à 3 tables sur 18. Le renommage a supprimé la cause ; la
+ * béquille n'a plus lieu d'être, et la garde a pris sa place.
  *
  * `supabase/config.toml` n'est pas versionné : on fait `supabase init`.
  */
@@ -46,10 +46,15 @@ export const demarrer = () => {
   const fichiers = readdirSync(source).filter((nom) => nom.endsWith('.sql')).sort()
   if (fichiers.length === 0) throw new Error('aucune migration trouvée dans supabase/migrations')
 
-  fichiers.forEach((nom, index) => {
-    const libelle = nom.replace(/^\d+_\d+_/, '').replace(/^\d+_/, '')
-    const version = `202608041200${String(index + 1).padStart(2, '0')}`
-    copyFileSync(join(source, nom), join(DOSSIER, 'supabase', 'migrations', `${version}_${libelle}`))
+  const malNommees = fichiers.filter((nom) => !/^\d{14}_/.test(nom))
+  if (malNommees.length > 0) {
+    throw new Error(
+      `migration(s) au préfixe non conforme, le CLI les ignorerait ou les confondrait : ${malNommees.join(', ')}`,
+    )
+  }
+
+  fichiers.forEach((nom) => {
+    copyFileSync(join(source, nom), join(DOSSIER, 'supabase', 'migrations', nom))
   })
 
   supabase(['start', '-x', SERVICES_EXCLUS.join(',')], { stdio: 'inherit' })
