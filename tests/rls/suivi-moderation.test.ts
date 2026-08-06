@@ -128,15 +128,6 @@ beforeAll(async () => {
   })
 })
 
-const statutDe = (id: string) =>
-  commeService(async (client) => {
-    const { rows } = await client.query<{ status: string; resolved_at: string | null }>(
-      'select status, resolved_at from public.tandem_reports where id = $1',
-      [id],
-    )
-    return rows[0]
-  })
-
 describe('faire avancer un signalement', () => {
   it('TÉMOIN — le modérateur lit bien les signalements', async () => {
     // Si ce témoin tombe, c'est le harnais ou la migration précédente qui a
@@ -187,31 +178,40 @@ describe('faire avancer un signalement', () => {
     expect(Number(vu.ecart)).toBeLessThan(60)
   })
 
-  it('⭐ le modérateur ne modifie PAS le motif du signalement', async () => {
-    // Le test le plus important du lot côté écriture. Une politique restreint
-    // des lignes, jamais des colonnes : `grant update` sur la table aurait
-    // laissé un modérateur réécrire le témoignage de la personne qui a signalé,
-    // et aucune politique n'aurait pu l'en empêcher. Le refus vient du grant,
-    // donc il **lève** — et le message parle de « table », mesuré, pas supposé.
-    await expect(
-      commeUtilisateur(moderateur, (client) =>
-        client.query("update public.tandem_reports set reason = 'motif réécrit' where id = $1", [signalementActif]),
-      ),
-    ).rejects.toThrow(/permission denied/i)
+  it('⭐ le modérateur ne modifie AUCUNE autre colonne du signalement', async () => {
+    // Le test le plus important du lot côté écriture, et il est écrit comme
+    // l'exigence : « rien d'autre que le statut ». Nommer une ou deux colonnes
+    // aurait laissé les autres sans mesure — la vérification par mutation l'a
+    // montré, `resolved_at` était affirmé fermé par la migration et testé par
+    // personne. Énumérer la table entière attrape aussi la colonne qu'un
+    // successeur ajouterait au grant sans y penser.
+    //
+    // Une politique restreint des lignes, jamais des colonnes : `grant update`
+    // sur la table aurait laissé un modérateur réécrire `reason`, c'est-à-dire
+    // le témoignage de la personne qui a signalé, et aucune politique n'aurait
+    // pu l'en empêcher. Le refus vient donc du grant, et il **lève** — sur
+    // « permission denied for **table** », mesuré et non supposé : PostgreSQL
+    // ne dit pas « for column » ici.
+    const colonnes = await commeService(async (client) => {
+      const { rows } = await client.query<{ column_name: string }>(
+        `select column_name from information_schema.columns
+          where table_schema = 'public' and table_name = 'tandem_reports' and column_name <> 'status'
+          order by column_name`,
+      )
+      return rows.map((ligne) => ligne.column_name)
+    })
 
-    expect((await statutDe(signalementActif)).status).not.toBe('motif réécrit')
-  })
+    // TÉMOIN : sans lui, une liste vide ferait passer la boucle sans rien tester.
+    expect(colonnes).toEqual(['created_at', 'id', 'message_id', 'reason', 'reporter_id', 'resolved_at', 'tandem_id'])
 
-  it('… ni le message qu’il désigne', async () => {
-    // Deuxième colonne, et ce n'est pas de la redondance : avec une seule, un
-    // refus accidentel (une colonne oubliée, une contrainte) se confondrait
-    // avec la borne cherchée. Déplacer `message_id` reviendrait à faire porter
-    // un signalement sur un autre message que celui dénoncé.
-    await expect(
-      commeUtilisateur(moderateur, (client) =>
-        client.query('update public.tandem_reports set message_id = null where id = $1', [signalementActif]),
-      ),
-    ).rejects.toThrow(/permission denied/i)
+    for (const colonne of colonnes) {
+      await expect(
+        commeUtilisateur(moderateur, (client) =>
+          client.query(`update public.tandem_reports set ${colonne} = null where id = $1`, [signalementActif]),
+        ),
+        `la colonne « ${colonne} » doit rester hors d’atteinte`,
+      ).rejects.toThrow(/permission denied/i)
+    }
   })
 
   it('… ni glisser une colonne fermée à côté du statut', async () => {
@@ -383,6 +383,18 @@ describe('le journal d’audit', () => {
         /journal d'audit : ses lignes ne se modifient ni ne s'effacent/i,
       )
     }
+  })
+
+  it('… et « truncate » ne passe pas non plus sous la garde', async () => {
+    // `truncate` ne déclenche pas un trigger `for each row` : il n'a pas de
+    // ligne à lui passer. Il aurait donc vidé le journal en passant sous la
+    // garde de l'assertion précédente — d'où un second trigger, au niveau
+    // instruction. Cette assertion n'existait pas quand la garde a été
+    // ajoutée, et la mutation correspondante ne faisait rougir personne : une
+    // garde sans test n'est qu'une intention.
+    await expect(commeService((client) => client.query('truncate public.tandem_report_audit'))).rejects.toThrow(
+      /journal d'audit : ses lignes ne se modifient ni ne s'effacent/i,
+    )
   })
 
   it('un utilisateur ordinaire ne lit rien du journal, l’auteur du signalement non plus', async () => {

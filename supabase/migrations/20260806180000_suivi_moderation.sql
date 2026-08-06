@@ -44,10 +44,21 @@
 grant update (status) on public.tandem_reports to authenticated;
 
 -- La ligne, maintenant. `using` porte sur l'ancienne ligne, `with check` sur la
--- nouvelle ; ici le prédicat ne parle que de l'appelant, donc le même aux deux
--- endroits. Sans `with check`, une politique UPDATE laisse passer n'importe
--- quelle nouvelle valeur : la borne serait sur qui commence, pas sur ce qui
--- arrive.
+-- nouvelle. Ici le prédicat ne parle que de l'appelant et ne référence aucune
+-- colonne : les deux disent donc rigoureusement la même chose, et le `with
+-- check` est là par explicitation, non par nécessité.
+--
+-- ⚠️ Une première rédaction de ce commentaire affirmait l'inverse — « sans
+-- `with check`, une politique UPDATE laisse passer n'importe quelle nouvelle
+-- valeur ». C'est faux, et la base l'a tranché contre le raisonnement :
+--
+--     create policy … for update using (proprio = <moi>);   -- using seul
+--     update … set proprio = <un tiers>;
+--     ERROR:  new row violates row-level security policy
+--
+-- En l'absence de `with check`, PostgreSQL réemploie l'expression `using` pour
+-- contrôler la nouvelle ligne. La borne existe donc dans les deux cas ; ce que
+-- l'écriture explicite apporte ici est la lisibilité, pas la sûreté.
 --
 -- Le contraste avec le grant est le cœur du sujet, et deux tests le séparent :
 --
@@ -223,6 +234,15 @@ create trigger tandem_report_audit_immuable_trg
   for each row
   execute function public.tandem_report_audit_immuable();
 
+-- `truncate` ne déclenche pas un trigger `for each row` : il n'y a pas de ligne
+-- à lui passer. Il viderait donc le journal en passant sous la garde ci-dessus.
+-- D'où ce second trigger, au niveau instruction, qui coûte une ligne.
+drop trigger if exists tandem_report_audit_immuable_truncate_trg on public.tandem_report_audit;
+create trigger tandem_report_audit_immuable_truncate_trg
+  before truncate on public.tandem_report_audit
+  for each statement
+  execute function public.tandem_report_audit_immuable();
+
 -- ---------------------------------------------------------------------------
 -- 3. Le contexte de la relation, sans les personnes
 -- ---------------------------------------------------------------------------
@@ -272,7 +292,13 @@ create trigger tandem_report_audit_immuable_trg
 -- l'appelant lit de toute façon tous les signalements.
 --
 -- Les colonnes sont énumérées une à une, et il n'y a pas de `blocked_by` :
--- c'est l'uuid d'un participant. ⚠️ Ne jamais remplacer cette liste par `t.*`.
+-- c'est l'uuid d'un participant. ⚠️ Ne jamais remplacer cette liste par `t.*` —
+-- un test porte sur l'ensemble exact des colonnes, précisément pour ça.
+--
+-- ⚠️ Piège payé en direct : `create or replace view` **refuse** de changer le
+-- jeu de colonnes d'une vue existante. Ajouter ou retirer une colonne ici exige
+-- un `drop view` — qui emporte aussi le `grant select`, à réémettre. La
+-- vérification par mutation de ce lot a d'abord échoué en silence là-dessus.
 
 create or replace view public.tandem_contexte_signale
 with (security_invoker = off) as
