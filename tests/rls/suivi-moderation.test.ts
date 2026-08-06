@@ -171,14 +171,19 @@ describe('faire avancer un signalement', () => {
     // une date.
     const vu = await commeUtilisateur(moderateur, async (client) => {
       await client.query("update public.tandem_reports set status = 'resolved' where id = $1", [signalementActif])
-      const { rows } = await client.query<{ status: string; ecart: number }>(
-        "select status, extract(epoch from (timezone('utc', now()) - resolved_at)) as ecart from public.tandem_reports where id = $1",
+      const { rows } = await client.query<{ status: string; resolved_at: string | null; ecart: number | null }>(
+        "select status, resolved_at, extract(epoch from (timezone('utc', now()) - resolved_at)) as ecart from public.tandem_reports where id = $1",
         [signalementActif],
       )
       return rows[0]
     })
 
     expect(vu.status).toBe('resolved')
+    // La non-nullité d'abord, et ce n'est pas du zèle : la vérification par
+    // mutation a montré que sans elle ce test restait vert alors que le trigger
+    // ne posait plus rien. `resolved_at` NULL rend un écart NULL, que
+    // `Number(null)` transforme en 0 — donc « moins de 60 secondes ».
+    expect(vu.resolved_at).not.toBeNull()
     expect(Number(vu.ecart)).toBeLessThan(60)
   })
 
