@@ -237,13 +237,17 @@ describe('ce que la modération ne peut pas faire', () => {
     expect(await lireLesSignalements(moderateur)).toContain('Propos déplacés.')
   })
 
-  it('le modérateur ne modifie pas un signalement', async () => {
-    // Corollaire : `grant select, insert` seulement. La colonne `status`
-    // (`open` / `reviewing` / `resolved`) reste donc inatteignable par l'API —
-    // écart connu, à trancher à part.
+  it('le modérateur ne modifie d’un signalement que son statut', async () => {
+    // Ce test disait autrefois « ne modifie pas un signalement », et l'écart
+    // était noté : `grant select, insert` seulement, donc `status` inatteignable
+    // par l'API. L'écart a été tranché — grant **par colonne** sur `status`
+    // seul, plus un journal d'audit. Le suivi est mesuré dans
+    // `suivi-moderation.test.ts` ; ce qui reste ici est la borne qui n'a pas
+    // bougé : tout le reste du signalement demeure hors d'atteinte, à commencer
+    // par le motif, c'est-à-dire le témoignage de la personne qui a signalé.
     await expect(
       commeUtilisateur(moderateur, (client) =>
-        client.query("update public.tandem_reports set status = 'resolved'"),
+        client.query("update public.tandem_reports set reason = 'motif réécrit'"),
       ),
     ).rejects.toThrow(/permission denied/i)
   })
