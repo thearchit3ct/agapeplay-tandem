@@ -213,6 +213,41 @@ describe('se ré-apparier autour d’un blocage', () => {
     await expect(accepter(claire, token)).rejects.toThrow(/row-level security/i)
   })
 
+  it('GARDE — la fonction de blocage ne renseigne pas un tiers', async () => {
+    // `tandem_paire_bloquee` est `security definer` : elle traverse la RLS, et
+    // pourrait servir de sonde — « ces deux personnes ont-elles un tandem
+    // bloqué ? ». Elle se garde elle-même en répondant `true` à qui n'est pas
+    // participant : une constante ne renseigne sur rien, et `true` referme la
+    // politique. Le conjonct qui exige d'être participant rend ce cas
+    // inatteignable par la politique ; l'ordre d'évaluation des conjoncts
+    // n'étant pas garanti, on vérifie la fonction directement.
+    const { claire, indesirable } = await monterPaireBloquee()
+    const sondeur = await commeService((client) => creerUtilisateur(client, `sondeur-${marque()}@test.local`))
+
+    const paireLibre = await commeService(async (client) => {
+      const suffixe = marque()
+      const un = await creerUtilisateur(client, `libre-a-${suffixe}@test.local`)
+      const deux = await creerUtilisateur(client, `libre-b-${suffixe}@test.local`)
+      return [un, deux]
+    })
+
+    const reponses = await commeUtilisateur(sondeur, async (client) => {
+      const bloquee = await client.query<{ r: boolean }>('select public.tandem_paire_bloquee($1, $2) as r', [
+        claire.id,
+        indesirable.id,
+      ])
+      const libre = await client.query<{ r: boolean }>('select public.tandem_paire_bloquee($1, $2) as r', [
+        paireLibre[0].id,
+        paireLibre[1].id,
+      ])
+      return { bloquee: bloquee.rows[0].r, libre: libre.rows[0].r }
+    })
+
+    // Les deux réponses sont identiques : le sondeur ne distingue pas une paire
+    // bloquée d'une paire qui n'a jamais existé.
+    expect(reponses).toEqual({ bloquee: true, libre: true })
+  })
+
   it('le blocage tient aussi contre une insertion directe', async () => {
     // Sans passer par la RPC : la politique doit tenir seule, c'est elle le
     // rempart si un client parle à PostgREST en direct.
