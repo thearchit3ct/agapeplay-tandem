@@ -161,6 +161,13 @@ h3 { color: #f4eedf; font-size: 19px; line-height: 1.3; margin-bottom: 12px; }
 .safety-actions { display: flex; justify-content: space-between; border-top: 1px solid var(--night-line); margin-top: 24px; padding-top: 16px; }
 .danger { color: #d58c7d; }
 
+/* L'encadré qui explique un blocage, et n'ouvre la porte qu'à celui qui l'a posé. */
+.block-panel { margin-top: 22px; padding: 16px 18px; border: 1px solid var(--copper); background: #1a1512; }
+.block-panel p { margin: 9px 0 0; color: #ded6c8; font-size: 12px; line-height: 1.65; }
+.block-panel .outline-button { margin-top: 14px; }
+.unblock-dialog .unblock-reversible { margin-top: 12px; font-size: 12px; }
+.unblock-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 24px; }
+
 @keyframes scene-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
@@ -329,6 +336,11 @@ h3 { color: #eeeeea; font-weight: 400; }
 .message-composer input:disabled, .message-composer button:disabled { cursor: not-allowed; opacity: .55; }
 .safety-actions { border-top-color: #4a4a45; }
 .danger { color: #eeeeea; }
+
+/* Sur le fond imprimé, le trait suffit à isoler l'encadré : pas de teinte
+   d'alerte, un blocage n'est pas une erreur mais une décision qu'on relit. */
+.block-panel { border: 1px solid #8f8f88; border-left-width: 3px; background: transparent; }
+.block-panel p { color: #bdbdb6; }
 
 .auth-strip { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid #4a4a45; color: #bdbdb6; font-size: 10px; }
 .auth-strip button { border: 0; padding: 0; background: transparent; color: #eeeeea; font: 600 10px 'DM Mono', monospace; text-decoration: underline; text-underline-offset: 3px; }

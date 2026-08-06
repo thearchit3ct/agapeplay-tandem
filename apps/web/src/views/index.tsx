@@ -14,7 +14,7 @@ import { supabase } from '../lib/supabaseClient'
 import type { AppState } from '@agapeplay/domain'
 import { getJourney } from '../mockData'
 import type { Copy } from '@agapeplay/content/copy/web'
-import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot } from '@agapeplay/domain'
+import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance } from '@agapeplay/domain'
 
 export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClose: () => void }) {
   const [email, setEmail] = useState('')
@@ -125,6 +125,29 @@ export function InviteDialog({ t, email, setEmail, link, onCreate, onClose }: { 
   </div>
 }
 
+/**
+ * La confirmation avant de lever un blocage.
+ *
+ * Elle ne demande pas « es-tu sûr ? » — la question n'apprend rien. Elle dit
+ * ce qui reprend, et dans quel sens : la conversation redevient possible des
+ * deux côtés, l'historique redevient lisible pour les deux. Le bouton qui
+ * annule est nommé, lui aussi, pour qu'on puisse renoncer sans chercher.
+ */
+export function UnblockDialog({ t, onConfirm, onClose }: { t: Copy; onConfirm: () => void; onClose: () => void }) {
+  return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
+    <section className="auth-dialog unblock-dialog" role="dialog" aria-modal="true" aria-labelledby="unblock-dialog-title" onClick={(event) => event.stopPropagation()}>
+      <div className="auth-dialog-top"><span className="section-kicker">{t.privateConversation}</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
+      <h2 id="unblock-dialog-title">{t.unblockTitle}</h2>
+      <p>{t.unblockDescription}</p>
+      <p className="unblock-reversible">{t.unblockReversible}</p>
+      <div className="unblock-actions">
+        <button className="primary-button" onClick={onConfirm}>{t.unblockConfirm}<span aria-hidden="true">→</span></button>
+        <button className="text-button" onClick={onClose}>{t.unblockCancel}</button>
+      </div>
+    </section>
+  </div>
+}
+
 export function MentorView({ snapshot, t }: { snapshot: MentorSnapshot; t: Copy }) {
   const verification = snapshot?.verificationStatus === 'verified' ? t.verifiedStatus : t.pendingStatus
   const training = snapshot?.trainingStatus === 'completed' ? t.completedStatus : t.requiredStatus
@@ -205,7 +228,25 @@ export function JournalView({ entries, draft, setDraft, onAdd, t }: { entries: A
   return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.private}</span><h2>{t.journal}</h2><p>{t.emptyJournal}</p></div><span className="lock-mark" aria-hidden="true">⌁</span></div><div className="journal-composer"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={t.write} /><div className="composer-footer"><span>{t.privateOnly}</span><button className="primary-button compact" onClick={onAdd}>{t.save} <span aria-hidden="true">→</span></button></div></div><div className="journal-list">{entries.map((entry) => <article className="journal-entry" key={entry.id}><div><span className="entry-date">{new Date(entry.createdAt).toLocaleDateString()}</span><span className="entry-mood">{t.present}</span></div><p>{entry.text}</p></article>)}</div></section>
 }
 
-export function TandemView({ tandem, messages, currentUserId, status, draft, setDraft, onSend, onBlock, onReport, onInvite, t }: { tandem: AppState['tandem']; messages: RemoteMessage[]; currentUserId?: string; status: 'active' | 'paused' | 'blocked' | 'ended' | null; draft: string; setDraft: (value: string) => void; onSend: () => void; onBlock: () => void; onReport: () => void; onInvite: () => void; t: Copy }) {
+export function TandemView({ tandem, messages, currentUserId, status, affordance, draft, setDraft, onSend, onBlock, onUnblock, onReport, onInvite, t }: { tandem: AppState['tandem']; messages: RemoteMessage[]; currentUserId?: string; status: TandemStatus | null; affordance: UnblockAffordance; draft: string; setDraft: (value: string) => void; onSend: () => void; onBlock: () => void; onUnblock: () => void; onReport: () => void; onInvite: () => void; t: Copy }) {
+  // `isBlocked` décide de la messagerie, `affordance` décide du déblocage. Les
+  // deux ne se recouvrent pas : `ended` coupe la conversation sans être un
+  // blocage qu'on puisse lever, et une ligne gelée est bloquée sans porte.
   const isBlocked = status === 'blocked' || status === 'ended'
-  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {isBlocked ? t.blockedStatus : t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">É</div><div><h3>{tandem.name}</h3><p>{t.tandemQuote}</p></div><span className="status-chip">{isBlocked ? t.blockedStatus : t.activeStatus}</span></div><div className="message-thread">{messages.length ? messages.map((message) => <div className={`message ${message.senderId === currentUserId ? 'sent' : 'received'}`} key={message.id}>{message.body}<span>{new Date(message.createdAt).toLocaleString()}</span></div>) : <><div className="message received">{tandem.lastMessage}<span>{tandem.lastMessageAt}</span></div><div className="message sent">{t.prayerPhrase}<span>{t.yesterday}</span></div></>}</div><div className="message-composer"><input disabled={isBlocked} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={isBlocked ? t.messageUnavailable : t.encouragement} /><button disabled={isBlocked} className="primary-button compact" onClick={onSend}>{t.send}</button></div><div className="safety-actions"><button className="text-button danger" onClick={onReport}>{t.report}</button><button className="text-button" onClick={onBlock}>{t.block}</button></div></section>
+
+  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {isBlocked ? t.blockedStatus : t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">É</div><div><h3>{tandem.name}</h3><p>{t.tandemQuote}</p></div><span className="status-chip">{isBlocked ? t.blockedStatus : t.activeStatus}</span></div><div className="message-thread">{messages.length ? messages.map((message) => <div className={`message ${message.senderId === currentUserId ? 'sent' : 'received'}`} key={message.id}>{message.body}<span>{new Date(message.createdAt).toLocaleString()}</span></div>) : <><div className="message received">{tandem.lastMessage}<span>{tandem.lastMessageAt}</span></div><div className="message sent">{t.prayerPhrase}<span>{t.yesterday}</span></div></>}</div><div className="message-composer"><input disabled={isBlocked} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={isBlocked ? t.messageUnavailable : t.encouragement} /><button disabled={isBlocked} className="primary-button compact" onClick={onSend}>{t.send}</button></div>
+
+    {affordance !== 'hidden' && <div className="block-panel" role="status">
+      <span className="section-kicker">{t.blockedStatus}</span>
+      {affordance === 'unblockable' && <>
+        <p>{t.unblockOwnerNote}</p>
+        <button className="outline-button" onClick={onUnblock}>{t.unblock}<span aria-hidden="true">→</span></button>
+      </>}
+      {/* Pas de bouton ici : la politique le refuserait, et un bouton qui
+          échoue est une promesse trahie. La phrase remplace le geste. */}
+      {affordance === 'blocked-by-other' && <p>{t.unblockOtherNote}</p>}
+      {affordance === 'frozen' && <p>{t.unblockFrozenNote}</p>}
+    </div>}
+
+    <div className="safety-actions"><button className="text-button danger" onClick={onReport}>{t.report}</button>{!isBlocked && <button className="text-button" onClick={onBlock}>{t.block}</button>}</div></section>
 }
