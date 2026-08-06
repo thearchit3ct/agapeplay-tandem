@@ -113,8 +113,13 @@ create policy "messages_select_member"
 -- s'applique immédiatement au lieu d'attendre un re-blocage — au prix d'une
 -- ligne que ses deux participants ne peuvent plus débloquer seuls.
 --
--- Le dégel est une décision humaine, prise hors RLS avec la clé `service_role`,
--- en nommant celui qui avait bloqué :
+-- Le dégel est une décision humaine, prise hors RLS depuis l'éditeur SQL du
+-- tableau de bord Supabase, en nommant celui qui avait bloqué.
+--
+-- ⚠️ Pas depuis la Data API avec une clé `service_role` : sur la base que ces
+-- migrations reconstruisent, `service_role` n'a ni SELECT ni UPDATE sur
+-- `public.tandems` — aucun `grant` ne les lui donne. L'éditeur SQL, lui,
+-- travaille en `postgres` et traverse la RLS.
 --
 --     update public.tandems
 --        set blocked_by = '<uuid du participant qui a bloqué>'
@@ -136,7 +141,7 @@ begin
   where status = 'blocked' and blocked_by is null;
 
   if gelees > 0 then
-    raise warning 'blocage_effectif : % tandem(s) bloqué(s) avant cette migration sont gelés (blocked_by NULL). Ni lecture ni déblocage par l''API tant qu''un opérateur n''a pas renseigné blocked_by en service_role.', gelees;
+    raise warning 'blocage_effectif : % tandem(s) bloqué(s) avant cette migration sont gelés (blocked_by NULL). Ni lecture ni déblocage par l''API tant qu''un opérateur n''a pas renseigné blocked_by depuis l''éditeur SQL du tableau de bord.', gelees;
   else
     raise notice 'blocage_effectif : aucun tandem bloqué préexistant, rien à traiter.';
   end if;
