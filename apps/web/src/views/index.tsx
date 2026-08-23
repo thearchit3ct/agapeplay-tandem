@@ -15,6 +15,7 @@ import type { AppState } from '@agapeplay/domain'
 import { getJourney } from '../mockData'
 import type { Copy } from '@agapeplay/content/copy/web'
 import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance } from '@agapeplay/domain'
+import { initialeDe } from '@agapeplay/domain'
 
 export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClose: () => void }) {
   const [email, setEmail] = useState('')
@@ -181,7 +182,7 @@ export function NavItem({ active, label, icon, onClick }: { active: boolean; lab
 }
 
 
-export function TodayView({ session, completedCount, t, onStart, onOpenJournal, onOpenTandem }: { session: ReturnType<typeof getJourney>['sessions'][number]; completedCount: number; t: Copy; onStart: () => void; onOpenJournal: () => void; onOpenTandem: () => void }) {
+export function TodayView({ session, completedCount, partnerName, t, onStart, onOpenJournal, onOpenTandem }: { session: ReturnType<typeof getJourney>['sessions'][number]; completedCount: number; partnerName: string | null; t: Copy; onStart: () => void; onOpenJournal: () => void; onOpenTandem: () => void }) {
   return <>
     <section className="hero-grid">
       <article className="session-card">
@@ -203,7 +204,12 @@ export function TodayView({ session, completedCount, t, onStart, onOpenJournal, 
 
     <section className="lower-grid">
       <div className="prompt-panel"><div className="panel-heading"><span className="section-kicker">{t.reflection}</span><span className="private-label">⌁ {t.private}</span></div><h3>{session.prompt}</h3><button className="outline-button" onClick={onOpenJournal}>{t.write}<span aria-hidden="true">→</span></button></div>
-      <div className="tandem-mini"><div className="panel-heading"><span className="section-kicker">{t.yourTandem}</span><span className="online-badge">● {t.online}</span></div><div className="tandem-person"><div className="avatar avatar-rose">É</div><div><strong>Élodie Martin</strong><span>{t.tandemQuote}</span></div></div><button className="text-button" onClick={onOpenTandem}>{t.share} <span aria-hidden="true">→</span></button></div>
+      {/* Le vrai nom du partenaire, via tandem_partenaire() — plus jamais un
+          nom de maquette. Sans tandem (ou nom pas encore posé), on invite au
+          lieu d'inventer, et le badge « actif » n'est plus affirmé à vide. */}
+      <div className="tandem-mini"><div className="panel-heading"><span className="section-kicker">{t.yourTandem}</span>{partnerName && <span className="online-badge">● {t.online}</span>}</div>{partnerName
+        ? <div className="tandem-person"><div className="avatar avatar-rose">{initialeDe(partnerName)}</div><div><strong>{partnerName}</strong><span>{t.tandemRole}</span></div></div>
+        : <div className="tandem-person"><div className="avatar avatar-rose">?</div><div><span>{t.noTandemYet}</span></div></div>}<button className="text-button" onClick={onOpenTandem}>{partnerName ? t.share : t.invite} <span aria-hidden="true">→</span></button></div>
     </section>
   </>
 }
@@ -228,13 +234,13 @@ export function JournalView({ entries, draft, setDraft, onAdd, t }: { entries: A
   return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.private}</span><h2>{t.journal}</h2><p>{t.emptyJournal}</p></div><span className="lock-mark" aria-hidden="true">⌁</span></div><div className="journal-composer"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={t.write} /><div className="composer-footer"><span>{t.privateOnly}</span><button className="primary-button compact" onClick={onAdd}>{t.save} <span aria-hidden="true">→</span></button></div></div><div className="journal-list">{entries.map((entry) => <article className="journal-entry" key={entry.id}><div><span className="entry-date">{new Date(entry.createdAt).toLocaleDateString()}</span><span className="entry-mood">{t.present}</span></div><p>{entry.text}</p></article>)}</div></section>
 }
 
-export function TandemView({ tandem, messages, currentUserId, status, affordance, draft, setDraft, onSend, onBlock, onUnblock, onReport, onInvite, t }: { tandem: AppState['tandem']; messages: RemoteMessage[]; currentUserId?: string; status: TandemStatus | null; affordance: UnblockAffordance; draft: string; setDraft: (value: string) => void; onSend: () => void; onBlock: () => void; onUnblock: () => void; onReport: () => void; onInvite: () => void; t: Copy }) {
+export function TandemView({ partnerName, messages, currentUserId, status, affordance, draft, setDraft, onSend, onBlock, onUnblock, onReport, onInvite, t }: { partnerName: string | null; messages: RemoteMessage[]; currentUserId?: string; status: TandemStatus | null; affordance: UnblockAffordance; draft: string; setDraft: (value: string) => void; onSend: () => void; onBlock: () => void; onUnblock: () => void; onReport: () => void; onInvite: () => void; t: Copy }) {
   // `isBlocked` décide de la messagerie, `affordance` décide du déblocage. Les
   // deux ne se recouvrent pas : `ended` coupe la conversation sans être un
   // blocage qu'on puisse lever, et une ligne gelée est bloquée sans porte.
   const isBlocked = status === 'blocked' || status === 'ended'
 
-  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {isBlocked ? t.blockedStatus : t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">É</div><div><h3>{tandem.name}</h3><p>{t.tandemQuote}</p></div><span className="status-chip">{isBlocked ? t.blockedStatus : t.activeStatus}</span></div><div className="message-thread">{messages.length ? messages.map((message) => <div className={`message ${message.senderId === currentUserId ? 'sent' : 'received'}`} key={message.id}>{message.body}<span>{new Date(message.createdAt).toLocaleString()}</span></div>) : <><div className="message received">{tandem.lastMessage}<span>{tandem.lastMessageAt}</span></div><div className="message sent">{t.prayerPhrase}<span>{t.yesterday}</span></div></>}</div><div className="message-composer"><input disabled={isBlocked} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={isBlocked ? t.messageUnavailable : t.encouragement} /><button disabled={isBlocked} className="primary-button compact" onClick={onSend}>{t.send}</button></div>
+  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {isBlocked ? t.blockedStatus : t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">{initialeDe(partnerName)}</div><div><h3>{partnerName ?? t.noTandemYet}</h3><p>{t.tandemRole}</p></div><span className="status-chip">{isBlocked ? t.blockedStatus : t.activeStatus}</span></div><div className="message-thread">{messages.length ? messages.map((message) => <div className={`message ${message.senderId === currentUserId ? 'sent' : 'received'}`} key={message.id}>{message.body}<span>{new Date(message.createdAt).toLocaleString()}</span></div>) : <div className="message-empty">{t.emptyThread}</div>}</div><div className="message-composer"><input disabled={isBlocked} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={isBlocked ? t.messageUnavailable : t.encouragement} /><button disabled={isBlocked} className="primary-button compact" onClick={onSend}>{t.send}</button></div>
 
     {affordance !== 'hidden' && <div className="block-panel" role="status">
       <span className="section-kicker">{t.blockedStatus}</span>

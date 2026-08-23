@@ -76,3 +76,37 @@ export type SessionStep = 'read' | 'practice' | 'complete'
 export type RemoteMessage = { id: string; senderId: string; body: string; createdAt: string }
 export type MentorSnapshot = { verificationStatus: 'pending' | 'verified' | 'rejected' | 'revoked'; trainingStatus: 'required' | 'in_progress' | 'completed' | 'expired' } | null
 export type ChurchSnapshot = { churchId: string; role: 'member' | 'mentor' | 'leader' | 'admin'; groupCount: number } | null
+
+/**
+ * Le nom à afficher pour un compte, déduit de son identité de connexion.
+ *
+ * Jusqu'au 24/08/2026, le web écrasait `profiles.display_name` avec « Claire »
+ * à chaque chargement — un nom de maquette, pour tout le monde. Or ce champ est
+ * exactement ce que `tandem_partenaire()` montre à l'autre membre du tandem :
+ * un nom faux ici, c'est un partenaire anonyme en face.
+ *
+ * L'ordre reflète la fiabilité de la source : le nom fourni par Google ou
+ * Microsoft d'abord, la partie locale de l'email à défaut — imparfaite mais
+ * vraie — et une chaîne vide sinon, que l'écran traite comme « pas encore de
+ * nom » plutôt que d'inventer.
+ */
+export const nomDepuisIdentite = (
+  metadata: Record<string, unknown> | undefined,
+  email: string | null | undefined,
+): string => {
+  for (const cle of ['full_name', 'name']) {
+    const valeur = (metadata ?? {})[cle]
+    if (typeof valeur === 'string' && valeur.trim()) return valeur.trim()
+  }
+  const avantArobase = (email ?? '').split('@')[0]
+  return avantArobase.trim()
+}
+
+/**
+ * L'initiale d'avatar. `[...nom]` et pas `nom[0]` : une initiale accentuée ou
+ * hors plan multilingue de base est un caractère, pas un demi-surrogate.
+ */
+export const initialeDe = (nom: string | null | undefined): string => {
+  const propre = (nom ?? '').trim()
+  return propre === '' ? '?' : [...propre][0].toUpperCase()
+}
