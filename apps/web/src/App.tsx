@@ -508,6 +508,25 @@ function App() {
     currentUserId: authSession?.user.id,
   })
 
+  // Les partages du tandem courant, et eux seuls.
+  //
+  // Une ligne de partage survit à la fermeture de sa relation — c'est une
+  // décision, pas un oubli : un blocage se lève, et détruire les choix de
+  // l'autrice sur un changement de statut réversible les lui ferait perdre en
+  // silence. Mais `tandems_active_pair_idx` porte sur la *paire* : rien
+  // n'interdit une relation terminée et une nouvelle relation vivante en même
+  // temps. Sans ce filtre, l'entrée partagée du temps de la première dirait
+  // « Partagé avec ton binôme » alors que le binôme actuel ne la lit pas, et
+  // offrirait « retirer le partage » à la place d'un partage que
+  // `journal_shares_insert_author` accepterait. Deux mensonges pour le prix
+  // d'un.
+  //
+  // Ce que ce filtre laisse hors de l'écran, et qui est assumé : la ligne posée
+  // sur une relation refermée devient invisible et non retirable d'ici. Elle
+  // n'est lisible par personne — le statut la ferme — et elle part avec son
+  // entrée ou avec le compte. Ni orphelin, ni fuite.
+  const partagesDuTandem = partagesEmis.filter((ligne) => ligne.tandemId === remoteTandemId)
+
   /**
    * Efface l'entrée de tout ce que ce navigateur garde d'elle.
    *
@@ -522,7 +541,16 @@ function App() {
     setPendingSync(readSyncQueue().length)
     setJournalEnAttente(idsJournalEnAttente())
     setPartagesEmis((precedents) => precedents.filter((ligne) => ligne.entreeId !== entryId))
-    update({ ...state, journalEntries: state.journalEntries.filter((entry) => entry.id !== entryId) })
+    // Forme fonctionnelle, et non `update({ ...state, … })` comme ailleurs dans
+    // ce fichier : cet appel-ci arrive **après** un aller-retour réseau, et le
+    // `state` de la clôture peut avoir vieilli entre-temps — une entrée écrite
+    // pendant l'attente, une fusion distante. Le réécrire tel quel effacerait
+    // cette entrée de React *et* de localStorage, sans erreur ni trace.
+    setState((precedent) => {
+      const suivant = { ...precedent, journalEntries: precedent.journalEntries.filter((entry) => entry.id !== entryId) }
+      saveState(suivant)
+      return suivant
+    })
   }
 
   const partagerEntree = async (entryId: string) => {
@@ -1032,7 +1060,7 @@ function App() {
               draft={journalDraft}
               setDraft={setJournalDraft}
               onAdd={addJournalEntry}
-              partages={partagesEmis}
+              partages={partagesDuTandem}
               partage={partage}
               enAttente={journalEnAttente}
               connecte={Boolean(supabase && authSession)}

@@ -108,10 +108,21 @@ relation ». Aucune fuite n'en découle, la même fonction passant le tandem à
 ### Hypothèse héritée, à ne pas découvrir plus tard
 
 `tandems_active_pair_idx` est unique sur la **paire**, pas sur la personne :
-rien n'interdit à un même compte d'avoir deux tandems `active` simultanés, et
-`App.tsx` en prend un seul (`.order(...).limit(1)`). Le partage hérite de cette
-hypothèse — l'écran dit « ton binôme » au singulier. La base, elle, la tient
-sans ambiguïté, chaque ligne de partage nommant son tandem.
+rien n'interdit à un même compte d'avoir deux tandems `active` simultanés, ni
+une relation terminée à côté d'une relation vivante. `App.tsx` en prend un seul
+(`.order(...).limit(1)`). Le partage hérite de cette hypothèse — l'écran dit
+« ton binôme » au singulier. La base, elle, la tient sans ambiguïté, chaque
+ligne de partage nommant son tandem.
+
+L'écran du journal ne montre donc que les partages **du tandem courant**. Sans
+ce filtre, une entrée partagée du temps d'une relation refermée dirait « Partagé
+avec ton binôme » alors que le binôme actuel ne la lit pas, et offrirait
+« retirer le partage » à la place d'un partage que la base accepterait : deux
+mensonges pour le prix d'un. Ce que le filtre laisse hors de l'écran est assumé,
+et c'est le prolongement de la décision « la ligne survit au blocage » — une
+ligne posée sur une relation refermée devient invisible et non retirable
+d'ici. Elle n'est lisible par personne (le statut la ferme) et elle part avec
+son entrée ou avec le compte : ni orphelin, ni fuite.
 
 ### Écart mobile, constaté et non traité
 
