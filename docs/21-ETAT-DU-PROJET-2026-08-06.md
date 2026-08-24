@@ -9,6 +9,145 @@ Dépôt `thearchit3ct/agapeplay-tandem`, branche `main`.
 
 ---
 
+## Amendement du 25 août 2026 — le partage du journal (issue #11)
+
+*Ajouté sans rien retirer de ce qui précède. Le corps du document reste l'état
+du 6 août ; l'amendement sur la suppression de compte, plus bas, reste valable
+et cet amendement-ci s'y adosse.*
+
+L'issue #11 demandait trois choses au journal privé : un partage explicite à un
+destinataire, son retrait, et la suppression d'une entrée. La base savait déjà
+supprimer (`journal_delete_own` existe depuis la première migration) — c'est
+l'écran qui n'avait pas le geste. Le partage, lui, n'existait nulle part : la
+matrice du doc 06 range le journal en « binôme : **non par défaut** », et ce
+« par défaut » n'avait aucun chemin pour être levé.
+
+### Le destinataire est le tandem, pas une personne
+
+La table `public.journal_shares` porte `(entry_id, tandem_id, shared_by)`, avec
+`(entry_id, tandem_id)` en clé primaire. Le choix de `tandem_id` **à la place**
+d'un `shared_with uuid` est la décision structurante : il n'existe aucune valeur
+de cette colonne qui désigne un mentor ou un responsable. Un `shared_with`
+aurait accepté n'importe quel identifiant et se serait reposé sur une garde
+qu'un correctif bien intentionné peut relâcher ; ici, c'est la forme de la table
+qui refuse. Le partage porte sur une entrée, jamais sur le journal : geste par
+entrée, retrait par entrée.
+
+### Le destinataire lit par une fonction, pas par une politique
+
+`journal_entries` **garde ses quatre politiques own-only, inchangées**. Aucune
+n'a été ajoutée, et c'est délibéré : les politiques sont permissives et
+s'additionnent (« la garde la plus permissive fixe le niveau »), une politique
+SELECT s'applique aussi aux UPDATE et DELETE dès qu'ils lisent, et une politique
+qui consulterait `journal_shares` le ferait sous les droits de l'appelant et
+sous la RLS de cette table — le piège déjà consigné plus bas. Il aurait donc
+fallu une fonction `security definer` de toute façon : autant qu'elle *soit* le
+chemin.
+
+`journal_partage_avec_moi()` est donc le seul chemin de lecture du journal
+d'autrui : `security definer`, `search_path` figé, identité par `auth.uid()`, et
+**sans paramètre**, comme `tandem_partenaire()` et `supprimer_mon_compte()`.
+Conséquence directe : `tests/rls/journal-prive.test.ts` reste vrai mot pour mot.
+Mais la surface d'attaque a changé de nature — elle est dans un `where`, plus
+dans un `using` — et `tests/rls/partage-journal.test.ts` reprend donc le décor
+du mentor rattaché et vérifié pour le mesurer là où il est désormais.
+
+### Trois décisions qu'un test épingle
+
+- **Le partage meurt avec la relation, et c'est l'inverse des messages.** La
+  lecture exige `t.status in ('active', 'paused')` : un tandem bloqué ou terminé
+  referme les partages **pour les deux, y compris pour la personne qui a
+  bloqué**. `messages_select_member` fait le contraire — elle garde l'historique
+  à qui a bloqué, qui en a besoin pour signaler. Les deux règles sont justes
+  ensemble : la conversation est écrite à deux, une entrée de journal reste
+  entière à son auteur, et bloquer quelqu'un veut dire « je ne lui donne plus
+  rien à lire ». `packages/domain/src/partage.test.ts` tient ce contraste sur une
+  même entrée, pour qu'on ne vienne pas « harmoniser » les deux.
+- **Les lignes de partage survivent au blocage.** Un blocage se lève ; un
+  effacement, non. Détruire les choix de l'autrice sur un changement de statut
+  réversible les lui ferait perdre en silence. La ligne reste, la lecture se
+  referme, l'écran le dit.
+- **Le retrait est une vraie suppression de ligne, sans pierre tombale.** Une
+  ligne « entrée retirée » apprendrait au destinataire qu'il y avait quelque
+  chose et qu'on le lui a repris — plus d'information que l'autrice n'a choisi
+  d'en donner. En revanche l'écran dit à l'autrice ce que le retrait ne peut pas
+  faire : ce que son binôme a déjà lu, il l'a lu.
+
+### À la suppression de compte
+
+`supprimer_mon_compte()` n'a pas eu besoin d'une ligne de plus : la clé
+étrangère `entry_id → journal_entries on delete cascade` emporte tous les
+partages émis avec le journal. Le test le prouve au lieu de le supposer — une
+clé qu'on passerait un jour en `on delete set null` romprait la promesse en
+silence. Les partages **reçus** restent : ce sont les entrées d'une autre
+personne, et c'est exactement la ligne « on efface la personne, on garde la
+relation ». Aucune fuite n'en découle, la même fonction passant le tandem à
+`ended` (ou le laissant `blocked`), ce qui referme la lecture des deux côtés.
+
+### Côté écran
+
+- **Journal** : par entrée, « partager avec mon binôme » / « retirer le
+  partage » et « supprimer ». Chaque geste lit sa réponse — un DELETE refusé par
+  un `using` ne lève rien, il rend zéro ligne — d'où le `.select()` accroché à
+  chaque suppression dans `apps/web/src/partageJournal.ts`.
+- **Pas de bouton là où la base refuserait, et une phrase à la place**, pour
+  quatre refus distincts : pas de binôme, relation bloquée, relation terminée,
+  et hors ligne. Un cinquième cas est propre à ce dépôt : une entrée écrite hors
+  ligne n'existe pas encore côté base, le `exists` du `with check` la
+  refuserait, et son geste de partage est donc retiré tant que la file n'est pas
+  vidée.
+- **La suppression retire aussi l'opération en attente** (`removeSync`). Sans
+  cela, l'`upsert` posé par une écriture hors ligne serait rejoué à la
+  reconnexion et ferait réapparaître l'entrée supprimée, sans que rien ne
+  l'explique.
+- **Côté destinataire** : un panneau sous la conversation, dans l'onglet tandem,
+  parce qu'il s'agit de la relation et non du journal. Le vide y a deux sens —
+  « il ne m'a rien partagé » et « la relation est fermée » — et le panneau dit
+  lequel des deux.
+
+### Hypothèse héritée, à ne pas découvrir plus tard
+
+`tandems_active_pair_idx` est unique sur la **paire**, pas sur la personne :
+rien n'interdit à un même compte d'avoir deux tandems `active` simultanés, ni
+une relation terminée à côté d'une relation vivante. `App.tsx` en prend un seul
+(`.order(...).limit(1)`). Le partage hérite de cette hypothèse — l'écran dit
+« ton binôme » au singulier. La base, elle, la tient sans ambiguïté, chaque
+ligne de partage nommant son tandem.
+
+L'écran du journal ne montre donc que les partages **du tandem courant**. Sans
+ce filtre, une entrée partagée du temps d'une relation refermée dirait « Partagé
+avec ton binôme » alors que le binôme actuel ne la lit pas, et offrirait
+« retirer le partage » à la place d'un partage que la base accepterait : deux
+mensonges pour le prix d'un. Ce que le filtre laisse hors de l'écran est assumé,
+et c'est le prolongement de la décision « la ligne survit au blocage » — une
+ligne posée sur une relation refermée devient invisible et non retirable
+d'ici. Elle n'est lisible par personne (le statut la ferme) et elle part avec
+son entrée ou avec le compte : ni orphelin, ni fuite.
+
+### Écart mobile, constaté et non traité
+
+`apps/mobile` ne connaît rien du partage : ni geste, ni panneau, ni suppression
+d'entrée. Le chantier était borné au web. L'écart est donc le même que celui
+qu'a connu la conversation avant le 24/08 — la règle est déjà dans
+`packages/domain`, partagée, et c'est ce qui rendra la reprise courte.
+
+### Vérifié
+
+- `npm test` — 115 tests ; `npm run test:rls` — 165 tests, dont 21 nouveaux.
+- **Vérification par mutation**, sur la base vivante, script dans
+  `.rls-stack/mutation-partage.sql` :
+  - conjonct d'appartenance au tandem retiré du `where` de
+    `journal_partage_avec_moi()` → 11 tests rougissent, tous dans
+    `partage-journal.test.ts`, dont « le mentor ne tire rien de la fonction » ;
+    les 13 autres fichiers restent verts ;
+  - conjonct `s.shared_by <> auth.uid()` retiré → exactement les deux tests qui
+    affirment que l'autrice ne se voit pas rendre ses propres entrées.
+  - Restauration à chaque fois en rejouant `supabase/migrations/20260825160000_partage_du_journal.sql`
+    **depuis le fichier**, ce qui vérifie du même coup qu'il est rejouable.
+- `tsc -b` et `vite build` : passent.
+
+---
+
 ## Amendement du 25 août 2026 — la suppression de compte (issue #7)
 
 *Ajouté sans rien retirer de ce qui précède. Le corps du document reste l'état

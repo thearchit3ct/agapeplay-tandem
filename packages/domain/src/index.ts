@@ -20,6 +20,9 @@ export type { AccesConversation } from './conversation'
 export { gestesDeProtection } from './protection'
 export type { GestesDeProtection } from './protection'
 
+export { partageDuJournal } from './partage'
+export type { PartageDuJournal, RaisonPartage } from './partage'
+
 export { etatInvitation, revocationInvitation, trierInvitations } from './invitations'
 export type { StatutInvitation, EtatInvitation, Invitation, RevocationInvitation } from './invitations'
 

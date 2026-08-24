@@ -6,23 +6,25 @@ import type { AppState, Locale, Session as Seance } from '@agapeplay/domain'
 import { supabase, supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
 import { loadPublishedJourney } from '@agapeplay/content'
-import { clearSyncQueue, enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
+import { clearSyncQueue, enqueueSync, idsJournalEnAttente, readSyncQueue, removeSync } from './offlineQueue'
 import { clearState, initialState, loadState, saveState } from './storage'
 import { nomDuFichierExport, rassemblerExport, telechargerJson } from './export'
 import type { Ligne, Reponse, SectionExport } from './export'
 import { copy } from '@agapeplay/content/copy/web'
-import { unblockAffordance } from '@agapeplay/domain'
+import { partageDuJournal, unblockAffordance } from '@agapeplay/domain'
 import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus } from '@agapeplay/domain'
 import type { DossierModeration, StatutSignalement } from '@agapeplay/domain'
 import { changerStatut, chargerDossiers, chargerJournal, estModerateur } from './moderation'
 import type { LigneJournal } from './moderation'
 import { chargerInvitations, revoquerInvitation } from './invitations'
+import { chargerPartagesEmis, chargerPartagesRecus, poserPartage, retirerPartage, supprimerEntree } from './partageJournal'
+import type { EntreePartagee, PartageEmis } from './partageJournal'
 import type { InvitationEmise } from './invitations'
 import type { Invitation } from '@agapeplay/domain'
 import {
   AuthDialog, TrustDialog, SettingsDialog, DeleteAccountDialog, InviteDialog, UnblockDialog, MentorView, ChurchView,
   NavItem, TodayView, JourneyView, SessionFlow, JournalView, TandemView, ModerationView,
-  InvitationsView,
+  InvitationsView, PartagesRecusView,
 } from './views'
 
 
@@ -65,6 +67,20 @@ function App() {
   const [remoteTandemBlockedBy, setRemoteTandemBlockedBy] = useState<string | null>(null)
   const [unblockOpen, setUnblockOpen] = useState(false)
   const [remoteMessages, setRemoteMessages] = useState<RemoteMessage[]>([])
+  // Le partage du journal — issue #11. Trois états, trois provenances :
+  // `partagesEmis` vient de `journal_shares` (own only, l'autrice y voit ses
+  // propres lignes), `partagesRecus` de `journal_partage_avec_moi()` (le seul
+  // chemin de lecture du journal d'autrui), et `partageEnCours` désarme le
+  // geste le temps de son aller-retour, comme `compteEnCours` plus haut.
+  const [partagesEmis, setPartagesEmis] = useState<PartageEmis[]>([])
+  const [partagesRecus, setPartagesRecus] = useState<EntreePartagee[]>([])
+  const [partagesRecusErreur, setPartagesRecusErreur] = useState(false)
+  const [partageEnCours, setPartageEnCours] = useState<string | null>(null)
+  // Les identifiants d'entrées encore dans la file hors-ligne. Une entrée qui
+  // n'existe pas côté base ne peut pas être partagée : le `exists` du
+  // `with check` la refuserait, et proposer le bouton serait promettre un
+  // refus. On lit la file plutôt que de le deviner.
+  const [journalEnAttente, setJournalEnAttente] = useState<string[]>(() => idsJournalEnAttente())
   const [remoteJourney, setRemoteJourney] = useState<ReturnType<typeof getJourney> | null>(null)
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [pendingSync, setPendingSync] = useState(() => readSyncQueue().length)
@@ -170,7 +186,12 @@ function App() {
         if (error) break
         removeSync(operation.id)
       }
-      if (!cancelled) setPendingSync(readSyncQueue().length)
+      if (!cancelled) {
+        setPendingSync(readSyncQueue().length)
+        // La file vidée, des entrées écrites hors ligne existent enfin côté
+        // base : leur geste de partage réapparaît sans qu'il faille recharger.
+        setJournalEnAttente(idsJournalEnAttente())
+      }
     }
 
     void flushQueue()
@@ -254,6 +275,23 @@ function App() {
     return () => { cancelled = true }
   }, [authSession?.user.id, activeTab, relectureInvitations])
 
+  // Ce que le binôme m'a partagé. Relu à chaque ouverture de l'onglet, et à
+  // chaque changement de statut du tandem : c'est ainsi qu'un partage retiré
+  // disparaît de l'écran du destinataire, et qu'un blocage referme le panneau.
+  // La fonction cesse simplement de rendre les lignes — il n'y a rien à
+  // invalider, seulement à relire.
+  useEffect(() => {
+    const client = supabase
+    if (!client || !authSession || activeTab !== 'tandem') return
+    let cancelled = false
+    void chargerPartagesRecus(client).then(({ entrees, erreur }) => {
+      if (cancelled) return
+      setPartagesRecus(entrees)
+      setPartagesRecusErreur(erreur)
+    })
+    return () => { cancelled = true }
+  }, [authSession?.user.id, activeTab, remoteTandemStatus])
+
   useEffect(() => {
     const client = supabase
     if (!client || !authSession) return
@@ -294,6 +332,16 @@ function App() {
         saveState(next)
         return next
       })
+
+      // Les partages que j'ai posés, lus avec le journal : l'écran du journal
+      // en a besoin dès son ouverture, c'est ce qui distingue « partager » de
+      // « retirer le partage » sur chaque entrée. Aucun filtre sur `shared_by`
+      // n'est écrit côté client — `journal_shares_select_author` le pose déjà.
+      const partagesResult = await chargerPartagesEmis(client)
+      if (!cancelled) {
+        if (partagesResult.erreur) showNotice(t.syncError, 4200)
+        else setPartagesEmis(partagesResult.partages)
+      }
 
       // Jusqu'au 24/08/2026, cet upsert écrasait display_name avec « Claire »
       // à chaque chargement — le champ même que tandem_partenaire() montre au
@@ -391,6 +439,7 @@ function App() {
           if (error) {
             enqueueSync({ id: `progress:${authSession.user.id}:${sessionId}`, kind: 'session_progress', payload: { user_id: authSession.user.id, journey_id: 'repartir-avec-jesus', session_id: sessionId } })
             setPendingSync(readSyncQueue().length)
+            setJournalEnAttente(idsJournalEnAttente())
             showNotice(t.offline, 4200)
           }
         })
@@ -398,6 +447,7 @@ function App() {
           if (error) {
             enqueueSync({ id: `journal:${journalEntry.id}`, kind: 'journal_entry', payload: { id: journalEntry.id, user_id: authSession.user.id, text: journalEntry.text, mood: journalEntry.mood, created_at: journalEntry.createdAt } })
             setPendingSync(readSyncQueue().length)
+            setJournalEnAttente(idsJournalEnAttente())
             showNotice(t.offline, 4200)
           }
         })
@@ -433,11 +483,144 @@ function App() {
       if (error) {
         enqueueSync({ id: `journal:${entry.id}`, kind: 'journal_entry', payload: { id: entry.id, user_id: authSession.user.id, text: entry.text, mood: entry.mood, created_at: entry.createdAt } })
         setPendingSync(readSyncQueue().length)
+        setJournalEnAttente(idsJournalEnAttente())
         showNotice(t.offline, 4200)
       }
     })
     setJournalDraft('')
     showNotice(t.saved)
+  }
+
+  // Les trois gestes du journal — issue #11. Ce qu'ils ont en commun est plus
+  // important que ce qui les sépare : **chacun lit sa réponse**. Un retrait ou
+  // une suppression que la RLS refuse ne lève rien, il ne touche aucune ligne
+  // (`journal_shares_select_author` et `journal_select_own` masquent la ligne à
+  // l'ordre DELETE). Compter les lignes réellement rendues est la seule façon
+  // de distinguer « c'est fait » de « la base a dit non sans le dire ».
+  //
+  // La règle qui décide de l'existence du geste vit, elle, dans
+  // `packages/domain/src/partage.ts`, avec ses tests et son contraste : sur un
+  // tandem bloqué, les messages restent lisibles à qui a bloqué, les partages
+  // non.
+  const partage = partageDuJournal({
+    status: remoteTandemStatus,
+    blockedBy: remoteTandemBlockedBy,
+    currentUserId: authSession?.user.id,
+  })
+
+  // Les partages du tandem courant, et eux seuls.
+  //
+  // Une ligne de partage survit à la fermeture de sa relation — c'est une
+  // décision, pas un oubli : un blocage se lève, et détruire les choix de
+  // l'autrice sur un changement de statut réversible les lui ferait perdre en
+  // silence. Mais `tandems_active_pair_idx` porte sur la *paire* : rien
+  // n'interdit une relation terminée et une nouvelle relation vivante en même
+  // temps. Sans ce filtre, l'entrée partagée du temps de la première dirait
+  // « Partagé avec ton binôme » alors que le binôme actuel ne la lit pas, et
+  // offrirait « retirer le partage » à la place d'un partage que
+  // `journal_shares_insert_author` accepterait. Deux mensonges pour le prix
+  // d'un.
+  //
+  // Ce que ce filtre laisse hors de l'écran, et qui est assumé : la ligne posée
+  // sur une relation refermée devient invisible et non retirable d'ici. Elle
+  // n'est lisible par personne — le statut la ferme — et elle part avec son
+  // entrée ou avec le compte. Ni orphelin, ni fuite.
+  const partagesDuTandem = partagesEmis.filter((ligne) => ligne.tandemId === remoteTandemId)
+
+  /**
+   * Efface l'entrée de tout ce que ce navigateur garde d'elle.
+   *
+   * `removeSync` compte autant que le reste, et c'est le piège du jour : une
+   * entrée écrite hors ligne laisse un `upsert` en attente dans la file, que
+   * `flushQueue` rejouerait à la prochaine connexion. Sans ce retrait, une
+   * entrée supprimée réapparaîtrait quelques minutes plus tard, sans que rien
+   * ne l'explique — et la suppression aurait menti.
+   */
+  const oublierEntreeLocale = (entryId: string) => {
+    removeSync(`journal:${entryId}`)
+    setPendingSync(readSyncQueue().length)
+    setJournalEnAttente(idsJournalEnAttente())
+    setPartagesEmis((precedents) => precedents.filter((ligne) => ligne.entreeId !== entryId))
+    // Forme fonctionnelle, et non `update({ ...state, … })` comme ailleurs dans
+    // ce fichier : cet appel-ci arrive **après** un aller-retour réseau, et le
+    // `state` de la clôture peut avoir vieilli entre-temps — une entrée écrite
+    // pendant l'attente, une fusion distante. Le réécrire tel quel effacerait
+    // cette entrée de React *et* de localStorage, sans erreur ni trace.
+    setState((precedent) => {
+      const suivant = { ...precedent, journalEntries: precedent.journalEntries.filter((entry) => entry.id !== entryId) }
+      saveState(suivant)
+      return suivant
+    })
+  }
+
+  const partagerEntree = async (entryId: string) => {
+    const client = supabase
+    if (!client || !authSession || !remoteTandemId || !partage.peutPartager) return
+    setPartageEnCours(entryId)
+    const { pose, poseLe } = await poserPartage(client, {
+      entreeId: entryId, tandemId: remoteTandemId, auteurId: authSession.user.id,
+    })
+    setPartageEnCours(null)
+    // Une insertion refusée par le `with check`, elle, lève bien : on ne
+    // suppose donc rien, on affiche que rien n'a changé.
+    if (!pose) {
+      showNotice(t.shareEntryFailed, 4200)
+      return
+    }
+    setPartagesEmis((precedents) => [
+      ...precedents.filter((ligne) => ligne.entreeId !== entryId),
+      { entreeId: entryId, tandemId: remoteTandemId, poseLe: poseLe ?? new Date().toISOString() },
+    ])
+    showNotice(t.shareEntryDone, 4200)
+  }
+
+  const retirerPartageEntree = async (entryId: string) => {
+    const client = supabase
+    if (!client || !authSession) return
+    setPartageEnCours(entryId)
+    const { retirees, erreur } = await retirerPartage(client, entryId)
+    setPartageEnCours(null)
+    if (erreur) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    // Zéro ligne sans erreur : la politique a masqué la ligne au DELETE. On ne
+    // retire rien de l'affichage — annoncer un retrait qui n'a pas eu lieu
+    // serait pire que de ne rien annoncer du tout.
+    if (retirees === 0) {
+      showNotice(t.unshareEntryRefused, 4200)
+      return
+    }
+    setPartagesEmis((precedents) => precedents.filter((ligne) => ligne.entreeId !== entryId))
+    showNotice(t.unshareEntryDone, 4200)
+  }
+
+  const effacerEntree = async (entryId: string) => {
+    const client = supabase
+    // Hors session — mode démonstration — le journal n'existe que dans ce
+    // navigateur : l'effacer localement est la vérité entière, il n'y a pas de
+    // ligne distante à qui demander son avis.
+    if (!client || !authSession) {
+      oublierEntreeLocale(entryId)
+      showNotice(t.deleteEntryDone, 4200)
+      return
+    }
+    setPartageEnCours(entryId)
+    const { supprimees, erreur } = await supprimerEntree(client, entryId)
+    setPartageEnCours(null)
+    if (erreur) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    if (supprimees === 0) {
+      showNotice(t.deleteEntryRefused, 4200)
+      return
+    }
+    // Les partages posés sur cette entrée sont partis avec elle côté base, par
+    // la clé étrangère `on delete cascade`. `oublierEntreeLocale` les retire de
+    // l'affichage pour la même raison.
+    oublierEntreeLocale(entryId)
+    showNotice(t.deleteEntryDone, 4200)
   }
 
   const sendMessage = async () => {
@@ -449,6 +632,7 @@ function App() {
       if (error || !data) {
         enqueueSync({ id: `message:${messageId}`, kind: 'tandem_message', payload: { id: messageId, tandem_id: remoteTandemId, sender_id: authSession.user.id, body } })
         setPendingSync(readSyncQueue().length)
+        setJournalEnAttente(idsJournalEnAttente())
         showNotice(t.messageUnavailable, 4200)
         return
       }
@@ -725,6 +909,7 @@ function App() {
       if (error) {
         enqueueSync({ id: `notifications:${authSession.user.id}`, kind: 'notification_preferences', payload: { user_id: authSession.user.id, ...notificationPrefs, updated_at: new Date().toISOString() } })
         setPendingSync(readSyncQueue().length)
+        setJournalEnAttente(idsJournalEnAttente())
         showNotice(t.offline, 4200)
       }
     }
@@ -870,8 +1055,34 @@ function App() {
               />
             )}
             {activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
-            {activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
+            {activeTab === 'journal' && <JournalView
+              entries={state.journalEntries}
+              draft={journalDraft}
+              setDraft={setJournalDraft}
+              onAdd={addJournalEntry}
+              partages={partagesDuTandem}
+              partage={partage}
+              enAttente={journalEnAttente}
+              connecte={Boolean(supabase && authSession)}
+              enLigne={isOnline}
+              enCours={partageEnCours}
+              onPartager={(entryId) => void partagerEntree(entryId)}
+              onRetirer={(entryId) => void retirerPartageEntree(entryId)}
+              onSupprimer={(entryId) => void effacerEntree(entryId)}
+              t={t}
+            />}
             {activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} partnerDeleted={remotePartnerDeleted} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
+            {/* Ce que le binôme a partagé, sous la conversation et au-dessus
+                des invitations : c'est de la relation qu'il s'agit, pas du
+                journal — le journal de cette personne-là est le sien, et il
+                reste dans son onglet. Affiché seulement quand un tandem
+                existe : sans relation, un panneau vide n'apprendrait rien. */}
+            {activeTab === 'tandem' && authSession && partage.raison !== 'aucun-tandem' && <PartagesRecusView
+              entrees={partagesRecus}
+              erreur={partagesRecusErreur}
+              partage={partage}
+              t={t}
+            />}
             {/* Sous la conversation, pas dans un onglet à part : on vient
                 voir ses invitations depuis l'endroit d'où on les a envoyées.
                 Réservé aux comptes connectés — sans session, la politique ne

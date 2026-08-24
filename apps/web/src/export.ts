@@ -47,13 +47,21 @@ export type SectionExport = {
  * - les signalements posés sur elle. Elle n'y a aucun accès, par conception
  *   (`reports_select_reporter` borne la lecture à l'auteur du signalement), et
  *   les lui rendre ici transformerait l'export en fuite de modération. Ses
- *   propres signalements, eux, sont bien là.
+ *   propres signalements, eux, sont bien là ;
+ * - les entrées de journal que son binôme lui a partagées. Même raisonnement
+ *   que pour les messages reçus : ce sont les mots d'une autre personne,
+ *   ouverts pour être lus dans une relation vivante, et non des données de
+ *   celle qui exporte. Ses propres partages, eux, y sont — sous la forme de ce
+ *   qu'ils sont vraiment, une décision (« telle entrée, à tel tandem, tel
+ *   jour ») et non une copie du texte, qui figure déjà dans la section
+ *   `journal`.
  */
 export const SECTIONS: readonly SectionExport[] = [
   { clef: 'profil', table: 'profiles', colonnes: 'id, display_name, locale, account_status, created_at, updated_at, age_confirmed_at, privacy_consent_at, terms_consent_at, deletion_requested_at', colonne: 'id', cible: 'compte' },
   { clef: 'preferences_de_notification', table: 'notification_preferences', colonnes: 'sessions, messages, church, absence, updated_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'progression', table: 'session_progress', colonnes: 'journey_id, session_id, completed_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'journal', table: 'journal_entries', colonnes: 'id, text, mood, created_at', colonne: 'user_id', cible: 'compte' },
+  { clef: 'partages_du_journal', table: 'journal_shares', colonnes: 'entry_id, tandem_id, created_at', colonne: 'shared_by', cible: 'compte' },
   { clef: 'tandems', table: 'tandems', colonnes: 'id, status, blocked_by, created_at, ended_at', colonne: 'participant_a_id', cible: 'compte' },
   { clef: 'messages_envoyes', table: 'tandem_messages', colonnes: 'id, tandem_id, body, created_at', colonne: 'sender_id', cible: 'compte' },
   { clef: 'invitations_emises', table: 'tandem_invitations', colonnes: 'id, invitee_email, status, created_at, expires_at, accepted_at', colonne: 'inviter_id', cible: 'compte' },
