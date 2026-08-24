@@ -256,7 +256,7 @@ export const copy = {
     moderationReopen: 'Rouvrir le dossier',
     moderationUpdated: 'Décision enregistrée.',
     moderationUpdateFailed: 'La décision n’a pas été enregistrée. Ton accès à la modération a peut-être été retiré entre-temps.',
-    moderationReason: 'Ce qui est écrit dans le signalement',
+    moderationReason: 'Le mot ajouté par la personne',
     moderationReportedAt: 'Signalé le',
     moderationClosedAt: 'Clos le',
     moderationMessage: 'Le message signalé',
@@ -278,6 +278,39 @@ export const copy = {
     moderationTrailByMe: 'par toi',
     moderationTrailByOther: 'par un autre modérateur',
     moderationTrailUnknown: 'sans modérateur identifié',
+    // Le signalement qualifié — issue #19, 25/08/2026. Avant, un clic envoyait
+    // « Signalement depuis la conversation » et rien d'autre : la modération
+    // lisait huit fois la même phrase. La personne choisit maintenant ce qui
+    // ressemble à sa situation, et le mot libre devient facultatif.
+    //
+    // Les libellés de catégorie sont écrits pour quelqu'un de seize ans qui va
+    // mal, pas pour un modérateur : ce sont des phrases à la première personne,
+    // sans « harcèlement », « emprise » ni « comportement inapproprié ». Le
+    // vocabulaire de la modération vit dans les libellés d'urgence, qui ne sont
+    // affichés qu'à un modérateur.
+    reportTitle: 'Que se passe-t-il ?',
+    reportDescription: 'Choisis ce qui ressemble le plus à ta situation. Un modérateur d’AgapePlay le lira. Ni ton église, ni la personne concernée ne sauront que tu as signalé.',
+    reportNoteLabel: 'Tu peux ajouter un mot si tu veux',
+    reportNotePlaceholder: 'Avec tes mots, si tu en as envie…',
+    reportConfirm: 'Envoyer le signalement',
+    reportCancel: 'Annuler',
+    reportUrgentNote: 'Ce que tu viens de choisir place ce signalement en tête de la file.',
+    reportHelplineNote: 'Si quelqu’un est en danger maintenant, appelle le 119 (enfance en danger) ou le 17. Cette application ne remplace pas un secours et personne n’y répond la nuit.',
+    categoryMalaise: 'Des propos qui me mettent mal à l’aise',
+    categoryInsistance: 'On insiste alors que j’ai dit non',
+    categorySecret: 'On me demande de garder ça pour moi, ou d’en parler ailleurs',
+    categorySexuel: 'Des propos ou des images à caractère sexuel',
+    categoryDanger: 'Quelqu’un est en danger',
+    categoryAutre: 'Autre chose',
+    categoryNonPrecise: 'Sans catégorie — signalement antérieur aux catégories',
+    urgencyImmediate: 'Urgence immédiate',
+    urgencyElevee: 'Urgence élevée',
+    urgencyStandard: 'Urgence ordinaire',
+    moderationCategory: 'Ce qui est signalé',
+    moderationNoReason: 'Cette personne n’a rien ajouté à sa catégorie.',
+    moderationEscalationTitle: 'Quand un dossier sort de l’application',
+    moderationEscalationImmediate: 'Urgence immédiate : prévenir le responsable produit d’AgapePlay sans attendre. Danger pour un mineur : 119 (enfance en danger) ou 17. Contenu illégal : signalement PHAROS.',
+    moderationEscalationNote: 'Rien n’est détecté automatiquement : un dossier n’arrive ici que si quelqu’un l’a signalé. La procédure complète — délais, personnes, ce qu’on consigne — est versionnée dans docs/22-PROCEDURE-ESCALADE.md.',
   },
   en: {
     ...sharedLabels.en,
@@ -503,7 +536,7 @@ export const copy = {
     moderationReopen: 'Reopen the case',
     moderationUpdated: 'Decision recorded.',
     moderationUpdateFailed: 'The decision was not recorded. Your moderation access may have been withdrawn in the meantime.',
-    moderationReason: 'What the report says',
+    moderationReason: 'What the person added',
     moderationReportedAt: 'Reported on',
     moderationClosedAt: 'Closed on',
     moderationMessage: 'The reported message',
@@ -525,6 +558,31 @@ export const copy = {
     moderationTrailByMe: 'by you',
     moderationTrailByOther: 'by another moderator',
     moderationTrailUnknown: 'no identified moderator',
+
+    // See the French block for why these labels are written the way they are.
+    reportTitle: 'What is happening?',
+    reportDescription: 'Pick whatever comes closest to your situation. An AgapePlay moderator will read it. Neither your church nor the person involved will know that you reported.',
+    reportNoteLabel: 'You can add a word if you want to',
+    reportNotePlaceholder: 'In your own words, if you feel like it…',
+    reportConfirm: 'Send the report',
+    reportCancel: 'Cancel',
+    reportUrgentNote: 'What you just picked puts this report at the front of the queue.',
+    reportHelplineNote: 'If someone is in danger right now, call 119 (child protection, France) or 17. This app is not an emergency service, and nobody is watching it at night.',
+    categoryMalaise: 'Things that are said make me uncomfortable',
+    categoryInsistance: 'Someone keeps pushing after I said no',
+    categorySecret: 'Someone asks me to keep this to myself, or to talk elsewhere',
+    categorySexuel: 'Sexual words or images',
+    categoryDanger: 'Someone is in danger',
+    categoryAutre: 'Something else',
+    categoryNonPrecise: 'No category — report filed before categories existed',
+    urgencyImmediate: 'Immediate',
+    urgencyElevee: 'High priority',
+    urgencyStandard: 'Ordinary',
+    moderationCategory: 'What is being reported',
+    moderationNoReason: 'This person did not add anything to their category.',
+    moderationEscalationTitle: 'When a case leaves the app',
+    moderationEscalationImmediate: 'Immediate: alert the AgapePlay product lead without waiting. Danger to a minor: 119 (child protection, France) or 17. Illegal content: report to PHAROS.',
+    moderationEscalationNote: 'Nothing is detected automatically: a case only lands here because someone reported it. The full procedure — deadlines, people, what gets recorded — is versioned in docs/22-PROCEDURE-ESCALADE.md.',
   },
 } as const
 

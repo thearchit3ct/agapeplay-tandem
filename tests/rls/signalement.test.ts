@@ -44,7 +44,7 @@ beforeAll(async () => {
     messageId = message.rows[0].id
 
     await client.query(
-      "insert into public.tandem_reports (tandem_id, reporter_id, message_id, reason) values ($1, $2, $3, 'Propos déplacés.')",
+      "insert into public.tandem_reports (tandem_id, reporter_id, message_id, category, reason) values ($1, $2, $3, 'malaise', 'Propos déplacés.')",
       [tandemId, claire.id, messageId],
     )
   })
@@ -89,7 +89,7 @@ describe('signaler quelqu’un', () => {
   it('un tiers ne peut pas signaler un tandem dont il n’est pas membre', async () => {
     await expect(
       commeUtilisateur(tiers, (client) =>
-        client.query("insert into public.tandem_reports (tandem_id, reporter_id, reason) values ($1, $2, 'signalement de complaisance')", [tandemId, tiers.id]),
+        client.query("insert into public.tandem_reports (tandem_id, reporter_id, category, reason) values ($1, $2, 'malaise', 'signalement de complaisance')", [tandemId, tiers.id]),
       ),
     ).rejects.toThrow(/row-level security/i)
   })
@@ -97,7 +97,7 @@ describe('signaler quelqu’un', () => {
   it('on ne peut pas signaler au nom de quelqu’un d’autre', async () => {
     await expect(
       commeUtilisateur(signale, (client) =>
-        client.query("insert into public.tandem_reports (tandem_id, reporter_id, reason) values ($1, $2, 'signalement fabriqué')", [tandemId, claire.id]),
+        client.query("insert into public.tandem_reports (tandem_id, reporter_id, category, reason) values ($1, $2, 'malaise', 'signalement fabriqué')", [tandemId, claire.id]),
       ),
     ).rejects.toThrow(/row-level security/i)
   })

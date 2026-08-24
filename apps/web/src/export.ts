@@ -66,7 +66,11 @@ export const SECTIONS: readonly SectionExport[] = [
   { clef: 'messages_envoyes', table: 'tandem_messages', colonnes: 'id, tandem_id, body, created_at', colonne: 'sender_id', cible: 'compte' },
   { clef: 'invitations_emises', table: 'tandem_invitations', colonnes: 'id, invitee_email, status, created_at, expires_at, accepted_at', colonne: 'inviter_id', cible: 'compte' },
   { clef: 'invitations_recues', table: 'tandem_invitations', colonnes: 'id, status, created_at, expires_at, accepted_at', colonne: 'invitee_email', cible: 'adresse' },
-  { clef: 'signalements_emis', table: 'tandem_reports', colonnes: 'id, tandem_id, message_id, reason, status, created_at, resolved_at', colonne: 'reporter_id', cible: 'compte' },
+  // `category` et `urgency` depuis le 25/08/2026 : ce que la personne a choisi
+  // fait partie de ce qu'elle a écrit, et l'urgence qu'on en a déduite fait
+  // partie de ce qu'on a fait de son signalement. Les taire rendrait l'export
+  // moins fidèle que la table.
+  { clef: 'signalements_emis', table: 'tandem_reports', colonnes: 'id, tandem_id, message_id, category, urgency, reason, status, created_at, resolved_at', colonne: 'reporter_id', cible: 'compte' },
 ]
 
 export type Ligne = Record<string, unknown>

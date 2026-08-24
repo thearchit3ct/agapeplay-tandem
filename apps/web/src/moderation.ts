@@ -17,7 +17,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { assemblerDossiers } from '@agapeplay/domain'
-import type { DossierModeration, StatutSignalement, TandemStatus } from '@agapeplay/domain'
+import type { CategorieSignalement, DossierModeration, StatutSignalement, TandemStatus, UrgenceSignalement } from '@agapeplay/domain'
 
 /** Une ligne de `tandem_report_audit`, telle que la modération la lit. */
 export type LigneJournal = {
@@ -56,7 +56,9 @@ type LigneSignalement = {
   tandem_id: string
   message_id: string | null
   reporter_id: string
-  reason: string
+  reason: string | null
+  category: CategorieSignalement
+  urgency: UrgenceSignalement
   status: StatutSignalement
   created_at: string
   resolved_at: string | null
@@ -95,7 +97,10 @@ export const chargerDossiers = async (
   const [signalements, contextes] = await Promise.all([
     client
       .from('tandem_reports')
-      .select('id, tandem_id, message_id, reporter_id, reason, status, created_at, resolved_at')
+      // `urgency` est relue, jamais recalculée : la colonne générée de
+      // `20260825173000` est la seule autorité, et `urgenceDe` n'existe que
+      // pour l'écran de signalement, avant que la ligne existe.
+      .select('id, tandem_id, message_id, reporter_id, reason, category, urgency, status, created_at, resolved_at')
       .order('created_at', { ascending: false }),
     client
       .from('tandem_contexte_signale')
@@ -127,6 +132,8 @@ export const chargerDossiers = async (
         messageId: ligne.message_id,
         reporterId: ligne.reporter_id,
         reason: ligne.reason,
+        categorie: ligne.category,
+        urgence: ligne.urgency,
         status: ligne.status,
         createdAt: ligne.created_at,
         resolvedAt: ligne.resolved_at,
@@ -182,7 +189,9 @@ export const chargerJournal = async (
  * d'écriture est un `grant update (status)` : PostgreSQL refuse tout UPDATE qui
  * *nomme* une autre colonne, y compris mélangée à celle-ci, avec un
  * « permission denied for table ». Ajouter `resolved_at` ici — même à la bonne
- * valeur — casserait donc toutes les décisions. La date de clôture est posée
+ * valeur — casserait donc toutes les décisions. Depuis le 25/08/2026 la même
+ * borne protège `category` : un modérateur ne réécrit pas ce que la personne a
+ * choisi, exactement comme il ne réécrit pas son mot libre. La date de clôture est posée
  * par le trigger `before update`, et c'est ce qui en fait une date plutôt
  * qu'une déclaration.
  *

@@ -65,7 +65,7 @@ beforeAll(async () => {
     messageOrdinaire = messages.rows[1].id
 
     await client.query(
-      "insert into public.tandem_reports (tandem_id, reporter_id, message_id, reason) values ($1, $2, $3, 'Propos déplacés.')",
+      "insert into public.tandem_reports (tandem_id, reporter_id, message_id, category, reason) values ($1, $2, $3, 'malaise', 'Propos déplacés.')",
       [tandemId, claire.id, messageSignale],
     )
 
@@ -82,7 +82,7 @@ beforeAll(async () => {
     )
     messageSansSignalement = sansMessage.rows[0].id
     await client.query(
-      "insert into public.tandem_reports (tandem_id, reporter_id, reason) values ($1, $2, 'Gêne diffuse, sans message précis.')",
+      "insert into public.tandem_reports (tandem_id, reporter_id, category, reason) values ($1, $2, 'malaise', 'Gêne diffuse, sans message précis.')",
       [autre.rows[0].id, claire.id],
     )
 
@@ -170,7 +170,7 @@ describe('ce que la modération ne voit pas', () => {
         [tandem.rows[0].id, bloqueur.id],
       )
       await client.query(
-        "insert into public.tandem_reports (tandem_id, reporter_id, message_id, reason) values ($1, $2, $3, 'Signalé avant d’être bloquée.')",
+        "insert into public.tandem_reports (tandem_id, reporter_id, message_id, category, reason) values ($1, $2, $3, 'insistance', 'Signalé avant d’être bloquée.')",
         [tandem.rows[0].id, signalante.id, message.rows[0].id],
       )
       return { signalante, messageId: message.rows[0].id }

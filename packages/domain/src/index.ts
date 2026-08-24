@@ -28,9 +28,10 @@ export type { StatutInvitation, EtatInvitation, Invitation, RevocationInvitation
 
 export { prochaineSeance } from './parcours'
 
-export { assemblerDossiers, transitionsPossibles } from './moderation'
+export { assemblerDossiers, transitionsPossibles, urgenceDe, CATEGORIES_PROPOSEES } from './moderation'
 export type {
-  StatutSignalement, Signalement, ContexteSignale, MessageSignale, OrigineMessage, DossierModeration,
+  StatutSignalement, CategorieSignalement, UrgenceSignalement,
+  Signalement, ContexteSignale, MessageSignale, OrigineMessage, DossierModeration,
 } from './moderation'
 
 export type Locale = 'fr' | 'en'

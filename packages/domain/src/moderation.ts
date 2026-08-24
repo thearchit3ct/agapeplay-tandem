@@ -19,11 +19,81 @@
  * c'est l'uuid d'un participant. `reporter_id` et `sender_id` entrent donc ici
  * — ils sont lisibles du modérateur, et leur comparaison dit quelque chose
  * d'utile — mais il en ressort une origine, jamais un identifiant.
+ *
+ * Depuis le 25/08/2026, un signalement porte une catégorie et une urgence
+ * (`20260825173000_categorie_et_urgence.sql`). Deux choses en découlent ici :
+ * l'ordre de la file tient compte de l'urgence, et `urgenceDe` recopie la
+ * dérivation que la base applique — pour l'écran de signalement, qui doit
+ * pouvoir la dire avant que la ligne existe.
  */
 import type { TandemStatus } from './blocking'
 
 /** `tandem_reports.status`, tel que la contrainte `check` l'énumère. */
 export type StatutSignalement = 'open' | 'reviewing' | 'resolved'
+
+/**
+ * `tandem_reports.category`, tel que la contrainte `check` l'énumère.
+ *
+ * Sept valeurs, dont six seulement se proposent — voir `CATEGORIES_PROPOSEES`.
+ * Le type les porte toutes parce que la lecture, elle, les rencontre toutes :
+ * un écran de modération qui ignorerait `non_precise` afficherait un vide sur
+ * les dossiers antérieurs aux catégories.
+ */
+export type CategorieSignalement =
+  | 'malaise'
+  | 'insistance'
+  | 'sexuel'
+  | 'secret'
+  | 'danger'
+  | 'autre'
+  | 'non_precise'
+
+/** `tandem_reports.urgency`, déduite en base par une colonne générée. */
+export type UrgenceSignalement = 'immediate' | 'elevee' | 'standard'
+
+/**
+ * Les six catégories qu'un écran propose, dans l'ordre où il les propose.
+ *
+ * L'ordre n'est pas alphabétique et n'est pas celui de l'urgence : il va du
+ * plus fréquent au plus rare, parce qu'une liste se lit du haut, et se termine
+ * par `autre` parce qu'une sortie de secours se met à la fin. Mettre `danger`
+ * en tête paraîtrait juste et serait un piège : la première ligne d'une liste
+ * est celle qu'on choisit quand on hésite.
+ *
+ * `non_precise` n'y est pas, et ne doit jamais y entrer : il ne nomme pas une
+ * situation mais les huit signalements posés avant que la question existe.
+ *
+ * Le type est celui du tuple littéral, et non `readonly CategorieSignalement[]`
+ * : les écrans de signalement n'ont alors aucun cas `non_precise` à traiter, et
+ * l'ajouter ici ferait échouer `tsc` chez eux au lieu de passer inaperçu.
+ */
+export const CATEGORIES_PROPOSEES = [
+  'malaise',
+  'insistance',
+  'secret',
+  'sexuel',
+  'danger',
+  'autre',
+] as const satisfies readonly CategorieSignalement[]
+
+/**
+ * La même dérivation que la colonne générée de `20260825173000`.
+ *
+ * Elle est ici en double, et c'est un choix plutôt qu'un oubli. La base reste
+ * la seule autorité — c'est elle qui écrit la colonne, et une application
+ * compromise ne peut pas la contredire. Cette copie sert l'écran de signalement,
+ * qui doit pouvoir dire « ce que tu choisis là part tout de suite » **avant**
+ * que la ligne existe.
+ *
+ * ⚠️ Les deux se modifient ensemble. `urgenceDe` appliquée aux lignes relues
+ * doit rendre exactement leur colonne `urgency` ; un test RLS compare les deux
+ * tables de correspondance valeur par valeur, et rougit si l'une dérive.
+ */
+export function urgenceDe(categorie: CategorieSignalement): UrgenceSignalement {
+  if (categorie === 'sexuel' || categorie === 'danger') return 'immediate'
+  if (categorie === 'insistance' || categorie === 'secret') return 'elevee'
+  return 'standard'
+}
 
 /** Une ligne de `tandem_reports`, telle que la modération la lit. */
 export type Signalement = {
@@ -31,7 +101,11 @@ export type Signalement = {
   tandemId: string
   messageId: string | null
   reporterId: string
-  reason: string
+  /** Le mot libre, `null` quand la personne n'a rien ajouté à sa catégorie. */
+  reason: string | null
+  categorie: CategorieSignalement
+  /** Relue de la base, jamais recalculée ici : la colonne générée fait foi. */
+  urgence: UrgenceSignalement
   status: StatutSignalement
   createdAt: string
   resolvedAt: string | null
@@ -105,6 +179,24 @@ export function transitionsPossibles(statut: StatutSignalement): StatutSignaleme
 const rang: Record<StatutSignalement, number> = { open: 0, reviewing: 1, resolved: 2 }
 
 /**
+ * L'urgence départage à statut égal — et jamais l'inverse.
+ *
+ * L'ordre des deux critères est la décision, et elle se lit par le cas qu'elle
+ * refuse : un dossier clos et « immédiat » ne doit pas passer devant un dossier
+ * ouvert et « standard ». Un dossier clos n'attend rien de personne, quelle
+ * qu'ait été sa gravité. Le statut reste donc le premier tri, l'urgence le
+ * second.
+ *
+ * Le troisième — le plus récent d'abord — est inchangé, et c'est délibéré. À
+ * urgence égale, l'ancienneté départagerait deux dossiers dont aucun n'a été
+ * traité, et on peut plaider les deux sens : l'attente la plus longue est un
+ * échec plus grand, la situation la plus fraîche est celle qui se joue encore.
+ * On garde ce qui existait, parce que ce chantier a une raison de changer
+ * l'ordre — l'urgence — et aucune de changer celui-là.
+ */
+const rangUrgence: Record<UrgenceSignalement, number> = { immediate: 0, elevee: 1, standard: 2 }
+
+/**
  * Recoud les trois lectures en une liste de dossiers.
  *
  * Les trois entrées viennent de trois politiques distinctes qui n'ont aucune
@@ -122,7 +214,10 @@ export function assemblerDossiers(
   const messageParId = new Map(messages.map((message) => [message.id, message]))
 
   return [...signalements]
-    .sort((a, b) => rang[a.status] - rang[b.status] || b.createdAt.localeCompare(a.createdAt))
+    .sort((a, b) =>
+      rang[a.status] - rang[b.status]
+      || rangUrgence[a.urgence] - rangUrgence[b.urgence]
+      || b.createdAt.localeCompare(a.createdAt))
     .map((signalement) => {
       const message = signalement.messageId ? messageParId.get(signalement.messageId) : undefined
       return {

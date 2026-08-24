@@ -50,12 +50,33 @@ import { useCallback, useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
-import { accesConversation, gestesDeProtection, initialeDe, unblockAffordance } from '@agapeplay/domain'
-import type { Locale, RemoteMessage, TandemStatus } from '@agapeplay/domain'
+import { CATEGORIES_PROPOSEES, accesConversation, gestesDeProtection, initialeDe, unblockAffordance, urgenceDe } from '@agapeplay/domain'
+import type { CategorieSignalement, Locale, RemoteMessage, TandemStatus } from '@agapeplay/domain'
 import { colors, typography } from '@/theme'
 import { supabase } from '@/supabase'
 
 type RemoteTandem = { id: string; status: TandemStatus; blockedBy: string | null }
+
+/**
+ * Le libellé d'une catégorie proposée.
+ *
+ * Le type d'entrée est volontairement plus étroit que `CategorieSignalement` :
+ * le mobile ne propose que les six catégories de `CATEGORIES_PROPOSEES`, et son
+ * catalogue de textes ne connaît pas `non_precise` — qui ne nomme pas une
+ * situation mais les signalements antérieurs aux catégories, et n'est affiché
+ * que dans l'espace modérateur, côté web. Une catégorie ajoutée un jour sans
+ * son libellé fera échouer `tsc`, pas l'écran.
+ */
+type CategorieProposee = Exclude<CategorieSignalement, 'non_precise'>
+
+const libelleCategorie = (categorie: CategorieProposee, t: typeof copy.fr | typeof copy.en) => {
+  if (categorie === 'malaise') return t.categoryMalaise
+  if (categorie === 'insistance') return t.categoryInsistance
+  if (categorie === 'secret') return t.categorySecret
+  if (categorie === 'sexuel') return t.categorySexuel
+  if (categorie === 'danger') return t.categoryDanger
+  return t.categoryAutre
+}
 
 export default function TandemScreen() {
   const [locale, setLocale] = useState<Locale>('fr')
@@ -70,8 +91,14 @@ export default function TandemScreen() {
   const [loading, setLoading] = useState(true)
   // Un seul panneau à la fois, et c'est une machine plutôt que deux booléens :
   // deux confirmations ouvertes ensemble poseraient deux questions contraires.
-  const [panneau, setPanneau] = useState<'aucun' | 'blocage' | 'deblocage'>('aucun')
+  const [panneau, setPanneau] = useState<'aucun' | 'blocage' | 'deblocage' | 'signalement'>('aucun')
+  // `signalement` dit qu'un envoi est en vol, `panneau === 'signalement'` dit
+  // que le formulaire est ouvert. Les deux se ressemblent et ne se recouvrent
+  // pas : le panneau reste affiché pendant l'envoi, et c'est le bouton de
+  // confirmation qui se désarme.
   const [signalement, setSignalement] = useState(false)
+  const [categorie, setCategorie] = useState<CategorieSignalement | null>(null)
+  const [motLibre, setMotLibre] = useState('')
   const [notice, setNotice] = useState('')
   const t = copy[locale]
 
@@ -195,25 +222,42 @@ export default function TandemScreen() {
   }
 
   const signaler = async () => {
-    if (signalement || !supabase || !session || !tandem) return
+    if (signalement || !categorie || !supabase || !session || !tandem) return
     setSignalement(true)
-    // Le motif part en français littéral, exactement comme sur le web : il
-    // atterrit dans `reason`, que la modération lit. Le passer par le catalogue
-    // de textes ferait dépendre une donnée de la langue de l'écran.
+    // Ce qui part est un **code** — `malaise`, `secret`, `danger`… — et non le
+    // libellé affiché : la donnée que lit la modération ne doit pas dépendre de
+    // la langue de l'écran. C'est ce que l'ancien littéral français protégeait
+    // maladroitement, et que la contrainte `check` de `20260825173000` garantit
+    // maintenant.
+    //
+    // Le mot libre part à `null` quand il est vide, jamais à `''` : la
+    // contrainte de longueur passe sur NULL et refuse la chaîne vide.
+    //
+    // `urgency` n'est pas envoyée et ne peut pas l'être : colonne générée,
+    // PostgreSQL refuse toute valeur proposée par un client.
     //
     // Aucun `message_id` non plus : le web n'en envoie pas, et l'espace de
     // modération sait dire « ce signalement ne pointe pas un message précis ».
     // Un signalement au message est une décision produit, pas une variante.
     const { data, error } = await supabase
       .from('tandem_reports')
-      .insert({ tandem_id: tandem.id, reporter_id: session.user.id, reason: 'Signalement depuis la conversation' })
+      .insert({
+        tandem_id: tandem.id,
+        reporter_id: session.user.id,
+        category: categorie,
+        reason: motLibre.trim() || null,
+      })
       .select('id')
       .maybeSingle()
     setSignalement(false)
     // Un insert refusé par un `with check` lève, contrairement à l'UPDATE — mais
     // on lit quand même la ligne rendue : sans elle, on annoncerait « transmis »
     // sur la foi d'une absence d'erreur.
-    setNotice(error || !data ? t.syncError : t.reportSent)
+    if (error || !data) { setNotice(t.syncError); return }
+    setPanneau('aucun')
+    setCategorie(null)
+    setMotLibre('')
+    setNotice(t.reportSent)
   }
 
   const unblock = async () => {
@@ -331,6 +375,64 @@ export default function TandemScreen() {
         <Pressable onPress={() => setPanneau('aucun')}><Text style={styles.panelCancel}>{t.blockCancel}</Text></Pressable>
       </View>}
 
+
+      {/* Le signalement, devenu une question. Panneau dans la page et non
+          `Alert.alert` : celui-ci ne rend rien d'utilisable sous
+          react-native-web, et `mobile:export` est la seule garde Metro sans
+          appareil. C'est la même règle que la confirmation de blocage.
+
+          Le mot libre est facultatif et l'écran le dit : à ce moment-là,
+          raconter est difficile, choisir une ligne ne l'est pas — et un champ
+          qu'on croit obligatoire est un signalement abandonné. */}
+      {panneau === 'signalement' && <View style={styles.panel}>
+        <Text style={styles.panelKicker}>{t.report}</Text>
+        <Text style={styles.panelTitle}>{t.reportTitle}</Text>
+        <Text style={styles.panelText}>{t.reportDescription}</Text>
+
+        <View style={styles.categories}>
+          {CATEGORIES_PROPOSEES.map((valeur) => (
+            <Pressable
+              key={valeur}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: categorie === valeur }}
+              style={[styles.category, categorie === valeur && styles.categoryChosen]}
+              onPress={() => setCategorie(valeur)}
+            >
+              <Text style={[styles.categoryText, categorie === valeur && styles.categoryTextChosen]}>{libelleCategorie(valeur, t)}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Dit sur les deux seules catégories d'urgence immédiate, et nulle part
+            ailleurs : sous chacune il deviendrait invisible, absent il
+            laisserait croire qu'envoyer ce formulaire est un secours. */}
+        {categorie && urgenceDe(categorie) === 'immediate' && <>
+          <Text style={styles.panelAlert}>{t.reportHelplineNote}</Text>
+          <Text style={styles.panelText}>{t.reportUrgentNote}</Text>
+        </>}
+
+        <Text style={styles.panelLabel}>{t.reportNoteLabel}</Text>
+        <TextInput
+          style={styles.noteInput}
+          value={motLibre}
+          onChangeText={setMotLibre}
+          maxLength={1000}
+          multiline
+          placeholder={t.reportNotePlaceholder}
+          placeholderTextColor={colors.muted}
+        />
+
+        {/* Sans catégorie il n'y a rien à envoyer : `category` est `not null` et
+            sans défaut, la base refuserait l'insert. */}
+        <Pressable
+          accessibilityRole="button"
+          disabled={!categorie || signalement}
+          style={[styles.panelAction, (!categorie || signalement) && styles.panelActionOff]}
+          onPress={() => void signaler()}
+        ><Text style={styles.panelActionText}>{signalement ? t.reporting : t.reportConfirm}  →</Text></Pressable>
+        <Pressable onPress={() => setPanneau('aucun')}><Text style={styles.panelCancel}>{t.reportCancel}</Text></Pressable>
+      </View>}
+
       {/* Les deux gestes, en bas de l'écran comme sur le web : ils ne sont pas
           la conversation, ils sont ce qu'on fait quand elle tourne mal. Le
           signalement reste offert sur une relation bloquée — c'est souvent là
@@ -338,8 +440,8 @@ export default function TandemScreen() {
           bloquer ni à signaler, et un bouton qui ne peut pas aboutir est une
           promesse trahie. */}
       {(gestes.peutSignaler || gestes.peutBloquer) && panneau === 'aucun' && <View style={styles.safety}>
-        {gestes.peutSignaler && <Pressable accessibilityRole="button" disabled={signalement} onPress={() => void signaler()}>
-          <Text style={[styles.safetyDanger, signalement && styles.safetyOff]}>{signalement ? t.reporting : t.report}</Text>
+        {gestes.peutSignaler && <Pressable accessibilityRole="button" onPress={() => setPanneau('signalement')}>
+          <Text style={styles.safetyDanger}>{t.report}</Text>
         </Pressable>}
         {gestes.peutBloquer && <Pressable accessibilityRole="button" onPress={() => setPanneau('blocage')}>
           <Text style={styles.safetyAction}>{t.block}</Text>
@@ -385,6 +487,19 @@ const styles = StyleSheet.create({
   panel: { borderWidth: 1, borderLeftWidth: 3, borderColor: colors.ink, padding: 18, marginTop: 28, maxWidth: 340 },
   panelKicker: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, letterSpacing: 1 },
   panelText: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 11 },
+  panelTitle: { color: colors.ink, fontFamily: typography.display, fontSize: 24, marginTop: 10 },
+  panelLabel: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, letterSpacing: 0.5, marginTop: 20 },
+  // L'avertissement des lignes d'urgence : encadré, pas coloré en rouge — la
+  // palette du produit n'a pas de rouge, et en inventer un ici ferait de cet
+  // écran une alarme là où il doit rester tenable à lire.
+  panelAlert: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 16, borderLeftWidth: 2, borderLeftColor: colors.copper, paddingLeft: 12 },
+  categories: { marginTop: 18, gap: 8 },
+  category: { borderWidth: 1, borderColor: colors.line, padding: 13 },
+  categoryChosen: { borderColor: colors.ink, backgroundColor: colors.white },
+  categoryText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  categoryTextChosen: { color: colors.ink },
+  noteInput: { borderWidth: 1, borderColor: colors.line, padding: 13, minHeight: 74, marginTop: 9, color: colors.ink, fontSize: 15, lineHeight: 22, textAlignVertical: 'top' },
+  panelActionOff: { backgroundColor: colors.line },
   panelAction: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingVertical: 13, paddingHorizontal: 17, marginTop: 18 },
   panelActionText: { color: colors.white, fontFamily: typography.mono, fontSize: 11 },
   safety: { flexDirection: 'row', gap: 22, marginTop: 30, flexWrap: 'wrap' },

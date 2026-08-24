@@ -100,7 +100,7 @@ beforeAll(async () => {
       [tandemActif, visee.id],
     )
     const rapport = await client.query<{ id: string }>(
-      "insert into public.tandem_reports (tandem_id, reporter_id, message_id, reason) values ($1, $2, $3, 'À traiter.') returning id",
+      "insert into public.tandem_reports (tandem_id, reporter_id, message_id, category, reason) values ($1, $2, $3, 'insistance', 'À traiter.') returning id",
       [tandemActif, signalante.id, message.rows[0].id],
     )
     signalementActif = rapport.rows[0].id
@@ -113,7 +113,7 @@ beforeAll(async () => {
     )
     tandemBloque = bloque.rows[0].id
     const sansMessage = await client.query<{ id: string }>(
-      "insert into public.tandem_reports (tandem_id, reporter_id, reason) values ($1, $2, 'Gêne diffuse, relation déjà bloquée.') returning id",
+      "insert into public.tandem_reports (tandem_id, reporter_id, category, reason) values ($1, $2, 'malaise', 'Gêne diffuse, relation déjà bloquée.') returning id",
       [tandemBloque, signalante.id],
     )
     signalementSansMessage = sansMessage.rows[0].id
@@ -192,17 +192,25 @@ describe('faire avancer un signalement', () => {
     // pu l'en empêcher. Le refus vient donc du grant, et il **lève** — sur
     // « permission denied for **table** », mesuré et non supposé : PostgreSQL
     // ne dit pas « for column » ici.
+    // `is_generated = 'NEVER'` écarte `urgency` (ajoutée le 25/08/2026), et
+    // l'écarter est plus juste que l'inclure : une colonne générée est refusée
+    // **avant** le contrôle des droits, sur « column "urgency" can only be
+    // updated to DEFAULT » — mesuré. La boucle ci-dessous attend « permission
+    // denied » et rougirait donc sur un refus plus fort que celui qu'elle
+    // cherche. Le refus propre à `urgency` est tenu par
+    // `categorie-signalement.test.ts`.
     const colonnes = await commeService(async (client) => {
       const { rows } = await client.query<{ column_name: string }>(
         `select column_name from information_schema.columns
-          where table_schema = 'public' and table_name = 'tandem_reports' and column_name <> 'status'
+          where table_schema = 'public' and table_name = 'tandem_reports'
+            and column_name <> 'status' and is_generated = 'NEVER'
           order by column_name`,
       )
       return rows.map((ligne) => ligne.column_name)
     })
 
     // TÉMOIN : sans lui, une liste vide ferait passer la boucle sans rien tester.
-    expect(colonnes).toEqual(['created_at', 'id', 'message_id', 'reason', 'reporter_id', 'resolved_at', 'tandem_id'])
+    expect(colonnes).toEqual(['category', 'created_at', 'id', 'message_id', 'reason', 'reporter_id', 'resolved_at', 'tandem_id'])
 
     for (const colonne of colonnes) {
       await expect(
@@ -425,7 +433,7 @@ describe('le journal d’audit', () => {
         [partant.id, autre.id],
       )
       const rapport = await client.query<{ id: string }>(
-        "insert into public.tandem_reports (tandem_id, reporter_id, reason) values ($1, $2, 'Signalement d’un compte qui partira.') returning id",
+        "insert into public.tandem_reports (tandem_id, reporter_id, category, reason) values ($1, $2, 'malaise', 'Signalement d’un compte qui partira.') returning id",
         [tandem.rows[0].id, partant.id],
       )
       return { partant, rapportId: rapport.rows[0].id }

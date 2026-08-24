@@ -59,7 +59,7 @@ beforeAll(async () => {
     messageSignale = message.rows[0].id
 
     const rapport = await client.query<{ id: string }>(
-      "insert into public.tandem_reports (tandem_id, reporter_id, message_id, reason) values ($1, $2, $3, 'À traiter.') returning id",
+      "insert into public.tandem_reports (tandem_id, reporter_id, message_id, category, reason) values ($1, $2, $3, 'insistance', 'À traiter.') returning id",
       [tandem, signalante.id, messageSignale],
     )
     signalement = rapport.rows[0].id

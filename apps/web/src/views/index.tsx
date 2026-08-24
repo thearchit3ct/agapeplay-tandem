@@ -14,8 +14,8 @@ import { supabase } from '../lib/supabaseClient'
 import type { AppState } from '@agapeplay/domain'
 import { getJourney } from '../mockData'
 import type { Copy } from '@agapeplay/content/copy/web'
-import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance, PartageDuJournal } from '@agapeplay/domain'
-import { initialeDe } from '@agapeplay/domain'
+import type { CategorieSignalement, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance, PartageDuJournal } from '@agapeplay/domain'
+import { CATEGORIES_PROPOSEES, initialeDe, urgenceDe } from '@agapeplay/domain'
 import type { EntreePartagee, PartageEmis } from '../partageJournal'
 
 // L'espace modérateur vit dans son propre fichier : il ne partage rien avec les
@@ -210,6 +210,92 @@ export function UnblockDialog({ t, onConfirm, onClose }: { t: Copy; onConfirm: (
       <div className="unblock-actions">
         <button className="primary-button" onClick={onConfirm}>{t.unblockConfirm}<span aria-hidden="true">→</span></button>
         <button className="text-button" onClick={onClose}>{t.unblockCancel}</button>
+      </div>
+    </section>
+  </div>
+}
+
+/**
+ * Le signalement, devenu une question plutôt qu'un clic.
+ *
+ * Jusqu'au 25/08/2026, « Signaler un problème » écrivait immédiatement une
+ * ligne portant la phrase « Signalement depuis la conversation ». Deux choses
+ * changent, et la seconde compte autant que la première : la modération sait
+ * enfin de quoi il s'agit, et la personne qui signale voit ce qu'elle envoie
+ * avant de l'envoyer.
+ *
+ * Le mot libre est facultatif, et l'écran le dit avec ces mots-là. Un champ
+ * qu'on croit obligatoire à ce moment précis, c'est un signalement abandonné :
+ * raconter est difficile, choisir une ligne ne l'est pas.
+ *
+ * `reportHelplineNote` n'apparaît que sur les deux catégories d'urgence
+ * immédiate, et il dit ce que le produit ne fait pas — personne ne veille la
+ * nuit. Le mettre sous chaque catégorie le rendrait invisible ; le taire
+ * laisserait croire qu'envoyer ce formulaire est un secours.
+ */
+export function ReportDialog({
+  t, categorie, note, setCategorie, setNote, onConfirm, onClose,
+}: {
+  t: Copy
+  categorie: CategorieSignalement | null
+  note: string
+  setCategorie: (valeur: CategorieSignalement) => void
+  setNote: (valeur: string) => void
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const libelles: Record<CategorieSignalement, string> = {
+    malaise: t.categoryMalaise,
+    insistance: t.categoryInsistance,
+    secret: t.categorySecret,
+    sexuel: t.categorySexuel,
+    danger: t.categoryDanger,
+    autre: t.categoryAutre,
+    non_precise: t.categoryNonPrecise,
+  }
+  // L'urgence se calcule ici sur ce que la personne vient de choisir, avant que
+  // la ligne existe : c'est la seule raison d'être de `urgenceDe` côté client.
+  // La colonne générée reste la seule à faire foi une fois la ligne écrite.
+  const urgence = categorie ? urgenceDe(categorie) : null
+
+  return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
+    <section className="auth-dialog report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" onClick={(event) => event.stopPropagation()}>
+      <div className="auth-dialog-top"><span className="section-kicker">{t.report}</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
+      <h2 id="report-dialog-title">{t.reportTitle}</h2>
+      <p>{t.reportDescription}</p>
+
+      <div className="report-categories" role="radiogroup" aria-labelledby="report-dialog-title">
+        {CATEGORIES_PROPOSEES.map((valeur) => (
+          <button
+            key={valeur}
+            type="button"
+            role="radio"
+            aria-checked={categorie === valeur}
+            className={`report-category${categorie === valeur ? ' choisie' : ''}`}
+            onClick={() => setCategorie(valeur)}
+          >{libelles[valeur]}</button>
+        ))}
+      </div>
+
+      {urgence === 'immediate' && <p className="report-helpline">{t.reportHelplineNote}</p>}
+      {urgence === 'immediate' && <p className="report-urgent">{t.reportUrgentNote}</p>}
+
+      <label className="report-note-label" htmlFor="report-note">{t.reportNoteLabel}</label>
+      <textarea
+        id="report-note"
+        className="report-note"
+        value={note}
+        maxLength={1000}
+        onChange={(event) => setNote(event.target.value)}
+        placeholder={t.reportNotePlaceholder}
+      />
+
+      <div className="unblock-actions">
+        {/* Sans catégorie, il n'y a rien à envoyer : la base refuserait l'insert
+            — `category` est `not null` et sans défaut — et l'écran n'a aucune
+            raison de laisser partir une requête qu'il sait perdue. */}
+        <button className="primary-button" disabled={!categorie} onClick={onConfirm}>{t.reportConfirm}<span aria-hidden="true">→</span></button>
+        <button className="text-button" onClick={onClose}>{t.reportCancel}</button>
       </div>
     </section>
   </div>
