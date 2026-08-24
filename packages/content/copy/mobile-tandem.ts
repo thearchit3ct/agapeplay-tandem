@@ -7,10 +7,22 @@
  * qu'un blocage ne peut être levé que par le support.
  *
  * Ce n'est pas un sous-ensemble de web.ts, pour la même raison que
- * mobile-home.ts n'en est pas un : l'écran mobile n'a ni fil de discussion
- * complet ni composeur, et ses phrases sont plus courtes. Les clés de blocage,
- * elles, disent volontairement la même chose des deux côtés — c'est la même
- * règle, elle mérite la même promesse.
+ * mobile-home.ts n'en est pas un : les phrases mobiles sont plus courtes, et
+ * l'écran dit des choses que le web ne dit pas. Les clés de blocage, elles,
+ * disent volontairement la même chose des deux côtés — c'est la même règle,
+ * elle mérite la même promesse.
+ *
+ * Le fil et le composeur sont arrivés le 24/08/2026. `emptyThread` annonçait
+ * jusque-là que « la conversation s'écrit sur le web » : c'était vrai, ça ne
+ * l'est plus. Deux textes nouveaux valent d'être lus deux fois :
+ *
+ * - `threadClosed` existe parce que la politique de lecture filtre en silence.
+ *   Une personne bloquée reçoit zéro message et aucune erreur ; sans cette
+ *   phrase, elle verrait « rien encore » à la place de la vérité.
+ * - `sendError` ne dit pas la même chose que `composerClosed`. Le web répond
+ *   `messageUnavailable` à un envoi raté parce qu'il l'a mis dans sa file
+ *   hors-ligne ; le mobile n'a pas de file pour les messages, alors il dit que
+ *   le message n'est pas parti et laisse la saisie en place.
  */
 
 import { sharedLabels } from './shared'
@@ -22,7 +34,14 @@ export const copy = {
     title: 'Ton tandem',
     online: 'En ligne',
     blockedStatus: 'Bloqué',
-    emptyThread: 'La conversation s’écrit sur le web pour l’instant.',
+    emptyThread: 'Rien encore. Le premier mot peut être le tien.',
+    threadClosed: 'Cette conversation est bloquée : son historique ne t’est plus lisible.',
+    composerPlaceholder: 'Un mot pour ton tandem…',
+    composerClosed: 'On ne peut plus écrire ici.',
+    send: 'Envoyer',
+    sending: 'Envoi…',
+    sendError: 'Ton message n’est pas parti. Réessaie dans un moment.',
+    me: 'Toi',
     privacyNote: 'Les échanges restent privés entre vous.',
     loading: 'On récupère ton tandem…',
     signInPrompt: 'Connecte-toi pour retrouver ton tandem.',
@@ -45,7 +64,14 @@ export const copy = {
     title: 'Your tandem',
     online: 'Online',
     blockedStatus: 'Blocked',
-    emptyThread: 'The conversation lives on the web for now.',
+    emptyThread: 'Nothing yet. The first word can be yours.',
+    threadClosed: 'This conversation is blocked: its history is no longer readable for you.',
+    composerPlaceholder: 'A word for your tandem…',
+    composerClosed: 'No one can write here any more.',
+    send: 'Send',
+    sending: 'Sending…',
+    sendError: 'Your message did not go through. Try again in a moment.',
+    me: 'You',
     privacyNote: 'What you share stays between the two of you.',
     loading: 'Fetching your tandem…',
     signInPrompt: 'Sign in to find your tandem again.',

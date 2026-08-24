@@ -16,6 +16,7 @@ Copier `.env.example` vers `.env` et renseigner les variables Supabase avant d�
 
 - écran d’accueil mobile et rituel du jour ;
 - navigation vers parcours, séance et tandem ;
+- conversation du tandem : lecture du fil et envoi de messages (depuis le 24/08/2026) ;
 - bilingue français/anglais ;
 - thème AgapePlay partagé dans l’esprit de l’application web ;
 - point d’entrée Supabase prêt pour l’authentification et la synchronisation.

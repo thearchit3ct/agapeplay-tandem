@@ -191,6 +191,18 @@ l'application.
 
 ### 5. Le mobile n'a jamais tourné sur un appareil — ✅ SÉANCE FAITE (24/08/2026)
 
+**Amendement du 24/08/2026 — la conversation existe sur mobile.** Le retard des
+tables est réduit : l'écran tandem lit et écrit désormais `tandem_messages`,
+avec le fil, le composeur, et une phrase pour chaque état — pas de tandem,
+lecture coupée par un blocage, envoi raté. **Aucune migration** : les deux
+chemins existaient depuis `…_000002`, resserrés par `blocage_effectif`. La
+règle de lecture et d'écriture vit dans `packages/domain/src/conversation.ts`,
+comme `unblockAffordance` avant elle, et le cas qu'elle sert est celui qu'aucune
+réponse HTTP ne signale : `messages_select_member` filtre **en silence**, si
+bien qu'une personne bloquée reçoit zéro ligne et aucune erreur. Sans cette
+règle, l'écran lui afficherait « rien encore ». Les deux écarts avec le web sont
+recensés dans le tableau des écarts assumés.
+
 **L'état ci-dessous est daté.** Le 24 août, l'application a tourné sur un
 Android réel (Expo Go 57, Metro exposé sur l'IP publique du serveur — le
 tunnel ngrok d'Expo était en panne et s'est révélé inutile). Verdict : elle
@@ -245,6 +257,8 @@ Ces points sont **constatés, pas des oublis**. Les rouvrir demande une décisio
 | Une invitation antérieure à un blocage reste visible du bloqueur — **traité côté interface le 24/08/2026** | La politique concernée gouverne aussi le `select … for update` de la RPC d'acceptation ; la resserrer casserait des acceptations légitimes de façon peu visible. Elle est donc inchangée : c'est l'écran qui retire ces invitations de la liste « Reçues » (`apps/web/src/invitations.ts`), au motif qu'elles sont de toute façon inacceptables — `tandems_insert_member` exige `not tandem_paire_bloquee(…)`. |
 | Sur une paire bloquée, l'inviteur ne peut plus révoquer son invitation — **affiché et expliqué depuis le 24/08/2026** | Elle reste `pending` jusqu'à péremption. Le chemin de retour sanctionné est de lever le blocage. L'écran ne le contourne pas : il n'affiche aucun bouton là où le `with check` lèverait, et dit le chemin de retour. |
 | La lecture d'un dossier de modération ne laisse aucune trace | Seules les décisions en laissent. Tracer les consultations est une décision séparée. |
+| Le mobile ne met aucun message de côté quand l'envoi échoue — **constaté le 24/08/2026** | Le web a une file hors-ligne (`enqueueSync`, `kind: 'tandem_message'`) ; le mobile n'en a une que pour la progression de séance (`ProgressOperation`). Plutôt que d'élargir cette file dans le même chantier, l'écran dit que le message n'est pas parti et **laisse la saisie en place**. La divergence est visible et réparable ; une file silencieuse qui perdrait un message ne le serait pas. |
+| Le mobile ne rafraîchit la conversation qu'au retour sur l'écran — **constaté le 24/08/2026** | Ni le web ni le mobile n'ont de temps réel. Le web se relit au rechargement de page, le mobile à la reprise de focus (`useFocusEffect`). Aucun bouton « relire » n'a été ajouté : le web n'en a pas sur la conversation, et en poser un ici inventerait un geste que l'autre application ne connaît pas. |
 | `invitation_email_mismatch` est inatteignable pour un tiers | Depuis le passage en `security invoker`, le tiers ne voit pas la ligne : le refus remonte `invitation_not_found`. Le refus est réel, le message n'est pas celui qu'on attend en lisant le code. |
 
 ---
