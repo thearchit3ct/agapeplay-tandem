@@ -16,8 +16,8 @@
  *   dossier doit porter `null` plutôt qu'un objet vide.
  */
 import { describe, expect, it } from 'vitest'
-import { assemblerDossiers, transitionsPossibles } from './moderation'
-import type { ContexteSignale, MessageSignale, Signalement } from './moderation'
+import { CATEGORIES_PROPOSEES, assemblerDossiers, transitionsPossibles, urgenceDe } from './moderation'
+import type { CategorieSignalement, ContexteSignale, MessageSignale, Signalement } from './moderation'
 
 const signalante = '11111111-1111-4111-8111-111111111111'
 const autre = '22222222-2222-4222-8222-222222222222'
@@ -28,6 +28,8 @@ const signalement = (surcharge: Partial<Signalement> = {}): Signalement => ({
   messageId: 'm-1',
   reporterId: signalante,
   reason: 'Des messages qui insistent après un refus.',
+  categorie: 'insistance',
+  urgence: 'elevee',
   status: 'open',
   createdAt: '2026-08-20T10:00:00.000Z',
   resolvedAt: null,
@@ -120,6 +122,86 @@ describe('assemblerDossiers', () => {
     )
     expect(dossiers.map((dossier) => dossier.signalement.id))
       .toEqual(['recent-ouvert', 'ancien-ouvert', 'en-cours', 'clos'])
+  })
+
+  it('fait passer l’urgent devant, à statut égal', () => {
+    const dossiers = assemblerDossiers(
+      [
+        signalement({ id: 'malaise-recent', categorie: 'malaise', urgence: 'standard', createdAt: '2026-08-24T10:00:00.000Z' }),
+        signalement({ id: 'danger-ancien', categorie: 'danger', urgence: 'immediate', createdAt: '2026-08-19T10:00:00.000Z' }),
+        signalement({ id: 'secret', categorie: 'secret', urgence: 'elevee', createdAt: '2026-08-22T10:00:00.000Z' }),
+      ],
+      [],
+      [],
+    )
+    expect(dossiers.map((dossier) => dossier.signalement.id))
+      .toEqual(['danger-ancien', 'secret', 'malaise-recent'])
+  })
+
+  it('ne laisse jamais un dossier clos passer devant un dossier ouvert, même urgent', () => {
+    // C'est le cas qui décide de l'ordre des deux critères. Trier par urgence
+    // d'abord remonterait un dossier déjà traité au-dessus de ce qui attend
+    // encore une décision — la file cesserait d'être une file.
+    const dossiers = assemblerDossiers(
+      [
+        signalement({ id: 'clos-urgent', status: 'resolved', categorie: 'danger', urgence: 'immediate' }),
+        signalement({ id: 'ouvert-calme', status: 'open', categorie: 'malaise', urgence: 'standard' }),
+      ],
+      [],
+      [],
+    )
+    expect(dossiers.map((dossier) => dossier.signalement.id)).toEqual(['ouvert-calme', 'clos-urgent'])
+  })
+
+  it('accepte un signalement sans mot libre', () => {
+    // `reason` est nullable depuis que la catégorie porte le sens : un dossier
+    // sans mot libre est le cas courant, pas une anomalie à combler.
+    const [dossier] = assemblerDossiers([signalement({ reason: null })], [], [])
+    expect(dossier.signalement.reason).toBeNull()
+  })
+})
+
+describe('urgenceDe', () => {
+  it('range le sexuel et le danger en immédiat', () => {
+    expect(urgenceDe('sexuel')).toBe('immediate')
+    expect(urgenceDe('danger')).toBe('immediate')
+  })
+
+  it('range l’insistance et le secret demandé en élevé', () => {
+    // Le secret n'est pas un ton désagréable : demander à un mineur de taire
+    // une relation est ce qui précède le reste.
+    expect(urgenceDe('insistance')).toBe('elevee')
+    expect(urgenceDe('secret')).toBe('elevee')
+  })
+
+  it('range le reste en standard, y compris les signalements sans catégorie', () => {
+    expect(urgenceDe('malaise')).toBe('standard')
+    expect(urgenceDe('autre')).toBe('standard')
+    expect(urgenceDe('non_precise')).toBe('standard')
+  })
+
+  it('rend une urgence pour chaque catégorie que la contrainte accepte', () => {
+    // Une catégorie ajoutée sans dérivation tomberait dans le `else` et se
+    // dirait « standard » sans que personne l'ait décidé. La liste est donc
+    // recopiée ici, à la main : elle doit être relue avec la migration.
+    const toutes: CategorieSignalement[] = ['malaise', 'insistance', 'sexuel', 'secret', 'danger', 'autre', 'non_precise']
+    for (const categorie of toutes) {
+      expect(['immediate', 'elevee', 'standard']).toContain(urgenceDe(categorie))
+    }
+  })
+})
+
+describe('CATEGORIES_PROPOSEES', () => {
+  it('ne propose jamais non_precise', () => {
+    // `non_precise` désigne les signalements antérieurs aux catégories. Le
+    // proposer dirait à un adolescent qu'il peut signaler sans dire quoi, et
+    // rendrait indiscernables les dossiers hérités de ceux qu'on aurait pu
+    // qualifier.
+    expect(CATEGORIES_PROPOSEES).not.toContain('non_precise')
+  })
+
+  it('termine par la sortie de secours', () => {
+    expect(CATEGORIES_PROPOSEES[CATEGORIES_PROPOSEES.length - 1]).toBe('autre')
   })
 
   it('ne réordonne pas la liste qu’on lui passe', () => {

@@ -22,11 +22,19 @@
  * décision ne s'affichent que pour les transitions que la base accepte
  * réellement, et l'écran attend la ligne revenue avant de dire « enregistré ».
  *
+ * Depuis le 25/08/2026, chaque dossier porte une catégorie choisie par la
+ * personne et une urgence que la base en déduit ; la file les range dans cet
+ * ordre. Le repli « quand un dossier sort de l'application » est ici, et non
+ * dans un document qu'on irait lire un autre jour : une procédure d'escalade
+ * qu'on doit chercher au moment de décider n'est pas une procédure. Ce qu'il
+ * dit tient en trois lignes, dont l'aveu qui compte le plus — rien n'est
+ * détecté tout seul.
+ *
  * Rien n'est purement décoratif ici : un dossier de modération n'a pas besoin
  * d'ornement.
  */
 import { transitionsPossibles } from '@agapeplay/domain'
-import type { DossierModeration, StatutSignalement, TandemStatus } from '@agapeplay/domain'
+import type { CategorieSignalement, DossierModeration, StatutSignalement, TandemStatus, UrgenceSignalement } from '@agapeplay/domain'
 import type { Copy } from '@agapeplay/content/copy/web'
 import type { LigneJournal } from '../moderation'
 
@@ -35,6 +43,33 @@ const dateLongue = (valeur: string) => new Date(valeur).toLocaleString()
 
 const libelleStatut = (statut: StatutSignalement, t: Copy) =>
   statut === 'open' ? t.statusOpen : statut === 'reviewing' ? t.statusReviewing : t.statusResolved
+
+/**
+ * Les sept catégories, la septième comprise.
+ *
+ * `non_precise` n'est proposé à personne — mais huit dossiers réels le portent,
+ * et un écran qui l'ignorerait afficherait un vide à leur place. Le libellé dit
+ * ce qui s'est passé (« signalement antérieur aux catégories ») plutôt que de
+ * laisser croire à une donnée manquante.
+ */
+const libelleCategorie = (categorie: CategorieSignalement, t: Copy) => {
+  if (categorie === 'malaise') return t.categoryMalaise
+  if (categorie === 'insistance') return t.categoryInsistance
+  if (categorie === 'secret') return t.categorySecret
+  if (categorie === 'sexuel') return t.categorySexuel
+  if (categorie === 'danger') return t.categoryDanger
+  if (categorie === 'autre') return t.categoryAutre
+  return t.categoryNonPrecise
+}
+
+/**
+ * L'urgence est du vocabulaire de modération, et c'est le seul endroit du
+ * produit où on s'y autorise : elle n'est lue que par un modérateur. La
+ * personne qui signale, elle, ne voit jamais ces trois mots — elle choisit une
+ * situation, la base en déduit le reste.
+ */
+const libelleUrgence = (urgence: UrgenceSignalement, t: Copy) =>
+  urgence === 'immediate' ? t.urgencyImmediate : urgence === 'elevee' ? t.urgencyElevee : t.urgencyStandard
 
 /**
  * Les quatre états de `tandems.status`, dits en toutes lettres.
@@ -96,6 +131,16 @@ export function ModerationView({
     {/* Dit avant qu'on ait le temps de le prendre pour un défaut. */}
     <p className="moderation-note">{t.moderationNoIdentity}</p>
 
+    {/* La procédure d'escalade, là où la décision se prend — pas dans un
+        document qu'on ira lire un autre jour. Ce qui est ici tient en trois
+        lignes : ce qui sort de l'application, vers qui, et l'aveu qui compte
+        le plus — rien n'est détecté tout seul. Le reste est versionné. */}
+    <details className="moderation-escalation">
+      <summary>{t.moderationEscalationTitle}</summary>
+      <p>{t.moderationEscalationImmediate}</p>
+      <p className="moderation-escalation-note">{t.moderationEscalationNote}</p>
+    </details>
+
     {chargement && <p className="moderation-state" role="status">{t.moderationLoading}</p>}
     {erreur && !chargement && <p className="moderation-state" role="alert">{t.moderationError}</p>}
 
@@ -145,14 +190,26 @@ function DossierCarte({
   return <article className={`moderation-case statut-${signalement.status}`}>
     <div className="moderation-case-top">
       <span className="status-chip">{libelleStatut(signalement.status, t)}</span>
+      {/* L'urgence porte la classe de sa valeur : ce qui est immédiat doit se
+          voir d'un coup d'œil dans une liste, avant d'être lu. */}
+      <span className={`urgency-chip urgence-${signalement.urgence}`}>{libelleUrgence(signalement.urgence, t)}</span>
       <span className="moderation-dates">
         {t.moderationReportedAt} {dateCourte(signalement.createdAt)}
         {signalement.resolvedAt && ` · ${t.moderationClosedAt} ${dateCourte(signalement.resolvedAt)}`}
       </span>
     </div>
 
+    <span className="section-kicker">{t.moderationCategory}</span>
+    <p className="moderation-category">{libelleCategorie(signalement.categorie, t)}</p>
+
     <span className="section-kicker">{t.moderationReason}</span>
-    <p className="moderation-reason">{signalement.reason}</p>
+    {/* `reason` est facultatif depuis que la catégorie porte le sens : une
+        absence se dit, comme pour le message et le contexte. Rendu tel quel,
+        un `null` afficherait un bloc vide sous un intertitre — l'écran aurait
+        l'air cassé là où il ne manque rien. */}
+    {signalement.reason
+      ? <p className="moderation-reason">{signalement.reason}</p>
+      : <p className="moderation-absent">{t.moderationNoReason}</p>}
 
     <span className="section-kicker">{t.moderationMessage}</span>
     {message

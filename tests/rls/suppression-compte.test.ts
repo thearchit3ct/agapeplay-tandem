@@ -105,8 +105,8 @@ const monterDecor = async (options: { statutTandem?: string } = {}): Promise<Dec
     )
 
     const { rows: signalements } = await client.query<{ id: string }>(
-      `insert into public.tandem_reports (tandem_id, reporter_id, message_id, reason)
-       values ($1, $2, $3, 'Message inapproprié.') returning id::text`,
+      `insert into public.tandem_reports (tandem_id, reporter_id, message_id, category, reason)
+       values ($1, $2, $3, 'malaise', 'Message inapproprié.') returning id::text`,
       [tandemId, b.id, messages[0].id],
     )
 

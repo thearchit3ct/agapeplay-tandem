@@ -9,6 +9,104 @@ Dépôt `thearchit3ct/agapeplay-tandem`, branche `main`.
 
 ---
 
+## Amendement du 25 août 2026 — catégories, urgence et escalade (issue #19)
+
+*Ajouté sans rien retirer de ce qui précède. Les deux amendements plus bas
+restent valables ; celui-ci ferme l'issue #19, dont la file de signalements et
+l'espace modérateur étaient déjà livrés (PR #38).*
+
+Il restait deux critères à l'issue #19 : « catégories et niveaux d'urgence » et
+« procédure d'escalade humaine ». Les voici, avec les décisions qu'ils ont
+demandées.
+
+**La raison d'un signalement était un texte libre, et dans les faits une phrase
+figée.** Les deux applications écrivaient « Signalement depuis la conversation »
+dans `reason` — littéral non traduit, décision assumée de la PR #42. Un
+modérateur ouvrant la file lisait donc huit fois la même phrase.
+
+**Six catégories, écrites pour quelqu'un de seize ans.** `malaise`,
+`insistance`, `secret`, `sexuel`, `danger`, `autre` — des phrases à la première
+personne, sans « harcèlement » ni « comportement inapproprié ». Chacune nomme
+**une** situation : un libellé qui en coudrait trois obligerait un adolescent à
+traduire ce qu'il vit dans le vocabulaire de la modération. Une septième valeur,
+`non_precise`, n'est proposée par aucun écran (voir plus bas).
+
+*Ce qui n'est délibérément pas une catégorie* : « on me propose de se voir en
+dehors de l'application ». Le tandem est proposé par une église et une rencontre
+en présence y est normale ; en faire un motif de signalement apprendrait à
+signaler le cadre lui-même. Ce qui alarme est la discrétion demandée autour, et
+c'est `secret` qui la porte.
+
+**L'urgence est déduite, jamais saisie.** Demander à un adolescent de trier sa
+propre urgence lui fait porter deux charges au pire moment, et c'est précisément
+le jugement que quelqu'un sous emprise fait le plus mal. Le modérateur ne peut
+pas la poser non plus : elle doit exister avant qu'il ouvre la file, puisque
+c'est elle qui décide de l'ordre. C'est donc le produit qui la déduit —
+`sexuel` et `danger` en immédiat, `insistance` et `secret` en élevé, le reste en
+ordinaire — par une **colonne générée**. PostgreSQL refuse toute valeur proposée
+par un client (« cannot insert a non-DEFAULT value into column »), si bien
+qu'il n'y a ni politique à écrire ni grant à retirer : une application compromise
+ne peut pas minorer une urgence. Contrepartie assumée : changer la dérivation
+demande une migration, et recalcule les lignes existantes.
+
+**L'ordre de la file : statut, puis urgence, puis le plus récent.** L'urgence
+départage à statut égal, et jamais l'inverse — un dossier clos et « immédiat » ne
+doit pas passer devant un dossier ouvert et « ordinaire ». Le troisième critère
+est inchangé : ce chantier avait une raison de changer l'ordre, il n'en avait
+aucune de changer celui-là.
+
+**Les huit dossiers réels de production deviennent `non_precise`.** Les ranger en
+`autre` aurait été une falsification douce : la table dirait que la personne a
+choisi « autre chose », alors qu'on ne lui a jamais posé la question. Ils gardent
+leur `reason` intact, s'affichent sous un libellé qui leur est propre — « sans
+catégorie, signalement antérieur aux catégories » — et prennent l'urgence
+ordinaire : ni relégués, ni promus devant des dossiers dont on sait, eux, ce
+qu'ils contiennent. `category` n'a **aucun défaut**, délibérément : un défaut
+laisserait insérer sans choisir, et on aurait remplacé un littéral figé par un
+autre.
+
+**`reason` survit en mot libre facultatif.** Le supprimer aurait effacé les huit
+témoignages existants et retiré à la modération le seul endroit où une situation
+se raconte avec ses propres mots. La contrainte de longueur n'a pas été touchée :
+`char_length(NULL)` rend NULL, un `check` qui rend NULL passe — mesuré. Elle
+refuse toujours la chaîne vide, d'où l'obligation, côté applications, d'envoyer
+`null` et non `''`.
+
+**La procédure d'escalade est écrite** dans
+[`22-PROCEDURE-ESCALADE.md`](./22-PROCEDURE-ESCALADE.md), et l'espace modérateur
+en expose l'essentiel là où la décision se prend. Elle est honnête sur ce que
+l'outil ne fait pas, et nomme au passage un écart avec le doc 06 : celui-ci
+promet qu'« un signalement grave impliquant un mineur est escaladé
+**automatiquement** à AgapePlay », alors que rien n'est détecté ni escaladé
+automatiquement. Le doc 06 n'a pas été réécrit — l'arbitrage revient au
+responsable produit.
+
+**Deux mesures faites sur base vivante plutôt que supposées**, et qui ont chacune
+corrigé une attente :
+
+- Une colonne générée est refusée **avant** le contrôle des droits : un
+  `update … set urgency = …` rend « column "urgency" can only be updated to
+  DEFAULT », et non « permission denied ». Le test attendait le second.
+- `alter table … add column if not exists` ne répare pas une expression de
+  colonne générée déjà en place. Rejouer la migration après une mutation laisse
+  donc la base fausse **en silence** — la restauration s'est faite en croyant
+  avoir réussi, et seul le test resté rouge l'a dit.
+
+### Ce que l'issue #19 laisse ouvert
+
+- Un seul modérateur nommé : aucune suppléance, aucune relance sur un dossier
+  pris en charge puis oublié. Les délais du doc 22 sont des objectifs, pas des
+  garanties, et c'est écrit comme tel.
+- La personne qui signale voit son dossier et son statut, mais n'apprend jamais
+  ce qui a été décidé.
+- Aucune note de modération dans l'application : `tandem_reports` n'accorde
+  l'écriture que sur `status`, et c'est ce qui protège le témoignage de la
+  personne. Ce que le modérateur consigne vit donc dans un registre hors dépôt.
+- Un modérateur ne peut pas bloquer une relation — le blocage exige
+  `auth.uid() = blocked_by`. Toute mesure sur la relation passe par un humain.
+
+---
+
 ## Amendement du 25 août 2026 — le partage du journal (issue #11)
 
 *Ajouté sans rien retirer de ce qui précède. Le corps du document reste l'état

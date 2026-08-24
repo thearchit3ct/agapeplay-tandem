@@ -13,7 +13,7 @@ import type { Ligne, Reponse, SectionExport } from './export'
 import { copy } from '@agapeplay/content/copy/web'
 import { partageDuJournal, unblockAffordance } from '@agapeplay/domain'
 import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus } from '@agapeplay/domain'
-import type { DossierModeration, StatutSignalement } from '@agapeplay/domain'
+import type { CategorieSignalement, DossierModeration, StatutSignalement } from '@agapeplay/domain'
 import { changerStatut, chargerDossiers, chargerJournal, estModerateur } from './moderation'
 import type { LigneJournal } from './moderation'
 import { chargerInvitations, revoquerInvitation } from './invitations'
@@ -22,7 +22,7 @@ import type { EntreePartagee, PartageEmis } from './partageJournal'
 import type { InvitationEmise } from './invitations'
 import type { Invitation } from '@agapeplay/domain'
 import {
-  AuthDialog, TrustDialog, SettingsDialog, DeleteAccountDialog, InviteDialog, UnblockDialog, MentorView, ChurchView,
+  AuthDialog, TrustDialog, SettingsDialog, DeleteAccountDialog, InviteDialog, UnblockDialog, ReportDialog, MentorView, ChurchView,
   NavItem, TodayView, JourneyView, SessionFlow, JournalView, TandemView, ModerationView,
   InvitationsView, PartagesRecusView,
 } from './views'
@@ -66,6 +66,12 @@ function App() {
   const [remoteTandemStatus, setRemoteTandemStatus] = useState<TandemStatus | null>(null)
   const [remoteTandemBlockedBy, setRemoteTandemBlockedBy] = useState<string | null>(null)
   const [unblockOpen, setUnblockOpen] = useState(false)
+  // Le signalement demande maintenant une catégorie — `tandem_reports.category`
+  // est `not null` et sans défaut. Les deux champs vivent ici, comme l'adresse
+  // de l'invitation : le dialogue les affiche, il ne les possède pas.
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportCategorie, setReportCategorie] = useState<CategorieSignalement | null>(null)
+  const [reportNote, setReportNote] = useState('')
   const [remoteMessages, setRemoteMessages] = useState<RemoteMessage[]>([])
   // Le partage du journal — issue #11. Trois états, trois provenances :
   // `partagesEmis` vient de `journal_shares` (own only, l'autrice y voit ses
@@ -725,12 +731,45 @@ function App() {
   }
 
   const reportTandem = async () => {
+    // Le dialogue interdit déjà le clic sans catégorie ; la garde est ici parce
+    // que c'est cette fonction qui écrit, et qu'une garde d'affichage ne
+    // protège pas une écriture.
+    if (!reportCategorie) return
+    setReportOpen(false)
     if (!supabase || !authSession || !remoteTandemId) {
       showNotice(t.reportNotice, 4200)
       return
     }
-    const { error } = await supabase.from('tandem_reports').insert({ tandem_id: remoteTandemId, reporter_id: authSession.user.id, reason: 'Signalement depuis la conversation' })
-    showNotice(error ? t.syncError : t.reportSent, 4200)
+    // `null` et non `''` quand la personne n'a rien écrit : la contrainte
+    // `char_length(reason) between 1 and 1000` passe sur NULL — elle rend NULL,
+    // et un `check` qui rend NULL passe — mais refuse la chaîne vide. Envoyer
+    // `''` ferait échouer tous les signalements sans mot libre, c'est-à-dire le
+    // cas courant.
+    //
+    // `urgency` n'est pas dans la charge utile et ne doit jamais y entrer :
+    // c'est une colonne générée, et PostgreSQL refuse toute valeur proposée
+    // (« cannot insert a non-DEFAULT value into column »). C'est ce refus qui
+    // fait qu'une application compromise ne peut pas minorer une urgence.
+    const { data, error } = await supabase
+      .from('tandem_reports')
+      .insert({
+        tandem_id: remoteTandemId,
+        reporter_id: authSession.user.id,
+        category: reportCategorie,
+        reason: reportNote.trim() || null,
+      })
+      .select('id')
+      .maybeSingle()
+    // Un insert refusé par un `with check` lève, contrairement à l'UPDATE — on
+    // lit quand même la ligne rendue : sans elle, on annoncerait « transmis »
+    // sur la seule foi d'une absence d'erreur.
+    if (error || !data) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    setReportCategorie(null)
+    setReportNote('')
+    showNotice(t.reportSent, 4200)
   }
 
   const lireJournal = async (signalementId: string) => {
@@ -1026,6 +1065,18 @@ function App() {
         {deleteOpen && <DeleteAccountDialog t={t} onConfirm={() => void supprimerMonCompte()} onExport={() => void exporterMesDonnees()} onClose={() => setDeleteOpen(false)} busy={compteEnCours} />}
         {inviteOpen && <InviteDialog t={t} email={inviteEmail} setEmail={setInviteEmail} link={inviteLink} onCreate={() => void createInvitation()} onClose={() => { setInviteOpen(false); setInviteLink('') }} />}
         {unblockOpen && <UnblockDialog t={t} onConfirm={() => void unblockTandem()} onClose={() => setUnblockOpen(false)} />}
+        {/* Fermer sans envoyer garde le choix en place : rouvrir après une
+            hésitation ne doit pas obliger à tout recommencer. Ce qui est effacé
+            l'est après un envoi réussi, et là seulement. */}
+        {reportOpen && <ReportDialog
+          t={t}
+          categorie={reportCategorie}
+          note={reportNote}
+          setCategorie={setReportCategorie}
+          setNote={setReportNote}
+          onConfirm={() => void reportTandem()}
+          onClose={() => setReportOpen(false)}
+        />}
 
         {notice && <div className="toast" role="status">{notice}</div>}
 
@@ -1071,7 +1122,7 @@ function App() {
               onSupprimer={(entryId) => void effacerEntree(entryId)}
               t={t}
             />}
-            {activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} partnerDeleted={remotePartnerDeleted} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
+            {activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} partnerDeleted={remotePartnerDeleted} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => setReportOpen(true)} onInvite={() => setInviteOpen(true)} t={t} />}
             {/* Ce que le binôme a partagé, sous la conversation et au-dessus
                 des invitations : c'est de la relation qu'il s'agit, pas du
                 journal — le journal de cette personne-là est le sien, et il

@@ -179,6 +179,31 @@ h3 { color: #f4eedf; font-size: 19px; line-height: 1.3; margin-bottom: 12px; }
 .unblock-dialog .unblock-reversible { margin-top: 12px; font-size: 12px; }
 .unblock-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 24px; }
 
+/* Le dialogue de signalement — 25/08/2026.
+   Le dialogue peut dépasser la hauteur de l'écran à 375 px : six catégories, un
+   avertissement, un champ. Il défile donc en lui-même plutôt que d'emporter la
+   page, sans quoi le bouton d'envoi deviendrait inatteignable. */
+.report-dialog { max-height: 88vh; overflow-y: auto; }
+.report-categories { display: grid; gap: 8px; margin-top: 22px; }
+/* Cibles tactiles pleine largeur : on choisit ici d'une main, souvent en
+   marchant, parfois en pleurant. Rien à viser. */
+.report-category { width: 100%; text-align: left; border: 1px solid #a7a79f; border-radius: 0; padding: 13px 14px; background: transparent; color: #4b4b46; font: 400 13px/1.5 'DM Mono', monospace; cursor: pointer; }
+.report-category:hover { border-color: #171716; color: #171716; }
+.report-category.choisie { border-color: #171716; background: #171716; color: var(--paper); }
+/* Le renvoi vers le 119 et le 17 : encadré, jamais rouge. La palette du produit
+   n'en a pas, et en inventer un ferait de cet écran une alarme au moment où il
+   doit rester lisible. */
+.report-helpline { margin: 20px 0 0; padding: 12px 14px; border-left: 3px solid #171716; color: #171716; font-size: 13px; line-height: 1.65; }
+.report-urgent { margin: 10px 0 0; color: #4b4b46; font-size: 12px; line-height: 1.6; }
+.report-note-label { display: block; margin-top: 24px; color: #555550; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
+.report-note { width: 100%; min-height: 84px; margin-top: 9px; border: 1px solid #555550; border-radius: 0; padding: 12px; background: #f7f6efaa; color: #171716; outline: 0; font: 400 13px/1.6 'DM Mono', monospace; resize: vertical; }
+.report-note:focus { border-color: #171716; box-shadow: 4px 4px 0 #77776f; }
+/* `.auth-dialog .primary-button:disabled` vaut `cursor: wait` — il y annonce un
+   envoi en cours. Ici l'attente n'est pas la nôtre : le bouton attend un choix.
+   Le sélecteur double la classe pour passer devant, la règle d'origine venant
+   plus bas dans ce fichier. */
+.auth-dialog.report-dialog .primary-button:disabled { cursor: not-allowed; opacity: .45; }
+
 @keyframes scene-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
@@ -481,6 +506,23 @@ h3 { color: #eeeeea; font-weight: 400; }
 .moderation-trail ol { margin: 0; padding-left: 18px; color: #bdbdb6; font-size: 11px; line-height: 1.9; }
 .moderation-trail ol span { display: block; color: #8f8f88; font-size: 10px; }
 .moderation-trail em { color: #a6a6a0; font-style: normal; }
+
+/* La catégorie et l'urgence — 25/08/2026.
+   La palette de cet écran est monochrome par décision : un dossier n'est pas une
+   alerte, et trois couleurs de gravité en feraient un tableau de bord. L'urgence
+   se dit donc par le poids et le cadre, pas par du rouge. « Immédiate » est la
+   seule à porter un fond plein : c'est la seule qui demande de sortir de
+   l'application. */
+.urgency-chip { padding: 3px 7px; border: 1px solid #4a4a45; color: #a6a6a0; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+.urgency-chip.urgence-immediate { background: #eeeeea; border-color: #eeeeea; color: #111111; }
+.urgency-chip.urgence-elevee { border-color: #eeeeea; color: #eeeeea; }
+.moderation-category { margin: 0; color: #eeeeea; font-size: 14px; line-height: 1.65; }
+/* Le rappel d'escalade est replié par défaut : il est là pour le moment où on
+   en a besoin, pas pour occuper le haut de chaque visite. */
+.moderation-escalation { max-width: 640px; margin: 14px 0 0; padding: 12px 14px; border: 1px dashed #4a4a45; }
+.moderation-escalation summary { color: #eeeeea; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; cursor: pointer; }
+.moderation-escalation p { margin: 12px 0 0; color: #bdbdb6; font-size: 12px; line-height: 1.7; }
+.moderation-escalation p.moderation-escalation-note { color: #8f8f88; }
 
 @media (max-width: 620px) {
   .moderation-case { padding: 16px 14px; box-shadow: 4px 4px 0 #000000; }

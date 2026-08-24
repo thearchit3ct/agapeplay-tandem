@@ -39,9 +39,20 @@
  *   ligne. Sans ces deux phrases, l'écran annoncerait un blocage que le serveur
  *   n'a pas posé. `syncError` ne convient pas — le serveur a bien répondu.
  *
- * Ce qui **n'est pas** ici, et volontairement : le motif du signalement. Il part
- * en français littéral dans la colonne `reason`, comme sur le web ; le traduire
- * changerait la donnée que lit la modération, pas l'interface.
+ * Le motif du signalement, lui, a changé de nature le 25/08/2026 (issue #19).
+ * Il partait jusque-là en français littéral dans `reason` — « Signalement depuis
+ * la conversation » — et ce commentaire disait à raison qu'il n'avait rien à
+ * faire dans un catalogue de textes : c'était une donnée, pas une interface.
+ *
+ * Ce qui part en base est maintenant un **code** (`malaise`, `secret`,
+ * `danger`…) que la migration `20260825173000` énumère, et un mot libre
+ * facultatif écrit par la personne. Les libellés de ces codes sont donc, eux,
+ * de l'interface pure, et ils sont ici, traduits, à parité — tandis que la
+ * donnée reste invariante quelle que soit la langue de l'écran. C'est
+ * exactement ce que l'ancienne rédaction cherchait à protéger.
+ *
+ * Ces libellés reprennent mot pour mot ceux du web, pour la même raison que
+ * `report` et `block` : c'est la même question posée à la même personne.
  */
 
 import { sharedLabels } from './shared'
@@ -80,6 +91,24 @@ export const copy = {
     report: 'Signaler un problème',
     reportSent: 'Signalement transmis à la modération.',
     reporting: 'Envoi du signalement…',
+    // Le signalement qualifié — issue #19. Repris mot pour mot du web : la
+    // question est la même, et un adolescent qui passe du téléphone au
+    // navigateur ne doit pas avoir l'impression de changer de produit.
+    reportTitle: 'Que se passe-t-il ?',
+    reportDescription: 'Choisis ce qui ressemble le plus à ta situation. Un modérateur d’AgapePlay le lira. Ni ton église, ni la personne concernée ne sauront que tu as signalé.',
+    reportNoteLabel: 'Tu peux ajouter un mot si tu veux',
+    reportNotePlaceholder: 'Avec tes mots, si tu en as envie…',
+    reportConfirm: 'Envoyer le signalement',
+    reportCancel: 'Annuler',
+    reportUrgentNote: 'Ce que tu viens de choisir place ce signalement en tête de la file.',
+    reportHelplineNote: 'Si quelqu’un est en danger maintenant, appelle le 119 (enfance en danger) ou le 17. Cette application ne remplace pas un secours et personne n’y répond la nuit.',
+    categoryMalaise: 'Des propos qui me mettent mal à l’aise',
+    categoryInsistance: 'On insiste alors que j’ai dit non',
+    categorySecret: 'On me demande de garder ça pour moi, ou d’en parler ailleurs',
+    categorySexuel: 'Des propos ou des images à caractère sexuel',
+    categoryDanger: 'Quelqu’un est en danger',
+    categoryAutre: 'Autre chose',
+
     block: 'Bloquer cette relation',
     blockedNotice: 'Cette relation est maintenant bloquée.',
     blockRefused: 'Le blocage n’a pas été posé. Reviens sur cet écran pour voir où en est la relation.',
@@ -122,6 +151,22 @@ export const copy = {
     report: 'Report a problem',
     reportSent: 'Report sent to moderation.',
     reporting: 'Sending the report…',
+    // Word for word from web.ts — see the French block.
+    reportTitle: 'What is happening?',
+    reportDescription: 'Pick whatever comes closest to your situation. An AgapePlay moderator will read it. Neither your church nor the person involved will know that you reported.',
+    reportNoteLabel: 'You can add a word if you want to',
+    reportNotePlaceholder: 'In your own words, if you feel like it…',
+    reportConfirm: 'Send the report',
+    reportCancel: 'Cancel',
+    reportUrgentNote: 'What you just picked puts this report at the front of the queue.',
+    reportHelplineNote: 'If someone is in danger right now, call 119 (child protection, France) or 17. This app is not an emergency service, and nobody is watching it at night.',
+    categoryMalaise: 'Things that are said make me uncomfortable',
+    categoryInsistance: 'Someone keeps pushing after I said no',
+    categorySecret: 'Someone asks me to keep this to myself, or to talk elsewhere',
+    categorySexuel: 'Sexual words or images',
+    categoryDanger: 'Someone is in danger',
+    categoryAutre: 'Something else',
+
     block: 'Block this relationship',
     blockedNotice: 'This relationship is now blocked.',
     blockRefused: 'The block was not set. Come back to this screen to see where the relationship stands.',
