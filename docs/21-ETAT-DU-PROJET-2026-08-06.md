@@ -82,7 +82,21 @@ Cette discipline a payé plusieurs fois :
 
 ## Ce qui reste à faire
 
-### 1. Appliquer les migrations — rien ne protège personne avant
+### 1. Appliquer les migrations — ✅ FAIT (constaté puis complété le 24/08/2026)
+
+**L'état décrit ci-dessous est dépassé.** Au 24 août, le journal distant
+portait déjà les treize migrations sous leurs bons noms à quatorze chiffres —
+la réconciliation du doc 20 ET le push des six migrations de sécurité avaient
+été faits entre le 6 août et la mise en pause du projet, sans que ce document
+soit mis à jour. Vérifié artefact par artefact sur le schéma réel (colonnes de
+blocage, table des modérateurs, vue de contexte, fonctions, triggers, grant
+d'insertion) : le journal ne mentait pas. La quatorzième —
+`partenaire_visible` (PR #37) — a été poussée le 24/08 et vérifiée :
+`security definer`, sans paramètre, EXECUTE pour `authenticated` seul.
+
+Au passage, deux faits utiles : le projet distant s'appelle « Tamdem » (sic)
+et vivait en pause ; et la base est **vide** — zéro tandem, zéro profil. Le
+paragraphe d'origine reste ci-dessous comme trace de ce qui était cru.
 
 **Six migrations attendent dans le dépôt, aucune n'est appliquée** :
 `blocage_effectif`, `appariement_possible`, `invitation_bloquee`,

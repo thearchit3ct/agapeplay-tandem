@@ -12,3 +12,10 @@ coverage/
 
 # Base Supabase jetable montée par npm run test:rls
 .rls-stack/
+
+# Déposés par `supabase init` (requis avant `supabase link`, cf. doc 20) —
+# volontairement non versionnés : la doc du projet le dit, et un `git add -A`
+# ne doit pas pouvoir les embarquer par accident.
+supabase/config.toml
+supabase/.gitignore
+supabase/.temp/
