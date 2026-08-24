@@ -11,9 +11,12 @@ import { initialState, loadState, saveState } from './storage'
 import { copy } from '@agapeplay/content/copy/web'
 import { unblockAffordance } from '@agapeplay/domain'
 import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus } from '@agapeplay/domain'
+import type { DossierModeration, StatutSignalement } from '@agapeplay/domain'
+import { changerStatut, chargerDossiers, chargerJournal, estModerateur } from './moderation'
+import type { LigneJournal } from './moderation'
 import {
   AuthDialog, TrustDialog, SettingsDialog, InviteDialog, UnblockDialog, MentorView, ChurchView,
-  NavItem, TodayView, JourneyView, SessionFlow, JournalView, TandemView,
+  NavItem, TodayView, JourneyView, SessionFlow, JournalView, TandemView, ModerationView,
 } from './views'
 
 
@@ -52,6 +55,20 @@ function App() {
   const [pendingSync, setPendingSync] = useState(() => readSyncQueue().length)
   const [mentorSnapshot, setMentorSnapshot] = useState<MentorSnapshot>(null)
   const [churchSnapshot, setChurchSnapshot] = useState<ChurchSnapshot>(null)
+  // Espace modérateur. `moderateur` commande l'existence de l'onglet, rien de
+  // plus : chaque politique en dessous rappelle tandem_est_moderateur(), si
+  // bien qu'un compte qui forcerait l'onglet lirait une liste vide et verrait
+  // ses décisions refusées. Le test client évite d'ouvrir une porte close.
+  const [moderateur, setModerateur] = useState(false)
+  const [dossiers, setDossiers] = useState<DossierModeration[]>([])
+  const [moderationChargement, setModerationChargement] = useState(false)
+  const [moderationErreur, setModerationErreur] = useState(false)
+  const [journaux, setJournaux] = useState<Record<string, LigneJournal[] | null>>({})
+  const [journalOuvert, setJournalOuvert] = useState<string | null>(null)
+  const [decisionEnCours, setDecisionEnCours] = useState<string | null>(null)
+  // Incrémenté par « Relire la liste ». Passer par une dépendance d'effet plutôt
+  // que par un appel direct garde la garde de démontage sur un seul chemin.
+  const [relectureModeration, setRelectureModeration] = useState(0)
 
   const t = copy[state.locale]
   const fallbackJourney = useMemo(() => getJourney(state.locale), [state.locale])
@@ -62,6 +79,10 @@ function App() {
     blockedBy: remoteTandemBlockedBy,
     currentUserId: authSession?.user.id,
   })
+  // Un onglet `moderation` peut survivre dans le stockage local après le
+  // retrait du rôle — le retrait est immédiat côté base, par conception. On
+  // retombe alors sur l'accueil au lieu d'afficher un écran qui ne lira rien.
+  const activeTab: Tab = state.activeTab === 'moderation' && !moderateur ? 'today' : state.activeTab
   const currentSession = journey.sessions.find((session) => !state.completedSessionIds.includes(session.id)) ?? journey.sessions[0]
   const completedCount = state.completedSessionIds.length
 
@@ -142,6 +163,37 @@ function App() {
       listener.subscription.unsubscribe()
     }
   }, [])
+
+  // Le portail : posé à chaque changement de session, jamais mémorisé plus
+  // longtemps. `tandem_est_moderateur()` n'a pas de paramètre — elle ne répond
+  // que sur l'appelant — et une erreur vaut « non » : un onglet absent est plus
+  // honnête qu'un onglet mort.
+  useEffect(() => {
+    const client = supabase
+    if (!client || !authSession) {
+      setModerateur(false)
+      return
+    }
+    let cancelled = false
+    void estModerateur(client).then((oui) => { if (!cancelled) setModerateur(oui) })
+    return () => { cancelled = true }
+  }, [authSession?.user.id])
+
+  // Les dossiers ne se chargent qu'une fois l'onglet ouvert : rien n'oblige un
+  // modérateur qui vient écrire son journal à télécharger les signalements.
+  useEffect(() => {
+    const client = supabase
+    if (!client || !moderateur || activeTab !== 'moderation') return
+    let cancelled = false
+    setModerationChargement(true)
+    void chargerDossiers(client).then(({ dossiers: lus, erreur }) => {
+      if (cancelled) return
+      setDossiers(lus)
+      setModerationErreur(erreur)
+      setModerationChargement(false)
+    })
+    return () => { cancelled = true }
+  }, [moderateur, activeTab, relectureModeration])
 
   useEffect(() => {
     const client = supabase
@@ -407,6 +459,50 @@ function App() {
     showNotice(error ? t.syncError : t.reportSent, 4200)
   }
 
+  const lireJournal = async (signalementId: string) => {
+    const client = supabase
+    if (!client) return
+    const lignes = await chargerJournal(client, signalementId)
+    // `null` reste `null` : « la lecture a échoué » n'est pas « aucune décision
+    // n'a été prise », et l'écran doit pouvoir dire lequel des deux.
+    setJournaux((precedent) => ({ ...precedent, [signalementId]: lignes }))
+  }
+
+  const basculerJournal = (signalementId: string) => {
+    if (journalOuvert === signalementId) {
+      setJournalOuvert(null)
+      return
+    }
+    setJournalOuvert(signalementId)
+    if (journaux[signalementId] === undefined) void lireJournal(signalementId)
+  }
+
+  const deciderModeration = async (signalementId: string, statut: StatutSignalement) => {
+    const client = supabase
+    if (!client) return
+    setDecisionEnCours(signalementId)
+    const resultat = await changerStatut(client, signalementId, statut)
+    setDecisionEnCours(null)
+    // `resultat` nul couvre les deux échecs, dont celui qui ne lève rien : un
+    // UPDATE que le `using` refuse touche zéro ligne et rend `error: null`.
+    // Sans cette branche, l'écran féliciterait pour une décision jamais prise.
+    if (!resultat) {
+      showNotice(t.moderationUpdateFailed, 4200)
+      return
+    }
+    // Mise à jour sur place, sans retrier : un dossier qui saute de position
+    // sous le curseur au moment du clic ferait perdre le fil. L'ordre se
+    // recalcule à la relecture suivante.
+    setDossiers((precedent) => precedent.map((dossier) => dossier.signalement.id === signalementId
+      ? { ...dossier, signalement: { ...dossier.signalement, status: resultat.status, resolvedAt: resultat.resolvedAt } }
+      : dossier))
+    // La décision vient d'écrire une ligne d'audit : le journal en cache est
+    // périmé. On le relit s'il est ouvert, on l'oublie sinon.
+    if (journalOuvert === signalementId) void lireJournal(signalementId)
+    else setJournaux((precedent) => { const suite = { ...precedent }; delete suite[signalementId]; return suite })
+    showNotice(t.moderationUpdated)
+  }
+
   const resetDemo = () => update(initialState)
 
   const signOut = () => {
@@ -489,12 +585,16 @@ function App() {
         </div>
 
         <nav className="primary-nav" aria-label="Navigation principale">
-          <NavItem active={state.activeTab === 'today'} label={t.today} onClick={() => setTab('today')} icon="✦" />
-          <NavItem active={state.activeTab === 'journey'} label={t.journey} onClick={() => setTab('journey')} icon="◷" />
-          <NavItem active={state.activeTab === 'tandem'} label={t.tandem} onClick={() => setTab('tandem')} icon="↗" />
-          <NavItem active={state.activeTab === 'journal'} label={t.journal} onClick={() => setTab('journal')} icon="▤" />
-          <NavItem active={state.activeTab === 'mentor'} label={t.mentor} onClick={() => setTab('mentor')} icon="⌁" />
-          <NavItem active={state.activeTab === 'church'} label={t.church} onClick={() => setTab('church')} icon="⌂" />
+          <NavItem active={activeTab === 'today'} label={t.today} onClick={() => setTab('today')} icon="✦" />
+          <NavItem active={activeTab === 'journey'} label={t.journey} onClick={() => setTab('journey')} icon="◷" />
+          <NavItem active={activeTab === 'tandem'} label={t.tandem} onClick={() => setTab('tandem')} icon="↗" />
+          <NavItem active={activeTab === 'journal'} label={t.journal} onClick={() => setTab('journal')} icon="▤" />
+          <NavItem active={activeTab === 'mentor'} label={t.mentor} onClick={() => setTab('mentor')} icon="⌁" />
+          <NavItem active={activeTab === 'church'} label={t.church} onClick={() => setTab('church')} icon="⌂" />
+          {/* L'onglet n'existe que pour un compte que la base reconnaît comme
+              modérateur. Nommer la modération à tout le monde apprendrait déjà
+              quelque chose sur qui modère. */}
+          {moderateur && <NavItem active={activeTab === 'moderation'} label={t.moderation} onClick={() => setTab('moderation')} icon="⚑" />}
         </nav>
 
         <div className="sidebar-bottom">
@@ -560,7 +660,7 @@ function App() {
           />
         ) : (
           <>
-            {state.activeTab === 'today' && (
+            {activeTab === 'today' && (
               <TodayView
                 session={currentSession}
                 completedCount={completedCount}
@@ -571,11 +671,24 @@ function App() {
                 onOpenTandem={() => setTab('tandem')}
               />
             )}
-            {state.activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
-            {state.activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
-            {state.activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
-            {state.activeTab === 'mentor' && <MentorView snapshot={mentorSnapshot} t={t} />}
-            {state.activeTab === 'church' && <ChurchView snapshot={churchSnapshot} t={t} />}
+            {activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
+            {activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
+            {activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
+            {activeTab === 'mentor' && <MentorView snapshot={mentorSnapshot} t={t} />}
+            {activeTab === 'church' && <ChurchView snapshot={churchSnapshot} t={t} />}
+            {activeTab === 'moderation' && <ModerationView
+              dossiers={dossiers}
+              chargement={moderationChargement}
+              erreur={moderationErreur}
+              journaux={journaux}
+              journalOuvert={journalOuvert}
+              currentUserId={authSession?.user.id}
+              decisionEnCours={decisionEnCours}
+              t={t}
+              onRefresh={() => setRelectureModeration((tour) => tour + 1)}
+              onDecide={(signalementId, statut) => void deciderModeration(signalementId, statut)}
+              onToggleJournal={basculerJournal}
+            />}
           </>
         )}
       </main>

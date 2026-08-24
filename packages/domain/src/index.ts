@@ -14,6 +14,11 @@
 export { unblockAffordance } from './blocking'
 export type { TandemStatus, TandemBlockView, UnblockAffordance } from './blocking'
 
+export { assemblerDossiers, transitionsPossibles } from './moderation'
+export type {
+  StatutSignalement, Signalement, ContexteSignale, MessageSignale, OrigineMessage, DossierModeration,
+} from './moderation'
+
 export type Locale = 'fr' | 'en'
 
 export type Session = {
@@ -53,7 +58,10 @@ export type Tandem = {
 
 export type AppState = {
   locale: Locale
-  activeTab: 'today' | 'journey' | 'tandem' | 'journal' | 'mentor' | 'church'
+  // `moderation` n'est atteignable que si `tandem_est_moderateur()` rend vrai —
+  // l'onglet n'existe pas autrement, et l'écran retombe sur `today` si un état
+  // local le désigne encore après un retrait du rôle.
+  activeTab: 'today' | 'journey' | 'tandem' | 'journal' | 'mentor' | 'church' | 'moderation'
   completedSessionIds: string[]
   journalEntries: JournalEntry[]
   tandem: Tandem
