@@ -231,7 +231,64 @@ s'afficher. Il ne lit par ailleurs que **deux** tables (`tandems`,
 `npm run mobile:export` est la seule commande qui exerce vraiment Metro et
 prouve la résolution des workspaces. `mobile:typecheck` ne prouve rien là-dessus.
 
-### 6. Dette, réelle mais pas urgente
+### 6. Dette, réelle mais pas urgente — ✅ TROIS POSTES SUR QUATRE SOLDÉS (24/08/2026)
+
+**Amendement du 24/08/2026.** Les trois premiers points de la liste ci-dessous
+sont réglés dans l'application web ; le quatrième n'est pas de la dette et n'a
+pas été touché. **Aucune migration, aucun changement visuel, aucune montée de
+version.**
+
+- **Les deux blocs `:root` n'en font plus qu'un.** Comparaison faite déclaration
+  par déclaration : le premier bloc était mort en entier sauf `font-synthesis` et
+  `text-rendering`, que le second ne redéclarait pas. Le bloc unique porte donc
+  les valeurs du thème imprimé — celles qui s'appliquaient déjà — plus ces deux
+  lignes. Vérifié par un diff du CSS **produit** avant et après : la seule
+  différence est la disparition du bloc doublon, à cascade identique. Les deux
+  commentaires qui se défendaient du défaut en citant « ligne 217 » (espace
+  modérateur, suivi des invitations) disent maintenant la vraie raison de leur
+  place en fin de fichier : ils écrivent des couleurs en clair et doivent suivre
+  les reprises du thème.
+- **Les sept dépendances sont épinglées** sur ce qui était installé, en `^x.y.z`
+  (`react` et `react-dom` 19.2.8, `typescript` 7.0.2, `vite` 8.2.0,
+  `@types/react` 19.2.18, `@types/react-dom` 19.2.4, `@vitejs/plugin-react`
+  6.0.5). Le but était la reproductibilité, pas une montée de version : contrôlé
+  en comparant les versions **résolues** du `package-lock.json` avant et après —
+  aucune n'a bougé.
+- **La sélection de séance est une fonction testée**,
+  `prochaineSeance` dans `packages/domain/src/parcours.ts` (l'expression était
+  passée à `App.tsx:103`, la ligne citée ci-dessous est périmée). Sept tests
+  épinglent l'existant *tel quel*, y compris ce qui se discute : quand tout est
+  fait, on retombe sur la première séance — le parcours se relit, il ne se
+  termine pas sur un écran vide. Ce n'est pas corrigé ici ; c'est désormais une
+  décision qui casse un test si on la défait. Un parcours vide rend toujours
+  `undefined`, et l'écran suppose toujours le contraire : la question reste
+  ouverte, elle est écrite en clair dans `App.tsx`.
+
+Au passage, un défaut cousin trouvé le même jour et corrigé avec eux :
+**`blockTandem` et `unblockTandem` ne lisaient pas leur réponse**
+(`App.tsx:443` et `:464`). Un UPDATE écarté par le `using` d'une politique ne
+lève rien — zéro ligne, aucune erreur : l'écran annonçait « bloqué » et basculait
+son état local alors que la base n'avait rien écrit. C'est le mensonge exact que
+la PR #42 avait retiré du mobile, resté debout sur le web. Les deux gestes lisent
+maintenant la ligne rendue (`.select(…).maybeSingle()`), traitent `data == null`
+comme un refus, et posent leur état depuis le serveur plutôt que depuis ce qu'ils
+croient avoir écrit. Deux textes ont dû naître pour cela dans
+`packages/content/copy/web.ts` — `blockRefused` et `unblockRefused` — parce que
+`syncError` dirait « on n'a pas joint le serveur », or le serveur a répondu.
+`reportTandem` n'était pas concerné : un insert refusé par un `with check` lève.
+
+Une précision qui vaut d'être écrite, parce qu'elle est le revers exact du
+remède : un `update … returning` **lit**, et une lecture passe par la politique
+SELECT (c'est le piège déjà recensé plus bas). Si `tandems_select_member`
+cachait la ligne modifiée, `data` serait nul sur une écriture réussie et l'écran
+dirait « le blocage n'a pas été posé » alors qu'il l'est — un faux négatif à la
+place du faux positif. Elle ne la cache pas : elle est
+`auth.uid() in (participant_a_id, participant_b_id)`, sans regarder `status`
+(`20260804000002`, jamais retouchée depuis). Les deux participants relisent donc
+la ligne, avant comme après le geste. Aucune politique n'a été modifiée ici,
+mais ce chemin d'écriture dépend désormais de celle-là.
+
+La liste d'origine reste ci-dessous.
 
 - **`apps/web/src/styles.css` a deux blocs `:root`** (lignes 3 et 217). Le
   second écrase le premier : le fichier décrit l'inverse de ce qui s'affiche.

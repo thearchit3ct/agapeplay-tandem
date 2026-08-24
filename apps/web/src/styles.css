@@ -1,23 +1,34 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=Special+Elite&display=swap');
 
+/* La palette, et il n'y en a qu'une.
+   Jusqu'au 24/08/2026 ce fichier portait deux blocs `:root` : un thème vert
+   nuit ici, et un thème imprimé monochrome plus bas qui redéfinissait chacune
+   de ses quinze déclarations. Le premier ne s'affichait donc jamais — le
+   fichier décrivait l'inverse de ce qu'on voyait à l'écran, et les sections
+   ajoutées ensuite devaient s'en défendre par un commentaire. Les valeurs
+   ci-dessous sont celles qui s'appliquaient déjà, reprises telles quelles :
+   rien n'a bougé d'un pixel, le fichier dit seulement enfin la vérité.
+   `--moss`, `--copper` et `--coral` gardent leur nom bien qu'ils vaillent tous
+   la même encre : ils désignent des rôles — accent, chaleur, alerte — que le
+   monochrome confond aujourd'hui et qu'un futur thème pourrait rouvrir. */
 :root {
-  font-family: 'DM Sans', sans-serif;
-  color: #eee9dc;
-  background: #101715;
+  font-family: 'DM Mono', monospace;
+  color: #eeeeea;
+  background: #111111;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --night: #101715;
-  --night-soft: #17231f;
-  --night-line: #2e4039;
-  --moss: #5f9479;
-  --moss-light: #b9d4bc;
-  --paper: #eee7d8;
-  --paper-ink: #1c2823;
-  --paper-muted: #d9d0bd;
-  --copper: #dd9b5a;
-  --coral: #cb7665;
-  --muted: #9ca69d;
-  --white-muted: #c9d1c9;
+  --night: #111111;
+  --night-soft: #1b1b1a;
+  --night-line: #4a4a45;
+  --moss: #eeeeea;
+  --moss-light: #c9c9c2;
+  --paper: #f0efe8;
+  --paper-ink: #171716;
+  --paper-muted: #d8d7d0;
+  --copper: #eeeeea;
+  --coral: #eeeeea;
+  --muted: #a6a6a0;
+  --white-muted: #d1d1ca;
 }
 
 * { box-sizing: border-box; }
@@ -213,24 +224,10 @@ h3 { color: #f4eedf; font-size: 19px; line-height: 1.3; margin-bottom: 12px; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
-/* Retro monochrome theme: a printed game board rather than a glossy dashboard. */
-:root {
-  font-family: 'DM Mono', monospace;
-  color: #eeeeea;
-  background: #111111;
-  --night: #111111;
-  --night-soft: #1b1b1a;
-  --night-line: #4a4a45;
-  --moss: #eeeeea;
-  --moss-light: #c9c9c2;
-  --paper: #f0efe8;
-  --paper-ink: #171716;
-  --paper-muted: #d8d7d0;
-  --copper: #eeeeea;
-  --coral: #eeeeea;
-  --muted: #a6a6a0;
-  --white-muted: #d1d1ca;
-}
+/* Thème imprimé : un plateau de jeu tiré sur papier, pas un tableau de bord
+   verni. La palette est remontée en tête du fichier ; ce qui suit sont les
+   reprises que les seules variables ne portent pas — trames, ombres portées,
+   angles vifs, machine à écrire. */
 
 body {
   background: #111111;
@@ -422,11 +419,12 @@ h3 { color: #eeeeea; font-weight: 400; }
 }
 
 /* Espace modérateur.
-   Posé en fin de fichier à dessein : le second bloc `:root` (ligne 217) est
-   celui qui s'applique réellement, et ces règles doivent le suivre pour hériter
-   du thème imprimé plutôt que du premier, qui ne s'affiche jamais. Le fichier
-   porte ce défaut connu (doc 21, § dette) ; on ne le corrige pas ici, on ne se
-   met pas devant. */
+   Posé en fin de fichier, après les reprises du thème imprimé : ces règles
+   écrivent des couleurs en clair plutôt que des variables, et une reprise plus
+   haut les écraserait. Elles étaient là, à l'origine, pour se ranger derrière
+   le second bloc `:root` — les deux blocs n'en font plus qu'un depuis le
+   24/08/2026 (voir la tête du fichier), et la place reste la bonne pour la
+   raison ci-dessus. */
 .moderation-note { max-width: 640px; margin: 22px 0 0; padding: 12px 14px; border-left: 3px solid #8f8f88; color: #bdbdb6; font-size: 12px; line-height: 1.65; }
 .moderation-state { margin: 22px 0 0; color: #a6a6a0; font-size: 12px; }
 .moderation-count { margin: 26px 0 0; color: #8f8f88; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
@@ -467,9 +465,9 @@ h3 { color: #eeeeea; font-weight: 400; }
 }
 
 /* Suivi des invitations.
-   Posé après l'espace modérateur, et pour la même raison : le second bloc
-   `:root` (ligne 217) est celui qui s'applique, et ces règles doivent le
-   suivre. Le vocabulaire visuel reprend celui des dossiers de modération —
+   Posé après l'espace modérateur, et pour la même raison : couleurs en clair,
+   donc après les reprises du thème imprimé. Le vocabulaire visuel reprend
+   celui des dossiers de modération —
    carte à bord gauche coloré, puce d'état, dates en retrait — sans emprunter
    ses classes : deux écrans qui se ressemblent aujourd'hui n'ont aucune raison
    de bouger ensemble demain. */
