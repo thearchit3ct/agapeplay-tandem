@@ -90,7 +90,10 @@ export const copy = {
     emptyThread: 'Aucun message pour l’instant. Le premier peut venir de toi.',
     present: 'Présent',
     activeStatus: 'Actif',
-    reportNotice: 'Signalement localisé dans cette démo. Il sera transmis à l’église et à AgapePlay dans la version connectée.',
+    // « à l'église » a sauté le 25/08/2026 : docs/22 établit que l'église n'est
+    // pas la première escalade — le modérateur est extérieur à elle, et prévenir
+    // l'église d'abord reviendrait à prévenir l'entourage de la personne visée.
+    reportNotice: 'Signalement localisé dans cette démo. Il sera transmis à la modération d’AgapePlay dans la version connectée.',
     blockNotice: 'Le blocage supprimera immédiatement la relation dans la version connectée.',
     ritual: 'Rituel du jour',
     daysProgress: '3 repères sur 6',
@@ -386,7 +389,7 @@ export const copy = {
     emptyThread: 'No messages yet. The first one can come from you.',
     present: 'Present',
     activeStatus: 'Active',
-    reportNotice: 'This demo keeps the report local. In the connected version, it will be sent to the church and AgapePlay.',
+    reportNotice: 'This demo keeps the report local. In the connected version, it will be sent to AgapePlay moderation.',
     blockNotice: 'Blocking will immediately remove the relationship in the connected version.',
     ritual: 'Today’s ritual',
     daysProgress: '3 markers out of 6',

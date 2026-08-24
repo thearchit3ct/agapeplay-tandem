@@ -113,6 +113,16 @@ alter table public.tandem_reports
 --
 -- ⚠️ `non_precise` n'est proposé par aucun écran et ne doit jamais l'être : il
 -- ne nomme pas une situation, il nomme une absence de question posée.
+--
+-- **Ce remplissage n'écrit aucune ligne d'audit, et c'est mesuré.** L'UPDATE
+-- ci-dessous réveille `tandem_report_audit_trg` (`before update … for each
+-- row`) sur chaque dossier existant. Le trigger se garde sur `new.status is
+-- distinct from old.status` : le statut ne bougeant pas, il n'insère rien et ne
+-- touche pas `resolved_at`. Vérifié sur trois dossiers témoins, un par statut
+-- (`open`, `reviewing`, `resolved`) : journal d'audit à 33 lignes avant, 33
+-- après, statuts et dates de clôture inchangés. Si ce n'était pas le cas, la
+-- migration inventerait huit décisions de modération que personne n'a prises —
+-- dans la seule table du produit qu'on ne peut plus corriger.
 
 update public.tandem_reports set category = 'non_precise' where category is null;
 
@@ -186,12 +196,18 @@ comment on column public.tandem_reports.reason is
 -- « pour rafraîchir » casserait toutes les décisions d'un coup.
 
 -- ---------------------------------------------------------------------------
--- 6. L'ordre de la file, côté base
+-- 6. L'ordre de la file : aucune ligne d'index ici, et c'est délibéré
 -- ---------------------------------------------------------------------------
 --
 -- L'ordre est tranché dans `packages/domain/src/moderation.ts` — c'est une règle
--- de produit, elle s'éprouve sans base. L'index, lui, existe pour que la lecture
--- de la file ne dégrade pas quand elle grandira.
-
-create index if not exists tandem_reports_file_idx
-  on public.tandem_reports (status, urgency, created_at desc);
+-- de produit, elle s'éprouve sans base.
+--
+-- Un index `(status, urgency, created_at desc)` a été écrit puis retiré. Aucune
+-- requête ne l'aurait emprunté : `chargerDossiers` lit la table sans prédicat et
+-- le tri se fait en JavaScript, dans `assemblerDossiers`. Le poser en annonçant
+-- « pour que la file ne dégrade pas » aurait été une justification de
+-- performance non mesurée — exactement ce que les en-têtes de ce dépôt
+-- s'épuisent à débusquer ailleurs.
+--
+-- Le jour où la file se filtrera côté serveur — `status = 'open'`, ou un tri SQL
+-- — l'index se posera avec la requête qui le lit, et se mesurera avec elle.

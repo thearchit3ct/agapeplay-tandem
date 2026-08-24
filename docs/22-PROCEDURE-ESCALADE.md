@@ -66,29 +66,32 @@ procédure qu'il faut assouplir : c'est un deuxième modérateur qu'il faut nomm
 
 ---
 
-## Ce qui impose de sortir de l'application
+## Ce qui appelle une sortie de l'application
 
-Ces signaux ne se traitent pas dans la file. Ils s'y consignent, mais la décision
-se prend ailleurs et par un humain identifié.
+Ces signaux ne se tranchent pas dans la file. Ils s'y consignent, mais la
+décision se prend ailleurs et par un humain identifié. Les points 1, 2 et 5 sont
+sans nuance : ils escaladent. Les autres demandent une lecture — et toute
+hésitation relève du point 6, qui tranche pour vous.
 
 1. **Un mineur est en danger** — menaces, violences, propos suicidaires, un
    adulte qui cherche à isoler un adolescent de son entourage.
 2. **Un contenu à caractère sexuel visant un mineur**, quel qu'en soit l'auteur,
    qu'il soit explicite ou allusif, demandé ou envoyé.
 3. **Une demande de discrétion adressée à un mineur par un adulte** — garder la
-   relation secrète, passer sur une autre application, effacer les messages.
-   Prise isolément elle n'est pas une infraction ; répétée ou combinée à autre
-   chose, elle est le signal qui précède les autres.
+   relation secrète, passer sur une autre application, effacer les messages. Le
+   signal qui précède les autres.
 4. **Une demande d'argent, de photos, ou de services** adressée à un mineur.
 5. **Un contenu manifestement illégal** — pédopornographie, apologie du
    terrorisme, incitation à la haine.
-6. **Le doute.** Si la personne qui lit hésite à qualifier, elle escalade. Une
-   escalade de trop coûte une conversation ; une escalade de moins coûte autre
-   chose.
+6. **Le doute.** Si la personne qui lit hésite à qualifier — un mot isolé, une
+   demande qui pourrait être anodine, un dossier qu'elle relit deux fois — elle
+   escalade. Elle n'a pas à établir seule qu'un signal répété devient un
+   faisceau. Une escalade de trop coûte une conversation ; une escalade de moins
+   coûte autre chose.
 
 Les catégories `sexuel` et `danger` déclenchent le point 1 ou 2 par
-construction. Les autres demandent une lecture : la catégorie oriente, elle ne
-décide pas.
+construction, sans lecture préalable. Pour toutes les autres, la catégorie
+oriente ; elle ne décide pas.
 
 ---
 
