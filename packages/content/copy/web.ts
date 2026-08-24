@@ -137,6 +137,15 @@ export const copy = {
     inviteAcceptError: 'Cette invitation est invalide, expirée ou réservée à une autre adresse.',
     blockedStatus: 'Bloqué',
     blockedNotice: 'Cette relation est maintenant bloquée.',
+    // Le refus silencieux : un UPDATE écarté par un `using` ne lève rien, il
+    // touche zéro ligne. Sans ces deux phrases, l'écran annoncerait un blocage
+    // que la base n'a pas posé. `syncError` ne convient pas — le serveur a bien
+    // répondu. Même phrase que le mobile (`mobile-tandem.ts`) au geste de sortie
+    // près : là-bas on revient sur l'écran, ici on recharge la page — c'est ce
+    // qui relance le scan du tandem, et promettre l'autre serait promettre un
+    // geste qui ne rafraîchit rien.
+    blockRefused: 'Le blocage n’a pas été posé. Recharge la page pour voir où en est la relation.',
+    unblockRefused: 'Le blocage n’a pas été levé. Recharge la page pour voir où en est la relation.',
     unblock: 'Lever le blocage',
     unblockOwnerNote: 'Tu as bloqué cette relation. Toi seul peux la lever.',
     unblockOtherNote: 'Cette relation a été bloquée par ton tandem. Seule la personne qui a posé le blocage peut la lever.',
@@ -352,6 +361,8 @@ export const copy = {
     inviteAcceptError: 'This invitation is invalid, expired, or reserved for another email.',
     blockedStatus: 'Blocked',
     blockedNotice: 'This relationship is now blocked.',
+    blockRefused: 'The block was not set. Reload the page to see where the relationship stands.',
+    unblockRefused: 'The block was not lifted. Reload the page to see where the relationship stands.',
     unblock: 'Lift the block',
     unblockOwnerNote: 'You blocked this relationship. Only you can lift it.',
     unblockOtherNote: 'Your tandem blocked this relationship. Only the person who set the block can lift it.',

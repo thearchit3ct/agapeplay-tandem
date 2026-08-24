@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { initialeDe, nomDepuisIdentite } from '@agapeplay/domain'
+import { initialeDe, nomDepuisIdentite, prochaineSeance } from '@agapeplay/domain'
 import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import type { AppState, Locale } from '@agapeplay/domain'
+import type { AppState, Locale, Session as Seance } from '@agapeplay/domain'
 import { supabase, supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
 import { loadPublishedJourney } from '@agapeplay/content'
@@ -100,7 +100,16 @@ function App() {
   // retrait du rôle — le retrait est immédiat côté base, par conception. On
   // retombe alors sur l'accueil au lieu d'afficher un écran qui ne lira rien.
   const activeTab: Tab = state.activeTab === 'moderation' && !moderateur ? 'today' : state.activeTab
-  const currentSession = journey.sessions.find((session) => !state.completedSessionIds.includes(session.id)) ?? journey.sessions[0]
+  // La règle vit dans `packages/domain/src/parcours.ts`, avec ses tests : elle
+  // décide du premier écran de la journée et elle porte une décision qu'on ne
+  // relisait nulle part — ce qui arrive quand tout est fait.
+  //
+  // L'affirmation de type dit tout haut ce que cet écran suppose depuis
+  // toujours : un parcours a au moins une séance. `prochaineSeance` rend
+  // `undefined` sur un parcours vide, comme l'expression qu'elle remplace, et
+  // afficher quelque chose dans ce cas-là est une question de produit ouverte,
+  // pas un effet de bord de l'extraction.
+  const currentSession = prochaineSeance(journey.sessions, state.completedSessionIds) as Seance
   const completedCount = state.completedSessionIds.length
 
   const showNotice = (message: string, duration = 2600) => {
@@ -448,16 +457,36 @@ function App() {
     // `blocked_by` n'est pas décoratif : la politique RLS refuse un passage à
     // `blocked` qui ne nomme pas son auteur, et c'est cette colonne qui décidera
     // ensuite qui peut lever le blocage et qui garde l'accès à l'historique.
-    const { error } = await supabase
+    //
+    // La réponse se lit, et pas seulement son erreur : un UPDATE écarté par le
+    // `using` d'une politique ne lève rien, il touche zéro ligne en silence. Le
+    // cas est réel — si l'autre a bloqué pendant qu'on était sur la page, notre
+    // blocage ne passe pas. Annoncer « c'est bloqué » ici serait le pire des
+    // mensonges : celui qui fait croire qu'on est protégé. (Corrigé sur mobile
+    // en premier, PR #42 ; le web portait le même défaut.)
+    //
+    // Le revers, à ne pas perdre de vue : `returning` lit, donc il passe par
+    // `tandems_select_member`. Celle-ci ne regarde que l'appartenance, jamais
+    // `status` — la ligne reste lisible après le blocage, sinon un faux négatif
+    // remplacerait le faux positif qu'on retire ici.
+    const { data, error } = await supabase
       .from('tandems')
       .update({ status: 'blocked', blocked_by: authSession.user.id, ended_at: new Date().toISOString() })
       .eq('id', remoteTandemId)
+      .select('id, status, blocked_by')
+      .maybeSingle()
     if (error) {
       showNotice(t.syncError, 4200)
       return
     }
-    setRemoteTandemStatus('blocked')
-    setRemoteTandemBlockedBy(authSession.user.id)
+    if (!data) {
+      showNotice(t.blockRefused, 4200)
+      return
+    }
+    // L'état vient de la ligne rendue : c'est le serveur qui dit où en est la
+    // relation, pas ce qu'on croit avoir écrit.
+    setRemoteTandemStatus(data.status)
+    setRemoteTandemBlockedBy(data.blocked_by)
     showNotice(t.blockedNotice, 4200)
   }
 
@@ -476,16 +505,26 @@ function App() {
     // Côté politique, la levée passe parce que `using` (ancienne ligne, encore
     // `blocked`) reconnaît `blocked_by`, et que `with check` (nouvelle ligne,
     // `active`) sort par la branche `status <> 'blocked'`.
-    const { error } = await supabase
+    //
+    // Et comme pour le blocage, la ligne rendue est la seule preuve que quelque
+    // chose a été écrit : sans elle, le `using` a refusé sans le dire, et l'état
+    // local doit rester où il est.
+    const { data, error } = await supabase
       .from('tandems')
       .update({ status: 'active', blocked_by: null, ended_at: null })
       .eq('id', remoteTandemId)
+      .select('id, status, blocked_by')
+      .maybeSingle()
     if (error) {
       showNotice(t.syncError, 4200)
       return
     }
-    setRemoteTandemStatus('active')
-    setRemoteTandemBlockedBy(null)
+    if (!data) {
+      showNotice(t.unblockRefused, 4200)
+      return
+    }
+    setRemoteTandemStatus(data.status)
+    setRemoteTandemBlockedBy(data.blocked_by)
     showNotice(t.unblockedNotice, 4200)
   }
 
