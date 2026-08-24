@@ -7,7 +7,7 @@
  * écrite une fois qui apparaît deux fois dans le journal de son auteur.
  */
 import { describe, expect, it } from 'vitest'
-import { enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
+import { clearSyncQueue, enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
 
 const journalEntry = (text: string) => ({
   id: 'journal:abc',
@@ -68,5 +68,16 @@ describe('file de synchronisation hors ligne', () => {
     expect(readSyncQueue()).toEqual([])
     enqueueSync({ id: 'a', kind: 'session_progress', payload: {} })
     expect(readSyncQueue()).toHaveLength(1)
+  })
+})
+
+describe('vidage de la file', () => {
+  it('emporte les opérations en attente — elles portent du journal et des messages', () => {
+    enqueueSync({ id: 'journal:1', kind: 'journal_entry', payload: { text: 'À ne pas rejouer après un départ.' } })
+    expect(readSyncQueue()).toHaveLength(1)
+
+    clearSyncQueue()
+
+    expect(readSyncQueue()).toEqual([])
   })
 })

@@ -36,3 +36,13 @@ export const loadState = (): AppState => {
 export const saveState = (state: AppState) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
+
+/**
+ * Efface l'état local. Appelé au moment de la suppression de compte : le
+ * journal et la progression sont aussi ici, dans le navigateur, et une purge
+ * qui s'arrêterait à la base laisserait les entrées du journal au prochain qui
+ * ouvre cet ordinateur — souvent un ordinateur partagé, à seize ans.
+ */
+export const clearState = () => {
+  localStorage.removeItem(STORAGE_KEY)
+}

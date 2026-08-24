@@ -73,6 +73,44 @@ export const commeUtilisateur = async <T>(
   }
 }
 
+/**
+ * Rôle `authenticated`, mais **sans claims** : `auth.uid()` vaut NULL.
+ *
+ * Ce n'est pas la même chose que `commeAnonyme`, et la nuance décide de ce
+ * qu'un test peut prouver. Un appel anonyme se heurte au `grant execute`, qui
+ * est accordé au seul rôle `authenticated` : la fonction lève avant même
+ * d'exister pour l'appelant, et un test écrit là-dessus resterait vert quoi
+ * qu'on fasse à la garde interne. Ici le droit d'appeler est bien là, seule
+ * l'identité manque — c'est exactement la situation que le repli fermé d'une
+ * fonction `security definer` doit couvrir, et le seul endroit d'où l'on peut
+ * le mesurer.
+ *
+ * Le harnais ne peut évidemment pas vérifier `auth.uid()` comme le fait
+ * `commeUtilisateur` : il vérifie l'inverse, que l'identité est bien absente.
+ */
+export const commeAuthentifieSansIdentite = async <T>(action: (client: Client) => Promise<T>): Promise<T> => {
+  const client = await connecter()
+  try {
+    await client.query('begin')
+    await client.query('set local role authenticated')
+
+    const controle = await client.query<{ role: string; uid: string | null }>(
+      'select current_user as role, auth.uid()::text as uid',
+    )
+    if (controle.rows[0].role !== 'authenticated') {
+      throw new Error(`harnais cassé : rôle « ${controle.rows[0].role} », RLS contournée`)
+    }
+    if (controle.rows[0].uid !== null) {
+      throw new Error(`harnais cassé : auth.uid() = ${controle.rows[0].uid}, attendu NULL`)
+    }
+
+    return await action(client)
+  } finally {
+    await client.query('rollback').catch(() => {})
+    await client.end()
+  }
+}
+
 /** Même chose pour un visiteur non connecté : rôle `anon`, aucun claim. */
 export const commeAnonyme = async <T>(action: (client: Client) => Promise<T>): Promise<T> => {
   const client = await connecter()

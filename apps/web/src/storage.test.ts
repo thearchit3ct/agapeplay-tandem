@@ -7,7 +7,7 @@
  * qu'un adolescent de seize ans ne fera pas.
  */
 import { describe, expect, it } from 'vitest'
-import { initialState, loadState, saveState } from './storage'
+import { clearState, initialState, loadState, saveState } from './storage'
 
 const STORAGE_KEY = 'agapeplay-tandem-demo-state'
 
@@ -48,5 +48,19 @@ describe('état local', () => {
     expect(state.locale).toBe('en')
     expect(state.journalEntries).toEqual([])
     expect(state.tandem).toEqual(initialState.tandem)
+  })
+})
+
+describe('effacement local', () => {
+  it('ne laisse rien derrière lui, et l’application se rouvre sur l’état initial', () => {
+    // Le geste que la suppression de compte déclenche côté navigateur. Ce qui
+    // est mesuré n'est pas « la clé a disparu » mais « ce que l'application
+    // relira » : c'est `loadState` qu'App.tsx appelle au démarrage.
+    saveState({ ...initialState, journalEntries: [{ id: 'j1', createdAt: '2026-08-24', text: 'À ne pas laisser traîner.', mood: 'Présent' }] })
+    expect(loadState().journalEntries).toHaveLength(1)
+
+    clearState()
+
+    expect(loadState()).toEqual(initialState)
   })
 })

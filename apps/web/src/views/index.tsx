@@ -94,7 +94,7 @@ export function TrustDialog({ t, ageConfirmed, setAgeConfirmed, privacyAccepted,
   </div>
 }
 
-export function SettingsDialog({ t, prefs, onToggle, onClose, onRequestDeletion }: { t: Copy; prefs: AppState['notificationPrefs']; onToggle: (key: keyof AppState['notificationPrefs'], value: boolean) => void; onClose: () => void; onRequestDeletion: () => void }) {
+export function SettingsDialog({ t, prefs, onToggle, onClose, onExport, onSignOutEverywhere, onDelete, busy }: { t: Copy; prefs: AppState['notificationPrefs']; onToggle: (key: keyof AppState['notificationPrefs'], value: boolean) => void; onClose: () => void; onExport: () => void; onSignOutEverywhere: () => void; onDelete: () => void; busy: boolean }) {
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
     <section className="auth-dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
@@ -108,10 +108,66 @@ export function SettingsDialog({ t, prefs, onToggle, onClose, onRequestDeletion 
         <label><input type="checkbox" checked={prefs.church} onChange={(event) => onToggle('church', event.target.checked)} /> <span>{t.churchNotifications}</span></label>
         <label><input type="checkbox" checked={prefs.absence} onChange={(event) => onToggle('absence', event.target.checked)} /> <span>{t.absenceNotifications}</span></label>
       </div>
+      {/* L'export vient avant la suppression, et ce n'est pas un hasard
+          d'ordre : c'est le seul moment où quelqu'un qui s'apprête à partir
+          peut encore emporter ce qu'il a écrit. */}
+      <div className="settings-block">
+        <strong>{t.exportData}</strong>
+        <p>{t.exportDescription}</p>
+        <button className="outline-button" disabled={busy} onClick={onExport}>{t.exportData}</button>
+      </div>
+      <div className="settings-block">
+        <strong>{t.signOutEverywhere}</strong>
+        <p>{t.signOutEverywhereDescription}</p>
+        <button className="outline-button" disabled={busy} onClick={onSignOutEverywhere}>{t.signOutEverywhere}</button>
+      </div>
       <div className="settings-danger-zone">
         <strong>{t.deleteAccount}</strong>
         <p>{t.deleteAccountDescription}</p>
-        <button className="outline-button danger" onClick={onRequestDeletion}>{t.requestDeletion}</button>
+        {/* Le bouton n'exécute rien : il ouvre l'écran qui explique. Un geste
+            irréversible ne se déclenche pas au premier clic. */}
+        <button className="outline-button danger" disabled={busy} onClick={onDelete}>{t.deleteAccount}</button>
+      </div>
+    </section>
+  </div>
+}
+
+/**
+ * La confirmation avant de supprimer son compte.
+ *
+ * Elle ne demande pas « es-tu sûr ? » — la question n'apprend rien, et le
+ * dialogue de déblocage a déjà tranché ce point dans ce dépôt. Elle énumère,
+ * dans l'ordre : ce qui disparaît, ce qui reste, ce que devient un blocage
+ * posé, et ce qui arrive à la connexion. Le public a seize ans : pas de
+ * jargon, pas de conséquence découverte après coup.
+ *
+ * La case à cocher n'est pas un ornement de formulaire. Elle sépare « j'ai
+ * cliqué » de « j'ai lu », et c'est la seule friction qu'on s'autorise sur un
+ * geste sans retour — taper un mot magique en serait une autre, plus punitive
+ * et pas plus informative.
+ */
+export function DeleteAccountDialog({ t, onConfirm, onExport, onClose, busy }: { t: Copy; onConfirm: () => void; onExport: () => void; onClose: () => void; busy: boolean }) {
+  const [understood, setUnderstood] = useState(false)
+
+  return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
+    <section className="auth-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" onClick={(event) => event.stopPropagation()}>
+      <div className="auth-dialog-top"><span className="section-kicker">{t.settingsTitle}</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
+      <h2 id="delete-dialog-title">{t.deleteConfirmTitle}</h2>
+      <p>{t.deleteConfirmErases}</p>
+      <p>{t.deleteConfirmKeeps}</p>
+      <p>{t.deleteConfirmBlocked}</p>
+      <p>{t.deleteConfirmSession}</p>
+      <p className="delete-export-hint">{t.deleteConfirmExportFirst} <button className="text-button" disabled={busy} onClick={onExport}>{t.exportData}</button></p>
+      {/* La case et les deux boutons ne se séparent pas, et restent au bord bas
+          du dialogue quand il défile : sur un écran de 375 px, cinq paragraphes
+          poussent autrement le geste sous le bord, et un bouton désactivé sans
+          sa case visible ne dit pas ce qui lui manque. */}
+      <div className="delete-decision">
+        <label className="delete-understood"><input type="checkbox" checked={understood} onChange={(event) => setUnderstood(event.target.checked)} /> <span>{t.deleteConfirmUnderstood}</span></label>
+        <div className="unblock-actions">
+          <button className="primary-button danger" disabled={!understood || busy} onClick={onConfirm}>{t.deleteConfirm}</button>
+          <button className="text-button" onClick={onClose}>{t.deleteCancel}</button>
+        </div>
       </div>
     </section>
   </div>
@@ -243,13 +299,29 @@ export function JournalView({ entries, draft, setDraft, onAdd, t }: { entries: A
   return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.private}</span><h2>{t.journal}</h2><p>{t.emptyJournal}</p></div><span className="lock-mark" aria-hidden="true">⌁</span></div><div className="journal-composer"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={t.write} /><div className="composer-footer"><span>{t.privateOnly}</span><button className="primary-button compact" onClick={onAdd}>{t.save} <span aria-hidden="true">→</span></button></div></div><div className="journal-list">{entries.map((entry) => <article className="journal-entry" key={entry.id}><div><span className="entry-date">{new Date(entry.createdAt).toLocaleDateString()}</span><span className="entry-mood">{t.present}</span></div><p>{entry.text}</p></article>)}</div></section>
 }
 
-export function TandemView({ partnerName, messages, currentUserId, status, affordance, draft, setDraft, onSend, onBlock, onUnblock, onReport, onInvite, t }: { partnerName: string | null; messages: RemoteMessage[]; currentUserId?: string; status: TandemStatus | null; affordance: UnblockAffordance; draft: string; setDraft: (value: string) => void; onSend: () => void; onBlock: () => void; onUnblock: () => void; onReport: () => void; onInvite: () => void; t: Copy }) {
-  // `isBlocked` décide de la messagerie, `affordance` décide du déblocage. Les
+export function TandemView({ partnerName, partnerDeleted, messages, currentUserId, status, affordance, draft, setDraft, onSend, onBlock, onUnblock, onReport, onInvite, t }: { partnerName: string | null; partnerDeleted: boolean; messages: RemoteMessage[]; currentUserId?: string; status: TandemStatus | null; affordance: UnblockAffordance; draft: string; setDraft: (value: string) => void; onSend: () => void; onBlock: () => void; onUnblock: () => void; onReport: () => void; onInvite: () => void; t: Copy }) {
+  // `isClosed` décide de la messagerie, `affordance` décide du déblocage. Les
   // deux ne se recouvrent pas : `ended` coupe la conversation sans être un
   // blocage qu'on puisse lever, et une ligne gelée est bloquée sans porte.
-  const isBlocked = status === 'blocked' || status === 'ended'
+  const isEnded = status === 'ended'
+  const isClosed = status === 'blocked' || isEnded
+  // Jusqu'au 25/08/2026, `ended` empruntait le vocabulaire du blocage : le
+  // binôme d'un compte supprimé lisait « Bloqué » et pouvait comprendre que
+  // quelqu'un l'avait écarté. Une relation terminée a maintenant ses mots.
+  const closedLabel = isEnded ? t.endedStatus : t.blockedStatus
+  // Un nom vide sur un compte supprimé n'est pas « pas encore de nom » :
+  // `partenaire_supprime` vient de la base et tranche entre les deux.
+  const displayedName = partnerDeleted ? t.partnerDeleted : partnerName ?? t.noTandemYet
 
-  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {isBlocked ? t.blockedStatus : t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">{initialeDe(partnerName)}</div><div><h3>{partnerName ?? t.noTandemYet}</h3><p>{t.tandemRole}</p></div><span className="status-chip">{isBlocked ? t.blockedStatus : t.activeStatus}</span></div><div className="message-thread">{messages.length ? messages.map((message) => <div className={`message ${message.senderId === currentUserId ? 'sent' : 'received'}`} key={message.id}>{message.body}<span>{new Date(message.createdAt).toLocaleString()}</span></div>) : <div className="message-empty">{t.emptyThread}</div>}</div><div className="message-composer"><input disabled={isBlocked} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={isBlocked ? t.messageUnavailable : t.encouragement} /><button disabled={isBlocked} className="primary-button compact" onClick={onSend}>{t.send}</button></div>
+  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.privateConversation}</span><h2>{t.tandem}</h2><p>{t.encouragementMessage}</p></div><div className="section-header-actions"><span className="online-badge">● {isClosed ? closedLabel : t.online}</span><button className="small-button" onClick={onInvite}>{t.invite}</button></div></div><div className="tandem-header"><div className="avatar avatar-rose avatar-large">{initialeDe(partnerDeleted ? null : partnerName)}</div><div><h3>{displayedName}</h3><p>{t.tandemRole}</p></div><span className="status-chip">{isClosed ? closedLabel : t.activeStatus}</span></div><div className="message-thread">{messages.length ? messages.map((message) => <div className={`message ${message.senderId === currentUserId ? 'sent' : 'received'}`} key={message.id}>{message.body}<span>{new Date(message.createdAt).toLocaleString()}</span></div>) : <div className="message-empty">{t.emptyThread}</div>}</div><div className="message-composer"><input disabled={isClosed} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onSend()} placeholder={isClosed ? t.messageUnavailable : t.encouragement} /><button disabled={isClosed} className="primary-button compact" onClick={onSend}>{t.send}</button></div>
+
+    {/* `affordance` rend `hidden` sur une relation terminée — il n'y a rien à
+        lever. Le panneau ci-dessous est donc le sien, et il dit ce qui est
+        possible ensuite plutôt que de laisser un écran muet. */}
+    {isEnded && <div className="block-panel" role="status">
+      <span className="section-kicker">{t.endedStatus}</span>
+      <p>{t.tandemEndedNote}</p>
+    </div>}
 
     {affordance !== 'hidden' && <div className="block-panel" role="status">
       <span className="section-kicker">{t.blockedStatus}</span>
@@ -263,5 +335,5 @@ export function TandemView({ partnerName, messages, currentUserId, status, affor
       {affordance === 'frozen' && <p>{t.unblockFrozenNote}</p>}
     </div>}
 
-    <div className="safety-actions"><button className="text-button danger" onClick={onReport}>{t.report}</button>{!isBlocked && <button className="text-button" onClick={onBlock}>{t.block}</button>}</div></section>
+    <div className="safety-actions"><button className="text-button danger" onClick={onReport}>{t.report}</button>{!isClosed && <button className="text-button" onClick={onBlock}>{t.block}</button>}</div></section>
 }

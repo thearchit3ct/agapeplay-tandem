@@ -23,3 +23,12 @@ export const enqueueSync = (operation: SyncOperation) => {
 export const removeSync = (id: string) => {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(readSyncQueue().filter((item) => item.id !== id)))
 }
+
+/**
+ * Vide la file. Les opérations en attente portent du texte de journal et de
+ * message : elles font partie de ce qu'une suppression de compte doit emporter,
+ * et les rejouer après coup viserait un compte qui n'existe plus.
+ */
+export const clearSyncQueue = () => {
+  localStorage.removeItem(QUEUE_KEY)
+}
