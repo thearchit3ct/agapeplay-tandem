@@ -23,6 +23,25 @@
  *   `messageUnavailable` à un envoi raté parce qu'il l'a mis dans sa file
  *   hors-ligne ; le mobile n'a pas de file pour les messages, alors il dit que
  *   le message n'est pas parti et laisse la saisie en place.
+ *
+ * Bloquer et signaler sont arrivés le 24/08/2026. Trois choses sur ces clés :
+ *
+ * - Les libellés des deux gestes et leurs deux réponses (`report`, `block`,
+ *   `reportSent`, `blockedNotice`) reprennent **mot pour mot** ceux du web :
+ *   c'est la même promesse faite à la même personne, elle ne se reformule pas
+ *   d'un appareil à l'autre.
+ * - Les textes de confirmation du blocage (`blockTitle` … `blockCancel`)
+ *   n'existent que côté mobile, parce que le geste y demande une confirmation
+ *   que le web ne demande pas. Ils sont calqués sur ceux du déblocage : ce
+ *   qu'on va changer, puis ce qui reste réversible.
+ * - `blockRefused` et `unblockRefused` disent un cas qu'aucune erreur ne
+ *   signale : un UPDATE refusé par un `using` ne lève rien, il touche zéro
+ *   ligne. Sans ces deux phrases, l'écran annoncerait un blocage que le serveur
+ *   n'a pas posé. `syncError` ne convient pas — le serveur a bien répondu.
+ *
+ * Ce qui **n'est pas** ici, et volontairement : le motif du signalement. Il part
+ * en français littéral dans la colonne `reason`, comme sur le web ; le traduire
+ * changerait la donnée que lit la modération, pas l'interface.
  */
 
 import { sharedLabels } from './shared'
@@ -57,6 +76,18 @@ export const copy = {
     unblockConfirm: 'Oui, lever le blocage',
     unblockCancel: 'Non, garder le blocage',
     unblockedNotice: 'Le blocage est levé. La conversation reprend.',
+    unblockRefused: 'Le blocage n’a pas été levé. Reviens sur cet écran pour voir où en est la relation.',
+    report: 'Signaler un problème',
+    reportSent: 'Signalement transmis à la modération.',
+    reporting: 'Envoi du signalement…',
+    block: 'Bloquer cette relation',
+    blockedNotice: 'Cette relation est maintenant bloquée.',
+    blockRefused: 'Le blocage n’a pas été posé. Reviens sur cet écran pour voir où en est la relation.',
+    blockTitle: 'Bloquer cette relation ?',
+    blockDescription: 'Vous ne pourrez plus vous écrire. L’historique restera lisible pour toi, plus pour l’autre.',
+    blockReversible: 'Toi seul pourras lever ce blocage, quand tu le voudras.',
+    blockConfirm: 'Oui, bloquer',
+    blockCancel: 'Non, ne rien changer',
   },
   en: {
     ...sharedLabels.en,
@@ -87,5 +118,17 @@ export const copy = {
     unblockConfirm: 'Yes, lift the block',
     unblockCancel: 'No, keep the block',
     unblockedNotice: 'The block is lifted. The conversation resumes.',
+    unblockRefused: 'The block was not lifted. Come back to this screen to see where the relationship stands.',
+    report: 'Report a problem',
+    reportSent: 'Report sent to moderation.',
+    reporting: 'Sending the report…',
+    block: 'Block this relationship',
+    blockedNotice: 'This relationship is now blocked.',
+    blockRefused: 'The block was not set. Come back to this screen to see where the relationship stands.',
+    blockTitle: 'Block this relationship?',
+    blockDescription: 'Neither of you will be able to write any more. The history stays readable for you, not for the other person.',
+    blockReversible: 'Only you will be able to lift this block, whenever you want.',
+    blockConfirm: 'Yes, block',
+    blockCancel: 'No, change nothing',
   },
 } as const

@@ -17,6 +17,9 @@ export type { TandemStatus, TandemBlockView, UnblockAffordance } from './blockin
 export { accesConversation } from './conversation'
 export type { AccesConversation } from './conversation'
 
+export { gestesDeProtection } from './protection'
+export type { GestesDeProtection } from './protection'
+
 export { etatInvitation, revocationInvitation, trierInvitations } from './invitations'
 export type { StatutInvitation, EtatInvitation, Invitation, RevocationInvitation } from './invitations'
 
