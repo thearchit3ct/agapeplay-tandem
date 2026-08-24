@@ -46,8 +46,8 @@ et politiques « comme du code de sécurité » ; c'est maintenant le cas.
 Deux suites étanches.
 
 ```bash
-npm test          # 50 tests, aucune base requise, ~1 s
-npm run test:rls  # 107 tests sur une vraie base Postgres locale, ~90 s
+npm test          # 78 tests, aucune base requise, ~1 s
+npm run test:rls  # 131 tests sur une vraie base Postgres locale, ~90 s
 ```
 
 La seconde monte une pile Supabase jetable et parle **SQL directement**
@@ -77,6 +77,11 @@ Cette discipline a payé plusieurs fois :
 - Une assertion restait verte sous mutation parce qu'un `resolved_at` NULL donne
   un écart NULL, que `Number(null)` transforme en 0 — donc « moins de
   60 secondes ».
+- Relâcher le `using` d'`invitations_update_participant` n'a rien fait rougir.
+  Cause : un tiers est arrêté par **deux** barrières indépendantes, la
+  politique SELECT s'appliquant aussi à l'UPDATE. C'est elle, et non le
+  `using`, qui rend le refus silencieux — un client qui ne lirait que `error`
+  serait donc correct par accident.
 
 ---
 
@@ -154,7 +159,32 @@ modérateurs à tout compte authentifié. La table se consulte par
 `tandem_est_moderateur()`, sans paramètre — avec un paramètre, elle deviendrait
 un énumérateur.
 
-### 4. Aucun écran pour les invitations en attente
+### 4. Aucun écran pour les invitations en attente — ✅ FAIT (24/08/2026)
+
+**L'état décrit ci-dessous est dépassé.** Le suivi des invitations existe dans
+l'application web depuis la branche `feat/invitations-en-attente` : sous la
+conversation du tandem, la liste de ce qu'on a envoyé avec son état, et le
+bouton qui reprend une invitation vivante. **Aucune migration n'a été
+nécessaire** — le chemin d'écriture existait déjà (`grant select, insert,
+update` de `…_000002` et `invitations_update_participant`), au point que le
+témoin positif de `tests/rls/invitation-bloquee.test.ts:139` le prouvait sans
+que rien ne l'utilise.
+
+Deux choses valent d'être retenues de ce chantier :
+
+- **`status` ne dit pas l'état d'une invitation.** Rien — ni trigger, ni cron —
+  ne la fait passer à `expired` ; `expires_at` est le seul juge, et c'est lui
+  que lisent `accept_tandem_invitation` et `tandems_insert_member`. Un écran
+  qui recopierait la colonne afficherait « en attente » pour l'éternité. La
+  règle vit dans `packages/domain/src/invitations.ts`.
+- **Un tiers est arrêté par deux barrières, pas une.** PostgreSQL applique les
+  politiques SELECT à un UPDATE qui lit des colonnes : c'est
+  `invitations_select_participant`, et non le `using` de la politique UPDATE,
+  qui rend le refus *silencieux*. Mesuré par mutation (voir l'en-tête de
+  `tests/rls/invitations.test.ts`). Le `using` seul laisserait le tiers
+  atteindre le `with check`, qui lève.
+
+Le paragraphe d'origine reste ci-dessous.
 
 On peut inviter. Une invitation en attente ne se voit ni ne se révoque depuis
 l'application.
@@ -191,8 +221,8 @@ Ces points sont **constatés, pas des oublis**. Les rouvrir demande une décisio
 |---|---|
 | La modération ne lit pas les participants d'un tandem | Conséquence directe de « le message signalé, et lui seul ». La vue `tandem_contexte_signale` donne le statut et les dates, jamais les personnes. |
 | Le bloqueur peut remplacer l'autre participant par un tiers | Le `with check` n'exige que sa propre présence, pas la stabilité de la paire. |
-| Une invitation antérieure à un blocage reste visible du bloqueur | La politique concernée gouverne aussi le `select … for update` de la RPC d'acceptation ; la resserrer casserait des acceptations légitimes de façon peu visible. À traiter par péremption ou côté interface. |
-| Sur une paire bloquée, l'inviteur ne peut plus révoquer son invitation | Elle reste `pending` jusqu'à péremption. Le chemin de retour sanctionné est de lever le blocage. |
+| Une invitation antérieure à un blocage reste visible du bloqueur — **traité côté interface le 24/08/2026** | La politique concernée gouverne aussi le `select … for update` de la RPC d'acceptation ; la resserrer casserait des acceptations légitimes de façon peu visible. Elle est donc inchangée : c'est l'écran qui retire ces invitations de la liste « Reçues » (`apps/web/src/invitations.ts`), au motif qu'elles sont de toute façon inacceptables — `tandems_insert_member` exige `not tandem_paire_bloquee(…)`. |
+| Sur une paire bloquée, l'inviteur ne peut plus révoquer son invitation — **affiché et expliqué depuis le 24/08/2026** | Elle reste `pending` jusqu'à péremption. Le chemin de retour sanctionné est de lever le blocage. L'écran ne le contourne pas : il n'affiche aucun bouton là où le `with check` lèverait, et dit le chemin de retour. |
 | La lecture d'un dossier de modération ne laisse aucune trace | Seules les décisions en laissent. Tracer les consultations est une décision séparée. |
 | `invitation_email_mismatch` est inatteignable pour un tiers | Depuis le passage en `security invoker`, le tiers ne voit pas la ligne : le refus remonte `invitation_not_found`. Le refus est réel, le message n'est pas celui qu'on attend en lisant le code. |
 
@@ -221,6 +251,10 @@ Chacun a coûté du temps une fois. Ils sont ici pour ne pas le coûter deux.
   écriture à une colonne, c'est un `grant update (colonne)` qu'il faut.
 - **Dans une politique UPDATE sans `with check`, PostgreSQL réemploie
   l'expression `using`** pour contrôler la nouvelle ligne.
+- **Les politiques SELECT s'appliquent aussi à un UPDATE** dès qu'il lit des
+  colonnes (`where`, `returning`) — c'est-à-dire presque toujours. Une ligne
+  peut donc être refusée sans que le `using` de la politique UPDATE ait eu son
+  mot à dire, et c'est ce qui décide si le refus lève ou se tait.
 - **Dans une fonction `security definer`, `current_user` désigne le
   propriétaire**, pas l'appelant. Une garde fondée dessus est morte ;
   `auth.uid()` est le bon signal.
