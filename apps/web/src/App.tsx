@@ -6,8 +6,10 @@ import type { AppState, Locale, Session as Seance } from '@agapeplay/domain'
 import { supabase, supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
 import { loadPublishedJourney } from '@agapeplay/content'
-import { enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
-import { initialState, loadState, saveState } from './storage'
+import { clearSyncQueue, enqueueSync, readSyncQueue, removeSync } from './offlineQueue'
+import { clearState, initialState, loadState, saveState } from './storage'
+import { nomDuFichierExport, rassemblerExport, telechargerJson } from './export'
+import type { Ligne, Reponse, SectionExport } from './export'
 import { copy } from '@agapeplay/content/copy/web'
 import { unblockAffordance } from '@agapeplay/domain'
 import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus } from '@agapeplay/domain'
@@ -18,7 +20,7 @@ import { chargerInvitations, revoquerInvitation } from './invitations'
 import type { InvitationEmise } from './invitations'
 import type { Invitation } from '@agapeplay/domain'
 import {
-  AuthDialog, TrustDialog, SettingsDialog, InviteDialog, UnblockDialog, MentorView, ChurchView,
+  AuthDialog, TrustDialog, SettingsDialog, DeleteAccountDialog, InviteDialog, UnblockDialog, MentorView, ChurchView,
   NavItem, TodayView, JourneyView, SessionFlow, JournalView, TandemView, ModerationView,
   InvitationsView,
 } from './views'
@@ -38,6 +40,10 @@ function App() {
   const [authLoading, setAuthLoading] = useState(supabaseConfigured)
   const [trustOpen, setTrustOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  // Un geste de compte à la fois : l'export, la déconnexion globale et la
+  // suppression se désarment mutuellement le temps de leur aller-retour.
+  const [compteEnCours, setCompteEnCours] = useState(false)
   const [ageConfirmed, setAgeConfirmed] = useState(false)
   const [privacyAccepted, setPrivacyAccepted] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -49,6 +55,11 @@ function App() {
   // du profil d'autrui — et le sien de sa propre ligne profiles. NULL/'' tant
   // que la synchronisation n'a pas répondu : l'écran invite au lieu d'inventer.
   const [remotePartnerName, setRemotePartnerName] = useState<string | null>(null)
+  // `partenaire_supprime` vient de tandem_partenaire(), qui le tire de
+  // auth.users.deleted_at — hors de portée de son propriétaire, contrairement à
+  // profiles.account_status. Sans lui, un nom vidé passerait pour « pas encore
+  // de nom » et l'écran proposerait d'inviter quelqu'un qui est déjà là.
+  const [remotePartnerDeleted, setRemotePartnerDeleted] = useState(false)
   const [ownName, setOwnName] = useState('')
   const [remoteTandemStatus, setRemoteTandemStatus] = useState<TandemStatus | null>(null)
   const [remoteTandemBlockedBy, setRemoteTandemBlockedBy] = useState<string | null>(null)
@@ -329,10 +340,11 @@ function App() {
         setRemoteTandemBlockedBy(remoteTandem.blocked_by)
         const partenaireResult = await client.rpc('tandem_partenaire')
         if (!partenaireResult.error && !cancelled) {
-          const ligne = (partenaireResult.data as Array<{ tandem_id: string; display_name: string | null }> | null)?.find((l) => l.tandem_id === remoteTandem.id)
+          const ligne = (partenaireResult.data as Array<{ tandem_id: string; display_name: string | null; partenaire_supprime: boolean }> | null)?.find((l) => l.tandem_id === remoteTandem.id)
           // Nom NULL = partenaire sans ligne profiles encore (left join côté
           // SQL) : on garde null, l'écran propose d'inviter plutôt qu'un vide.
           setRemotePartnerName(ligne?.display_name?.trim() || null)
+          setRemotePartnerDeleted(ligne?.partenaire_supprime === true)
         }
         const messagesResult = await client.from('tandem_messages').select('id, sender_id, body, created_at').eq('tandem_id', remoteTandem.id).order('created_at', { ascending: true })
         if (messagesResult.error) {
@@ -611,15 +623,98 @@ function App() {
     setTrustOpen(false)
   }
 
-  const requestDeletion = async () => {
-    if (!supabase || !authSession) return
-    const { error } = await supabase.from('profiles').update({ account_status: 'deletion_requested', deletion_requested_at: new Date().toISOString() }).eq('id', authSession.user.id)
+  /**
+   * L'export. Toutes les lectures passent par les politiques `own only` de la
+   * personne connectée : il n'y a rien ici qu'elle ne puisse déjà lire écran
+   * par écran. L'assemblage et son refus de rendre un fichier amputé vivent
+   * dans `export.ts`, avec leurs tests.
+   */
+  const exporterMesDonnees = async () => {
+    const client = supabase
+    if (!client || !authSession) return
+    setCompteEnCours(true)
+    const lire = async (section: SectionExport): Promise<Reponse> => {
+      const requete = client.from(section.table).select(section.colonnes)
+      const { data, error } = await (section.cible === 'adresse'
+        ? requete.ilike(section.colonne, authSession.user.email ?? '')
+        : requete.eq(section.colonne, authSession.user.id))
+      return { data: data as Ligne[] | null, error }
+    }
+    try {
+      const contenu = await rassemblerExport(lire, { id: authSession.user.id, email: authSession.user.email ?? null })
+      telechargerJson(nomDuFichierExport(), contenu)
+      showNotice(t.exportReady)
+    } catch {
+      // `rassemblerExport` lève à la première anomalie plutôt que de rendre un
+      // fichier plus court de quelques lignes. On ne télécharge donc rien, et
+      // on le dit — un export silencieusement incomplet est le seul échec qui
+      // ne se voit jamais.
+      showNotice(t.exportFailed, 5200)
+    } finally {
+      setCompteEnCours(false)
+    }
+  }
+
+  const deconnexionPartout = async () => {
+    const client = supabase
+    if (!client) return
+    setCompteEnCours(true)
+    const { error } = await client.auth.signOut({ scope: 'global' })
+    setCompteEnCours(false)
     if (error) {
       showNotice(t.syncError, 4200)
       return
     }
+    showNotice(t.signedOutEverywhere, 4200)
+  }
+
+  /**
+   * La suppression réelle. `supprimer_mon_compte()` fait tout d'un tenant côté
+   * base — données personnelles effacées, tandems terminés sauf les bloqués,
+   * `auth.users` neutralisée, sessions révoquées — ou rien du tout.
+   *
+   * Deux choses restent à faire ici, et elles comptent autant :
+   *
+   *   - lire la réponse. Une erreur non lue afficherait « ton compte est
+   *     supprimé » sur un compte intact, exactement le mensonge que #43 a
+   *     retiré du blocage ;
+   *   - vider ce navigateur. Le journal et la file de synchronisation sont
+   *     aussi dans `localStorage` : une purge qui s'arrêterait à la base les
+   *     laisserait au prochain qui ouvre cet ordinateur.
+   */
+  const supprimerMonCompte = async () => {
+    const client = supabase
+    if (!client || !authSession) return
+    setCompteEnCours(true)
+    const { error } = await client.rpc('supprimer_mon_compte')
+    if (error) {
+      setCompteEnCours(false)
+      showNotice(t.deleteFailed, 5200)
+      return
+    }
+
+    clearState()
+    clearSyncQueue()
+    setState(initialState)
+    setPendingSync(0)
+    setRemoteTandemId(null)
+    setRemoteTandemStatus(null)
+    setRemoteTandemBlockedBy(null)
+    setRemotePartnerName(null)
+    setRemotePartnerDeleted(false)
+    setRemoteMessages([])
+    setInvitationsEmises([])
+    setInvitationsRecues([])
+    setDeleteOpen(false)
     setSettingsOpen(false)
-    showNotice(t.deletionRequested, 4200)
+
+    // La révocation côté serveur a déjà eu lieu (les lignes `auth.sessions`
+    // sont parties avec la fonction). Cet appel ferme la session de cet
+    // onglet-ci et efface le jeton local : c'est le pendant visible, pas la
+    // garantie.
+    await client.auth.signOut({ scope: 'global' })
+    setCompteEnCours(false)
+    showNotice(t.deleteDone, 6000)
   }
 
   const toggleNotification = async (key: keyof AppState['notificationPrefs'], value: boolean) => {
@@ -742,7 +837,8 @@ function App() {
 
         {authOpen && <AuthDialog t={t} loading={authLoading} onClose={() => setAuthOpen(false)} />}
         {trustOpen && <TrustDialog t={t} ageConfirmed={ageConfirmed} setAgeConfirmed={setAgeConfirmed} privacyAccepted={privacyAccepted} setPrivacyAccepted={setPrivacyAccepted} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted} onSave={() => void saveTrust()} />}
-        {settingsOpen && <SettingsDialog t={t} prefs={state.notificationPrefs} onToggle={(key, value) => void toggleNotification(key, value)} onClose={() => setSettingsOpen(false)} onRequestDeletion={() => void requestDeletion()} />}
+        {settingsOpen && <SettingsDialog t={t} prefs={state.notificationPrefs} onToggle={(key, value) => void toggleNotification(key, value)} onClose={() => setSettingsOpen(false)} onExport={() => void exporterMesDonnees()} onSignOutEverywhere={() => void deconnexionPartout()} onDelete={() => setDeleteOpen(true)} busy={compteEnCours} />}
+        {deleteOpen && <DeleteAccountDialog t={t} onConfirm={() => void supprimerMonCompte()} onExport={() => void exporterMesDonnees()} onClose={() => setDeleteOpen(false)} busy={compteEnCours} />}
         {inviteOpen && <InviteDialog t={t} email={inviteEmail} setEmail={setInviteEmail} link={inviteLink} onCreate={() => void createInvitation()} onClose={() => { setInviteOpen(false); setInviteLink('') }} />}
         {unblockOpen && <UnblockDialog t={t} onConfirm={() => void unblockTandem()} onClose={() => setUnblockOpen(false)} />}
 
@@ -775,7 +871,7 @@ function App() {
             )}
             {activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
             {activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
-            {activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
+            {activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} partnerDeleted={remotePartnerDeleted} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
             {/* Sous la conversation, pas dans un onglet à part : on vient
                 voir ses invitations depuis l'endroit d'où on les a envoyées.
                 Réservé aux comptes connectés — sans session, la politique ne

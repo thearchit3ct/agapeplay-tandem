@@ -9,6 +9,93 @@ Dépôt `thearchit3ct/agapeplay-tandem`, branche `main`.
 
 ---
 
+## Amendement du 25 août 2026 — la suppression de compte (issue #7)
+
+*Ajouté sans rien retirer de ce qui précède. Le corps du document reste l'état
+du 6 août.*
+
+L'issue #7 promettait trois choses que le produit n'avait pas : une purge
+derrière la demande de suppression, un export des données, une révocation des
+sessions. Les trois sont livrées. Ce que l'écran faisait jusque-là — poser
+`account_status = 'deletion_requested'` sur `profiles` — n'était consommé par
+rien ; ce drapeau n'est plus le geste, il n'en est que la trace.
+
+### La ligne de conduite, et pourquoi elle n'est pas la cascade
+
+Le schéma proposait un chemin tout tracé et piégé : supprimer la ligne
+`auth.users`. Quatre clés étrangères y pendent en `on delete cascade`
+(`tandems.participant_a_id` et `_b_id`, `tandem_messages.sender_id`,
+`tandem_reports.reporter_id`, et `tandem_reports.tandem_id` vers `tandems`).
+Ce seul `delete` emporte donc le tandem entier, la conversation du binôme
+restant — **ses propres phrases comprises** — et les signalements portant sur la
+relation. Sur un produit qui met en relation des mineurs et des adultes, cela
+offre à qui a mal agi le moyen le plus simple d'effacer la preuve : se
+supprimer.
+
+La ligne retenue est donc : **on efface la personne, on garde la relation et la
+trace.**
+
+| Ce qui disparaît | Ce qui reste, et pourquoi |
+|---|---|
+| Journal, progression, préférences, appartenances d'église et de groupe, profil mentor et affectations, rôle de modérateur | Les messages envoyés, dans la conversation du binôme, sans nom au-dessus : ils sont aussi la correspondance de l'autre |
+| Toute invitation portant son identifiant ou son adresse, dans les deux sens | Les signalements et le journal d'audit — l'en-tête de `20260806180000` avait déjà refusé toute clé étrangère à `tandem_report_audit` pour cette raison précise |
+| Nom, adresse e-mail, téléphone, mot de passe, métadonnées d'identité, sessions ouvertes | La ligne `profiles`, vidée et datée : une ligne absente ferait dire à l'écran du binôme « pas encore de nom » |
+
+Ce que cet arbitrage coûte est écrit dans la migration : le texte des messages
+non signalés survit à son auteur. C'est dit à l'écran **avant** le geste, et il
+reste une dette nommée — une durée de conservation avec purge des tandems
+terminés, qui demande un cron et une décision de durée.
+
+### Deux décisions qu'un test épingle
+
+- **Un tandem bloqué reste bloqué.** Le faire passer à `ended` rouvrirait tout
+  l'historique à la personne bloquée (`messages_select_member` ne referme la
+  lecture que tant que `status = 'blocked'`), au moment précis où celui qui l'a
+  bloquée s'en va. Le blocage survit à son auteur.
+- **La RPC n'a aucun paramètre.** C'est la réponse structurelle à « un tiers ne
+  peut pas supprimer autrui » : il n'y a personne à nommer, donc aucune garde
+  interne à relâcher. Un test échoue le jour où une variante à paramètre
+  apparaît.
+
+### Ce que le binôme restant voit
+
+`tandem_partenaire()` rend une colonne de plus, `partenaire_supprime`, tirée de
+`auth.users.deleted_at` — **et non de `profiles.account_status`**, que
+`profiles_update_own` met à la portée de son propriétaire : n'importe qui
+pourrait sinon se déclarer supprimé sur l'écran d'en face. La vue du tandem
+distingue désormais « terminé » de « bloqué », qui partageaient le même
+vocabulaire : un binôme dont le compte d'en face disparaît lisait « Bloqué » et
+pouvait comprendre qu'on l'avait écarté.
+
+### L'export et la révocation
+
+L'export est assemblé côté client (`apps/web/src/export.ts`) à partir de
+lectures déjà permises par les politiques `own only` : il n'ouvre aucune porte.
+Sa règle est de **ne jamais rendre un fichier amputé en silence** — toute
+lecture en erreur, ou qui ne rend même pas une liste vide, interrompt l'export.
+Il déclare aussi ses propres trous : les messages d'une relation où l'on a été
+bloqué ne sont plus lisibles depuis son compte, et le fichier le dit.
+
+La révocation est double, et l'ordre compte : la fonction efface les lignes
+`auth.sessions` côté serveur — ce qui ne dépend d'aucun client — et
+l'application appelle ensuite `signOut({ scope: 'global' })`, qui n'en est que
+le pendant visible. Un geste « me déconnecter partout » est disponible seul dans
+les réglages. Enfin la purge continue là où elle est visible : `localStorage`
+est vidé (état et file de synchronisation), sans quoi le journal resterait sur
+l'ordinateur — souvent partagé, à seize ans.
+
+### Vérifié
+
+- `npm test` — 109 tests ; `npm run test:rls` — 144 tests, dont 13 nouveaux.
+- Vérification par mutation, sur la base vivante, un conjonct à la fois
+  (`.rls-stack/muter-suppression.mjs`) : la garde d'identité retirée, le lien
+  `where user_id = v_uid` élargi à `where true`, le conjonct
+  `status <> 'blocked'` supprimé. **Chacune fait rougir exactement un test**, les
+  douze autres restant verts.
+- `tsc -b`, `vite build`, `npm run mobile:typecheck` : passent.
+
+---
+
 ## Ce qui a changé le 6 août
 
 Le projet est passé d'**aucun test** à **157**, et quatre défauts de sécurité
@@ -316,6 +403,10 @@ Ces points sont **constatés, pas des oublis**. Les rouvrir demande une décisio
 | La lecture d'un dossier de modération ne laisse aucune trace | Seules les décisions en laissent. Tracer les consultations est une décision séparée. |
 | Le mobile ne met aucun message de côté quand l'envoi échoue — **constaté le 24/08/2026** | Le web a une file hors-ligne (`enqueueSync`, `kind: 'tandem_message'`) ; le mobile n'en a une que pour la progression de séance (`ProgressOperation`). Plutôt que d'élargir cette file dans le même chantier, l'écran dit que le message n'est pas parti et **laisse la saisie en place**. La divergence est visible et réparable ; une file silencieuse qui perdrait un message ne le serait pas. |
 | Le mobile ne rafraîchit la conversation qu'au retour sur l'écran — **constaté le 24/08/2026** | Ni le web ni le mobile n'ont de temps réel. Le web se relit au rechargement de page, le mobile à la reprise de focus (`useFocusEffect`). Aucun bouton « relire » n'a été ajouté : le web n'en a pas sur la conversation, et en poser un ici inventerait un geste que l'autre application ne connaît pas. |
+| Le texte des messages non signalés survit à la suppression de leur auteur — **25/08/2026** | Ils sont aussi la conversation du binôme, et une cascade la lui prendrait. Il manque en revanche une durée de conservation : purge des tandems terminés depuis N mois, à décider, avec un cron. |
+| Le mobile n'a ni suppression, ni export, ni « déconnecter partout » — **25/08/2026** | Hors périmètre de ce chantier. L'écran mobile du tandem ignore aussi `partenaire_supprime` : il affichera un nom vide là où le web dit « ce compte a été supprimé ». La colonne est additive, rien n'est cassé. |
+| Un compte peut écrire `account_status = 'deleted'` sur sa propre ligne sans rien supprimer — **25/08/2026** | `profiles_update_own` accorde l'écriture sur toute la ligne, et `saveTrust` a besoin d'y écrire `'active'`. C'est précisément pourquoi rien de visible par autrui ne s'appuie sur cette colonne : le signal de suppression est `auth.users.deleted_at`. |
+| Le bloc `auth.*` de `supprimer_mon_compte()` n'est pas prouvé localement — **25/08/2026** | Le harnais de tests travaille en `postgres`, superutilisateur : l'écriture y passe quoi qu'il arrive. Sur le projet hébergé, le schéma `auth` appartient à `supabase_auth_admin`. La requête de vérification est écrite dans l'en-tête de la migration. Si les droits manquent, la fonction lève et rien n'est supprimé à moitié. |
 | `invitation_email_mismatch` est inatteignable pour un tiers | Depuis le passage en `security invoker`, le tiers ne voit pas la ligne : le refus remonte `invitation_not_found`. Le refus est réel, le message n'est pas celui qu'on attend en lisant le code. |
 
 ---
@@ -351,6 +442,20 @@ Chacun a coûté du temps une fois. Ils sont ici pour ne pas le coûter deux.
   propriétaire**, pas l'appelant. Une garde fondée dessus est morte ;
   `auth.uid()` est le bon signal.
 - Une politique qui interroge sa propre table produit une **récursion infinie**.
+- **`create or replace function` refuse de changer le type de retour** — comme
+  `create or replace view` refuse de changer le jeu de colonnes. Il faut un
+  `drop function` explicite **dans le fichier de migration**, sans quoi rejouer
+  ce fichier échoue : c'est exactement ce que fait la boucle de vérification par
+  mutation après chaque restauration, et elle rougirait pour la mauvaise raison.
+- **Une mesure prise sous l'identité de celui qui vient d'agir ne prouve pas ce
+  qu'on croit.** Une ligne effacée et une ligne masquée par la RLS rendent le
+  même « zéro ». Les tests de suppression mesurent donc les faits hors RLS
+  (`reset role`) et rentrent explicitement sous une identité quand c'est la
+  politique qu'ils veulent éprouver.
+- **`commeAnonyme` ne peut pas éprouver la garde interne d'une fonction** : le
+  `grant execute` manquant lève le premier, et le test reste vert quoi qu'on
+  fasse à la garde. C'est le rôle `authenticated` **sans claims**
+  (`commeAuthentifieSansIdentite`) qui rend la mesure possible.
 
 **Tests**
 
