@@ -528,3 +528,15 @@ h3 { color: #eeeeea; font-weight: 400; }
   .invitation-card-top .invitation-dates { margin-left: 0; }
   .invitation-card .outline-button { width: 100%; }
 }
+
+/* Le partage du journal — issue #11.
+   Trois éléments, pas un de plus : ce qu'une entrée dit d'elle-même quand elle
+   est ouverte au binôme, la rangée de gestes qui la suit, et la phrase qui
+   explique un geste absent. Rien de coloré ni de valorisant : sur cet écran, un
+   partage n'est pas une réussite à célébrer, c'est un état à relire — et un
+   refus n'est pas une erreur, c'est une situation. Même encre que le reste. */
+.entry-shared { margin: 11px 0 0; padding-left: 9px; border-left: 2px solid #eeeeea; font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: #eeeeea; }
+.journal-entry .entry-actions { display: flex; justify-content: flex-start; gap: 20px; align-items: center; margin-top: 13px; text-transform: none; letter-spacing: normal; }
+.entry-actions .text-button:disabled { opacity: .4; text-decoration: none; cursor: not-allowed; }
+.entry-note, .journal-note { margin: 12px 0 0; padding-left: 10px; border-left: 1px solid #8f8f88; font-size: 11px; line-height: 1.6; color: #b4b4ad; }
+.journal-note { margin-top: 18px; }

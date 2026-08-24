@@ -14,8 +14,9 @@ import { supabase } from '../lib/supabaseClient'
 import type { AppState } from '@agapeplay/domain'
 import { getJourney } from '../mockData'
 import type { Copy } from '@agapeplay/content/copy/web'
-import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance } from '@agapeplay/domain'
+import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance, PartageDuJournal } from '@agapeplay/domain'
 import { initialeDe } from '@agapeplay/domain'
+import type { EntreePartagee, PartageEmis } from '../partageJournal'
 
 // L'espace modérateur vit dans son propre fichier : il ne partage rien avec les
 // vues ci-dessous et il porte sa propre scène de conception. Il se réexporte
@@ -295,8 +296,112 @@ export function SessionFlow({ session, step, reflection, setReflection, t, onBeg
   </section>
 }
 
-export function JournalView({ entries, draft, setDraft, onAdd, t }: { entries: AppState['journalEntries']; draft: string; setDraft: (value: string) => void; onAdd: () => void; t: Copy }) {
-  return <section className="content-section narrow-section"><div className="section-header"><div><span className="section-kicker">{t.private}</span><h2>{t.journal}</h2><p>{t.emptyJournal}</p></div><span className="lock-mark" aria-hidden="true">⌁</span></div><div className="journal-composer"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={t.write} /><div className="composer-footer"><span>{t.privateOnly}</span><button className="primary-button compact" onClick={onAdd}>{t.save} <span aria-hidden="true">→</span></button></div></div><div className="journal-list">{entries.map((entry) => <article className="journal-entry" key={entry.id}><div><span className="entry-date">{new Date(entry.createdAt).toLocaleDateString()}</span><span className="entry-mood">{t.present}</span></div><p>{entry.text}</p></article>)}</div></section>
+/**
+ * Le journal, et les trois gestes que l'issue #11 lui ajoute : partager une
+ * entrée avec son binôme, retirer ce partage, effacer l'entrée.
+ *
+ * La règle de cette vue : **pas de bouton là où la base refuserait**, et une
+ * phrase à la place. C'est la même règle que le panneau de déblocage — « un
+ * bouton qui échoue est une promesse trahie » — et elle vaut ici pour quatre
+ * refus différents, qui n'ont ni la même cause ni le même remède :
+ *
+ *   - pas de binôme : il n'y a personne à qui ouvrir quoi que ce soit ;
+ *   - relation bloquée ou terminée : `journal_shares_insert_author` refuse, et
+ *     les partages déjà posés ne s'ouvrent plus ;
+ *   - hors ligne : ces trois gestes ne passent pas par la file de
+ *     synchronisation. Mettre un partage en attente reviendrait à afficher
+ *     « partagé » sur une décision que le serveur n'a pas encore acceptée ;
+ *   - entrée pas encore synchronisée : elle n'existe pas côté base, et le
+ *     `exists` du `with check` la refuserait.
+ *
+ * Le geste « supprimer », lui, reste offert hors session : en mode
+ * démonstration le journal n'existe que dans ce navigateur, et l'effacer
+ * localement est la vérité entière.
+ */
+export function JournalView({ entries, draft, setDraft, onAdd, t, partages, partage, enAttente, connecte, enLigne, enCours, onPartager, onRetirer, onSupprimer }: {
+  entries: AppState['journalEntries']; draft: string; setDraft: (value: string) => void; onAdd: () => void; t: Copy
+  partages: PartageEmis[]
+  partage: PartageDuJournal
+  /** Identifiants d'entrées encore dans la file hors-ligne. */
+  enAttente: string[]
+  /** Une session distante existe : les gestes parlent à la base. */
+  connecte: boolean
+  enLigne: boolean
+  /** L'entrée dont un geste est en vol ; les autres restent utilisables. */
+  enCours: string | null
+  onPartager: (entryId: string) => void; onRetirer: (entryId: string) => void; onSupprimer: (entryId: string) => void
+}) {
+  const partageParEntree = new Map(partages.map((ligne) => [ligne.entreeId, ligne]))
+  // Les gestes distants n'aboutissent qu'en ligne. Hors session, il n'y a pas
+  // de distant : la suppression locale reste possible.
+  const gestesPossibles = !connecte || enLigne
+  const noteDeRefus = connecte && !enLigne ? t.shareOfflineNote
+    : partage.raison === 'aucun-tandem' ? t.shareNoTandem
+    : partage.raison === 'bloque' ? t.shareBlockedNote
+    : partage.raison === 'termine' ? t.shareEndedNote
+    : ''
+
+  return <section className="content-section narrow-section">
+    <div className="section-header"><div><span className="section-kicker">{t.private}</span><h2>{t.journal}</h2><p>{t.emptyJournal}</p></div><span className="lock-mark" aria-hidden="true">⌁</span></div>
+    <div className="journal-composer"><textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={t.write} /><div className="composer-footer"><span>{t.privateOnly}</span><button className="primary-button compact" onClick={onAdd}>{t.save} <span aria-hidden="true">→</span></button></div></div>
+
+    {noteDeRefus && <p className="journal-note" role="status">{noteDeRefus}</p>}
+
+    <div className="journal-list">{entries.map((entry) => {
+      const partagee = partageParEntree.get(entry.id)
+      const attendSaSynchronisation = enAttente.includes(entry.id)
+      const occupe = enCours === entry.id
+      return <article className="journal-entry" key={entry.id}>
+        <div><span className="entry-date">{new Date(entry.createdAt).toLocaleDateString()}</span><span className="entry-mood">{t.present}</span></div>
+        <p>{entry.text}</p>
+        {/* Dit à l'autrice ce que son binôme peut lire, et depuis quand. Un
+            partage muet serait une porte ouverte qu'on oublie. */}
+        {partagee && <p className="entry-shared">{t.sharedEntry} · {t.sharedOn} {new Date(partagee.poseLe).toLocaleDateString()}</p>}
+        <div className="entry-actions">
+          {partagee
+            ? <button className="text-button" disabled={!gestesPossibles || occupe} onClick={() => onRetirer(entry.id)}>{t.unshareEntry}</button>
+            : partage.peutPartager && gestesPossibles && !attendSaSynchronisation
+              ? <button className="text-button" disabled={occupe} onClick={() => onPartager(entry.id)}>{t.shareEntry}</button>
+              : null}
+          <button className="text-button danger" disabled={!gestesPossibles || occupe} onClick={() => onSupprimer(entry.id)}>{t.deleteEntry}</button>
+        </div>
+        {attendSaSynchronisation && !partagee && <p className="entry-note">{t.sharePendingNote}</p>}
+      </article>
+    })}</div>
+
+    {/* Ce que le retrait ne peut pas faire. Dit une fois, sous la liste, plutôt
+        qu'à chaque entrée : c'est une propriété du geste, pas une alerte. */}
+    {partages.length > 0 && <p className="journal-note">{t.unshareEntryReminder}</p>}
+  </section>
+}
+
+/**
+ * Ce que le binôme a partagé, sous la conversation.
+ *
+ * Ces entrées ne viennent pas de `journal_entries` — cette table reste
+ * own-only, aucune politique n'y ouvre quoi que ce soit à autrui — mais de
+ * `journal_partage_avec_moi()`, qui est le seul chemin.
+ *
+ * Le vide y a deux sens, et les confondre serait mentir : « il ne m'a rien
+ * partagé » et « la relation est fermée, ce qui l'était ne s'ouvre plus ». La
+ * fonction rend zéro ligne dans les deux cas ; c'est `partage.raison` qui
+ * tranche, et le panneau dit lequel des deux.
+ */
+export function PartagesRecusView({ entrees, erreur, partage, t }: {
+  entrees: EntreePartagee[]; erreur: boolean; partage: PartageDuJournal; t: Copy
+}) {
+  return <section className="content-section narrow-section">
+    <div className="section-header"><div><span className="section-kicker">{t.private}</span><h2>{t.sharedWithMe}</h2></div><span className="lock-mark" aria-hidden="true">⌁</span></div>
+    {erreur
+      ? <p className="journal-note" role="status">{t.syncError}</p>
+      : entrees.length
+        ? <div className="journal-list">{entrees.map((entree) => <article className="journal-entry" key={entree.entreeId}>
+            <div><span className="entry-date">{new Date(entree.ecritLe).toLocaleDateString()}</span><span className="entry-mood">{entree.humeur}</span></div>
+            <p>{entree.texte}</p>
+            <p className="entry-shared">{t.sharedOn} {new Date(entree.partageLe).toLocaleDateString()}</p>
+          </article>)}</div>
+        : <p className="journal-note">{partage.peutPartager ? t.sharedWithMeEmpty : t.sharedWithMeClosed}</p>}
+  </section>
 }
 
 export function TandemView({ partnerName, partnerDeleted, messages, currentUserId, status, affordance, draft, setDraft, onSend, onBlock, onUnblock, onReport, onInvite, t }: { partnerName: string | null; partnerDeleted: boolean; messages: RemoteMessage[]; currentUserId?: string; status: TandemStatus | null; affordance: UnblockAffordance; draft: string; setDraft: (value: string) => void; onSend: () => void; onBlock: () => void; onUnblock: () => void; onReport: () => void; onInvite: () => void; t: Copy }) {

@@ -32,3 +32,17 @@ export const removeSync = (id: string) => {
 export const clearSyncQueue = () => {
   localStorage.removeItem(QUEUE_KEY)
 }
+
+/**
+ * Les identifiants d'entrées de journal encore en attente de synchronisation.
+ *
+ * Le partage d'une entrée exige, côté serveur, que cette entrée existe :
+ * `journal_shares_insert_author` la cherche dans `journal_entries`. Une entrée
+ * écrite hors ligne n'y est pas encore, et le partage lèverait. L'écran a donc
+ * besoin de savoir lesquelles attendent — pour retirer le geste plutôt que de
+ * promettre un refus.
+ */
+export const idsJournalEnAttente = (): string[] =>
+  readSyncQueue()
+    .filter((operation) => operation.kind === 'journal_entry')
+    .map((operation) => String(operation.payload.id))
