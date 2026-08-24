@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { initialeDe, nomDepuisIdentite } from '@agapeplay/domain'
 import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import type { AppState, Locale } from '@agapeplay/domain'
@@ -37,6 +38,11 @@ function App() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [remoteTandemId, setRemoteTandemId] = useState<string | null>(null)
+  // Le nom du partenaire vient de tandem_partenaire() — seul chemin de lecture
+  // du profil d'autrui — et le sien de sa propre ligne profiles. NULL/'' tant
+  // que la synchronisation n'a pas répondu : l'écran invite au lieu d'inventer.
+  const [remotePartnerName, setRemotePartnerName] = useState<string | null>(null)
+  const [ownName, setOwnName] = useState('')
   const [remoteTandemStatus, setRemoteTandemStatus] = useState<TandemStatus | null>(null)
   const [remoteTandemBlockedBy, setRemoteTandemBlockedBy] = useState<string | null>(null)
   const [unblockOpen, setUnblockOpen] = useState(false)
@@ -146,7 +152,7 @@ function App() {
       const [progressResult, journalResult, profileResult] = await Promise.all([
         client.from('session_progress').select('session_id').eq('user_id', authSession.user.id),
         client.from('journal_entries').select('id, text, mood, created_at').eq('user_id', authSession.user.id).order('created_at', { ascending: false }),
-        client.from('profiles').select('age_confirmed_at, privacy_consent_at, terms_consent_at, account_status').eq('id', authSession.user.id).maybeSingle(),
+        client.from('profiles').select('display_name, age_confirmed_at, privacy_consent_at, terms_consent_at, account_status').eq('id', authSession.user.id).maybeSingle(),
       ])
 
       if (cancelled) return
@@ -178,7 +184,14 @@ function App() {
         return next
       })
 
-      const profileUpsertResult = await client.from('profiles').upsert({ id: authSession.user.id, display_name: 'Claire', locale: state.locale })
+      // Jusqu'au 24/08/2026, cet upsert écrasait display_name avec « Claire »
+      // à chaque chargement — le champ même que tandem_partenaire() montre au
+      // partenaire. On sème depuis l'identité de connexion (Google/Microsoft,
+      // sinon l'email) uniquement quand le nom est vide, et on n'y touche plus.
+      const nomExistant = (profileResult.data?.display_name ?? '').trim()
+      const nomAffiche = nomExistant || nomDepuisIdentite(authSession.user.user_metadata, authSession.user.email)
+      if (!cancelled) setOwnName(nomAffiche)
+      const profileUpsertResult = await client.from('profiles').upsert({ id: authSession.user.id, display_name: nomAffiche, locale: state.locale })
       if (profileUpsertResult.error && !cancelled) showNotice(t.syncError, 4200)
 
       const preferencesResult = await client.from('notification_preferences').select('sessions, messages, church, absence').eq('user_id', authSession.user.id).maybeSingle()
@@ -214,6 +227,13 @@ function App() {
         setRemoteTandemId(remoteTandem.id)
         setRemoteTandemStatus(remoteTandem.status)
         setRemoteTandemBlockedBy(remoteTandem.blocked_by)
+        const partenaireResult = await client.rpc('tandem_partenaire')
+        if (!partenaireResult.error && !cancelled) {
+          const ligne = (partenaireResult.data as Array<{ tandem_id: string; display_name: string | null }> | null)?.find((l) => l.tandem_id === remoteTandem.id)
+          // Nom NULL = partenaire sans ligne profiles encore (left join côté
+          // SQL) : on garde null, l'écran propose d'inviter plutôt qu'un vide.
+          setRemotePartnerName(ligne?.display_name?.trim() || null)
+        }
         const messagesResult = await client.from('tandem_messages').select('id, sender_id, body, created_at').eq('tandem_id', remoteTandem.id).order('created_at', { ascending: true })
         if (messagesResult.error) {
           if (!cancelled) showNotice(t.syncError, 4200)
@@ -400,9 +420,10 @@ function App() {
       return
     }
     const now = new Date().toISOString()
+    // display_name absent à dessein : la ligne existe déjà (créée à la
+    // synchronisation) et les consentements n'ont pas à réécrire un nom.
     const { error } = await supabase.from('profiles').upsert({
       id: authSession.user.id,
-      display_name: 'Claire',
       locale: state.locale,
       age_confirmed_at: now,
       privacy_consent_at: now,
@@ -477,11 +498,13 @@ function App() {
         </nav>
 
         <div className="sidebar-bottom">
+          {/* Le vrai nom du compte — « Claire » et l'avatar « C » étaient
+              de la maquette. Sans nom connu, le rôle seul suffit. */}
           <div className="profile-chip">
-            <div className="avatar">C</div>
+            <div className="avatar">{initialeDe(ownName)}</div>
             <div>
-              <strong>Claire</strong>
-              <span>{t.participant}</span>
+              <strong>{ownName || t.participant}</strong>
+              {ownName && <span>{t.participant}</span>}
             </div>
             <span className="status-dot" aria-label={t.online} />
           </div>
@@ -493,7 +516,7 @@ function App() {
         <header className="topbar">
           <div>
             <p className="eyebrow">{t.mock}</p>
-            <h1>{t.greeting}</h1>
+            <h1>{t.greeting}{ownName ? `, ${ownName}` : ''}</h1>
             <p className="subtitle">{t.subtitle}</p>
           </div>
           <div className="topbar-actions">
@@ -541,6 +564,7 @@ function App() {
               <TodayView
                 session={currentSession}
                 completedCount={completedCount}
+                partnerName={remotePartnerName}
                 t={t}
                 onStart={() => openSession(currentSession.id)}
                 onOpenJournal={() => setTab('journal')}
@@ -549,7 +573,7 @@ function App() {
             )}
             {state.activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
             {state.activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
-            {state.activeTab === 'tandem' && <TandemView tandem={state.tandem} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
+            {state.activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
             {state.activeTab === 'mentor' && <MentorView snapshot={mentorSnapshot} t={t} />}
             {state.activeTab === 'church' && <ChurchView snapshot={churchSnapshot} t={t} />}
           </>

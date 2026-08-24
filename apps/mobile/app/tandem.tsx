@@ -16,7 +16,7 @@ import { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
-import { unblockAffordance } from '@agapeplay/domain'
+import { initialeDe, unblockAffordance } from '@agapeplay/domain'
 import type { Locale, TandemStatus } from '@agapeplay/domain'
 import { colors, typography } from '@/theme'
 import { supabase } from '@/supabase'
@@ -27,6 +27,9 @@ export default function TandemScreen() {
   const [locale, setLocale] = useState<Locale>('fr')
   const [session, setSession] = useState<Session | null>(null)
   const [tandem, setTandem] = useState<RemoteTandem | null>(null)
+  // Via tandem_partenaire(), seul chemin de lecture du profil d'autrui. NULL
+  // tant qu'on ne sait pas : l'écran dit « pas encore », il n'invente plus.
+  const [partnerName, setPartnerName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [confirming, setConfirming] = useState(false)
   const [notice, setNotice] = useState('')
@@ -50,7 +53,15 @@ export default function TandemScreen() {
         .limit(1)
       if (!active) return
       if (error) setNotice(t.syncError)
-      else if (data?.[0]) setTandem({ id: data[0].id, status: data[0].status, blockedBy: data[0].blocked_by })
+      else if (data?.[0]) {
+        setTandem({ id: data[0].id, status: data[0].status, blockedBy: data[0].blocked_by })
+        const partenaire = await supabase.rpc('tandem_partenaire')
+        if (!active) return
+        if (!partenaire.error) {
+          const ligne = (partenaire.data as Array<{ tandem_id: string; display_name: string | null }> | null)?.find((l) => l.tandem_id === data[0].id)
+          setPartnerName(ligne?.display_name?.trim() || null)
+        }
+      }
       setLoading(false)
     }
     void load()
@@ -98,14 +109,16 @@ export default function TandemScreen() {
 
       <Text style={styles.kicker}>{t.kicker}</Text>
       <Text style={styles.title}>{t.title}</Text>
-      <View style={styles.avatar}><Text style={styles.avatarText}>É</Text></View>
-      <Text style={styles.name}>Élodie Martin</Text>
-      <Text style={styles.status}>{loading ? t.loading : blocked ? `— ${t.blockedStatus}` : `● ${t.online}`}</Text>
+      {/* Le vrai nom, plus jamais celui de la maquette. Sans tandem ou sans
+          nom posé, la ligne d'indice ci-dessous dit déjà la situation. */}
+      <View style={styles.avatar}><Text style={styles.avatarText}>{initialeDe(partnerName)}</Text></View>
+      <Text style={styles.name}>{partnerName ?? (loading ? '…' : t.noTandem)}</Text>
+      <Text style={styles.status}>{loading ? t.loading : !tandem ? ' ' : blocked ? `— ${t.blockedStatus}` : `● ${t.online}`}</Text>
 
       {!loading && !session && <Text style={styles.hint}>{t.signInPrompt}</Text>}
       {!loading && session && !tandem && <Text style={styles.hint}>{t.noTandem}</Text>}
 
-      <View style={styles.message}><Text style={styles.messageText}>{t.lastMessage}</Text><Text style={styles.time}>{t.lastMessageAt}</Text></View>
+      {tandem && <View style={styles.message}><Text style={styles.messageText}>{t.emptyThread}</Text></View>}
 
       {affordance !== 'hidden' && !confirming && <View style={styles.panel}>
         <Text style={styles.panelKicker}>{t.blockedStatus.toUpperCase()}</Text>

@@ -7,12 +7,14 @@ export const initialState: AppState = {
   activeTab: 'today',
   completedSessionIds: [],
   journalEntries: [],
+  // Vide à dessein : l'écran tire le vrai nom de tandem_partenaire() et, sans
+  // tandem, propose d'inviter. La démo n'invente plus de personne.
   tandem: {
-    name: 'Élodie Martin',
-    role: 'Tandem de confiance',
-    lastMessage: 'On se partage notre phrase de prière ce soir ?',
-    lastMessageAt: 'Il y a 2 h',
-    status: 'active',
+    name: '',
+    role: '',
+    lastMessage: '',
+    lastMessageAt: '',
+    status: 'pending',
   },
   notificationPrefs: {
     sessions: true,
