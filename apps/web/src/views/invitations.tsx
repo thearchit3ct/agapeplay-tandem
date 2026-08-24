@@ -145,11 +145,15 @@ function InvitationEmiseCarte({
         de destinataire. */}
     <strong className="invitation-address">{invitation.adresse}</strong>
 
-    <p className="invitation-dates">
-      {etat === 'vivante' && <>{t.invitationsExpiresOn} {dateCourte(invitation.expireLe)}</>}
-      {etat === 'perimee' && <>{t.invitationsExpiredOn} {dateCourte(invitation.expireLe)}</>}
-      {etat === 'acceptee' && invitation.accepteeLe && <>{t.invitationsAcceptedOn} {dateCourte(invitation.accepteeLe)}</>}
-    </p>
+    {/* Le paragraphe n'existe que s'il a quelque chose à dire. Une invitation
+        annulée n'a pas de seconde date, et une invitation acceptée peut n'en
+        pas avoir non plus — `accepted_at` est nullable, et seul le passage par
+        la RPC la renseigne. Sans cette garde, un `<p>` vide s'ouvrait sous la
+        carte et y laissait un blanc que rien n'expliquait. */}
+    {etat === 'vivante' && <p className="invitation-dates">{t.invitationsExpiresOn} {dateCourte(invitation.expireLe)}</p>}
+    {etat === 'perimee' && <p className="invitation-dates">{t.invitationsExpiredOn} {dateCourte(invitation.expireLe)}</p>}
+    {etat === 'acceptee' && invitation.accepteeLe
+      && <p className="invitation-dates">{t.invitationsAcceptedOn} {dateCourte(invitation.accepteeLe)}</p>}
 
     {revocation === 'revocable' && <button
       className="outline-button"

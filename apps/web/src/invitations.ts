@@ -34,6 +34,11 @@ import type { Invitation } from '@agapeplay/domain'
  * lèverait ». Il est porté par la ligne plutôt que recalculé à l'affichage :
  * l'appel coûte un parcours séquentiel d'`auth.users` (voir plus bas), et un
  * composant qui le rappellerait à chaque rendu le paierait à chaque frappe.
+ *
+ * **Il ne vaut que sur une invitation vivante.** La sonde est bornée à
+ * celles-là, si bien qu'il rend `false` sur une invitation périmée, acceptée ou
+ * annulée — sans que cela dise quoi que ce soit du blocage. `revocationInvitation`
+ * ne le lit qu'après avoir écarté ces états ; l'afficher ailleurs mentirait.
  */
 export type InvitationEmise = Invitation & { contactBloque: boolean }
 
