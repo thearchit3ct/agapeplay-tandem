@@ -1,3 +1,4 @@
+import Constants from 'expo-constants'
 import * as Device from 'expo-device'
 import { stockage } from './storage'
 
@@ -18,6 +19,12 @@ const reminderIdKey = 'agapeplay:tandem:daily-reminder-id'
  * build de développement ou de production, rien ne change.
  */
 const chargerNotifications = () => {
+  // Le try/catch seul ne suffit PAS : l'erreur jaillit pendant l'évaluation du
+  // module par Metro, qui la signale au gestionnaire global AVANT de la
+  // relancer vers l'appelant — l'écran affichait donc un plein-écran d'erreur
+  // même avec l'appel encapsulé (mesuré au premier appui sur l'interrupteur
+  // de rappel, 24/08/2026). Dans Expo Go, on ne tente même pas le chargement.
+  if (Constants.executionEnvironment === 'storeClient') return null
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require('expo-notifications') as typeof import('expo-notifications')
