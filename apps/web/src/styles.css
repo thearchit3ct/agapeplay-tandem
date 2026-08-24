@@ -420,3 +420,48 @@ h3 { color: #eeeeea; font-weight: 400; }
   .auth-strip span { max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .auth-dialog { padding: 24px 20px; box-shadow: 5px 5px 0 #000000; }
 }
+
+/* Espace modérateur.
+   Posé en fin de fichier à dessein : le second bloc `:root` (ligne 217) est
+   celui qui s'applique réellement, et ces règles doivent le suivre pour hériter
+   du thème imprimé plutôt que du premier, qui ne s'affiche jamais. Le fichier
+   porte ce défaut connu (doc 21, § dette) ; on ne le corrige pas ici, on ne se
+   met pas devant. */
+.moderation-note { max-width: 640px; margin: 22px 0 0; padding: 12px 14px; border-left: 3px solid #8f8f88; color: #bdbdb6; font-size: 12px; line-height: 1.65; }
+.moderation-state { margin: 22px 0 0; color: #a6a6a0; font-size: 12px; }
+.moderation-count { margin: 26px 0 0; color: #8f8f88; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
+.moderation-list { display: flex; flex-direction: column; gap: 18px; margin-top: 14px; }
+.moderation-case { border: 1px solid #4a4a45; border-left-width: 3px; background: #191918; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+/* Ce qui attend une décision se voit de loin : le bord seul, sans couleur —
+   la palette effective est monochrome, et un dossier n'est pas une alerte. */
+.moderation-case.statut-open { border-left-color: #eeeeea; }
+.moderation-case.statut-reviewing { border-left-color: #8f8f88; }
+.moderation-case.statut-resolved { border-left-color: #4a4a45; opacity: .78; }
+.moderation-case-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.moderation-case-top .status-chip { margin-left: 0; }
+.moderation-dates { margin-left: auto; color: #8f8f88; font-size: 10px; }
+.moderation-case .section-kicker { margin-top: 12px; }
+.moderation-reason { margin: 0; color: #eeeeea; font-size: 14px; line-height: 1.65; }
+.moderation-message { margin: 0; padding: 14px 16px; border: 1px dashed #4a4a45; background: #111111; }
+.moderation-message p { margin: 0; color: #eeeeea; font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.moderation-message footer { margin-top: 10px; color: #8f8f88; font-size: 10px; }
+.moderation-absent { margin: 0; color: #a6a6a0; font-size: 12px; line-height: 1.65; }
+.moderation-context { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 18px; color: #bdbdb6; font-size: 11px; }
+.moderation-context span { color: #eeeeea; border-bottom: 1px solid #8f8f88; }
+.moderation-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-top: 16px; }
+.moderation-actions .primary-button, .moderation-actions .outline-button { margin-top: 0; }
+/* `.outline-button` vaut `width: 100%` partout ailleurs — il y sert de bouton
+   pleine largeur sous un panneau. Ici les décisions se rangent côte à côte, et
+   sans cette reprise la seconde partait à la ligne en occupant toute la carte. */
+.moderation-actions .outline-button { width: auto; padding: 10px 12px; }
+.moderation-trail { margin-top: 16px; padding-top: 14px; border-top: 1px solid #4a4a45; }
+.moderation-trail-note { margin: 0 0 10px; color: #8f8f88; font-size: 10px; }
+.moderation-trail ol { margin: 0; padding-left: 18px; color: #bdbdb6; font-size: 11px; line-height: 1.9; }
+.moderation-trail ol span { display: block; color: #8f8f88; font-size: 10px; }
+.moderation-trail em { color: #a6a6a0; font-style: normal; }
+
+@media (max-width: 620px) {
+  .moderation-case { padding: 16px 14px; box-shadow: 4px 4px 0 #000000; }
+  .moderation-dates { margin-left: 0; }
+  .moderation-actions { align-items: stretch; flex-direction: column; gap: 10px; }
+}

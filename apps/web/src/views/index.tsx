@@ -17,6 +17,11 @@ import type { Copy } from '@agapeplay/content/copy/web'
 import type { SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance } from '@agapeplay/domain'
 import { initialeDe } from '@agapeplay/domain'
 
+// L'espace modérateur vit dans son propre fichier : il ne partage rien avec les
+// vues ci-dessous et il porte sa propre scène de conception. Il se réexporte
+// ici pour que le point d'import d'App.tsx reste unique.
+export { ModerationView } from './moderation'
+
 export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClose: () => void }) {
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
