@@ -1,6 +1,8 @@
+import * as Linking from 'expo-linking'
 import { Link, router } from 'expo-router'
 import { useState } from 'react'
-import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors, typography } from '@/theme'
 import { supabase } from '@/supabase'
 
@@ -11,7 +13,13 @@ export default function AuthScreen() {
   const send = async () => {
     if (!supabase || !email.trim()) return
     setBusy(true)
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: 'agapeplay:///' } })
+    // `createURL` rend l'adresse de CE contexte d'exécution : `agapeplay:///`
+    // dans un build installé, `exp://<hôte>:<port>/--/` dans Expo Go. La valeur
+    // codée en dur ne couvrait que le premier cas — et l'hôte doit figurer
+    // dans la liste d'autorisation du projet Supabase, sinon gotrue rabat en
+    // silence vers le site_url (mesuré : un lien vers localhost:3000, impasse
+    // sur téléphone).
+    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: Linking.createURL('/') } })
     setBusy(false)
     setStatus(error ? 'Impossible d’envoyer le lien pour le moment.' : 'Lien magique envoyé. Consulte ta boîte mail.')
   }

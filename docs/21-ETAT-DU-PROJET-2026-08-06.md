@@ -189,7 +189,28 @@ Le paragraphe d'origine reste ci-dessous.
 On peut inviter. Une invitation en attente ne se voit ni ne se révoque depuis
 l'application.
 
-### 5. Le mobile n'a jamais tourné sur un appareil
+### 5. Le mobile n'a jamais tourné sur un appareil — ✅ SÉANCE FAITE (24/08/2026)
+
+**L'état ci-dessous est daté.** Le 24 août, l'application a tourné sur un
+Android réel (Expo Go 57, Metro exposé sur l'IP publique du serveur — le
+tunnel ngrok d'Expo était en panne et s'est révélé inutile). Verdict : elle
+démarre, navigue, s'affiche — et la séance a trouvé puis réparé une chaîne
+de défauts que rien d'autre ne pouvait révéler, détaillés dans la PR de la
+séance. Le plus important : **la connexion par lien magique n'avait jamais
+pu aboutir dans AUCUN environnement** — liste d'autorisation du projet vide
+(tout lien rabattu vers localhost:3000), adresse de retour codée en dur, et
+surtout aucun écouteur d'URL pour ramasser les jetons au retour. Le circuit
+complet existe désormais et une connexion réelle a été constatée côté
+serveur (last_sign_in_at). Pièges d'outillage mesurés, pour la prochaine
+séance : Expo Go du Play Store ne porte qu'UN SDK (APK versionné sur
+expo.dev/go pour un projet plus ancien) ; sur ce serveur, Metro ne détecte
+pas les changements de fichiers (chaque correctif = redémarrage avec
+--clear + re-scan, et vérifier le bundle servi par un grep de marqueur — un
+redémarrage a servi du cache) ; le rechargement à chaud n'y fonctionne pas.
+
+Le paragraphe d'origine reste ci-dessous comme trace de ce qui était cru.
+
+### (état antérieur) Le mobile n'a jamais tourné sur un appareil
 
 Il compile, Metro le résout, les écrans existent — personne ne les a vus
 s'afficher. Il ne lit par ailleurs que **deux** tables (`tandems`,
