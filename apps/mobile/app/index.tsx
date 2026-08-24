@@ -1,7 +1,8 @@
 import { Link, useFocusEffect } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-home'
 import type { Locale } from '@agapeplay/domain'
 import { colors, typography } from '@/theme'
@@ -19,8 +20,12 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     let active = true
     void supabase?.auth.getSession().then(({ data }) => { if (active) setSession(data.session) })
+    // La session peut naître PENDANT que l'écran est monté — c'est exactement
+    // ce que fait le lien magique ramassé par useAuthDeepLink. Sans cet
+    // abonnement, l'en-tête resterait « Se connecter » jusqu'à une navigation.
+    const { data: abonnement } = supabase?.auth.onAuthStateChange((_evenement, s) => { if (active) setSession(s) }) ?? { data: null }
     void flushProgressQueue()
-    return () => { active = false }
+    return () => { active = false; abonnement?.subscription.unsubscribe() }
   }, []))
 
   useEffect(() => { void readReminderPreference().then(setReminderEnabled) }, [])
