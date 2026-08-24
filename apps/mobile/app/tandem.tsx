@@ -1,6 +1,6 @@
 /**
- * L'écran tandem mobile : la conversation, et le chemin de retour après un
- * blocage.
+ * L'écran tandem mobile : la conversation, les deux gestes de protection, et le
+ * chemin de retour après un blocage.
  *
  * C'était une maquette figée jusqu'au 06/08/2026, puis un écran qui lisait la
  * ligne `tandems` — statut et `blocked_by` — sans jamais montrer un message.
@@ -22,7 +22,25 @@
  *   saisie reste en place — le message n'est pas mis de côté, contrairement au
  *   web qui, lui, a une file.
  *
- * La confirmation de déblocage est un panneau dans la page, pas un `Alert` :
+ * - **Bloquer et signaler, depuis le 24/08/2026.** Le web les avait depuis
+ *   longtemps ; la conversation mobile est arrivée sans eux, c'est-à-dire qu'on
+ *   pouvait y recevoir un message blessant sans rien pouvoir en faire. Les deux
+ *   chemins d'écriture existaient déjà en base — aucune migration. Ce que
+ *   l'écran a le droit de proposer est dit par `gestesDeProtection`, la
+ *   troisième règle du domaine à vivre ici.
+ * - **Une écriture lit sa réponse, et pas seulement son erreur.** Un UPDATE
+ *   refusé par un `using` ne lève rien : il touche zéro ligne, en silence. Le
+ *   cas réel n'est pas théorique — si l'autre a bloqué pendant qu'on était sur
+ *   l'écran, notre blocage ne passe pas et le serveur ne le dit pas. D'où le
+ *   `.select(…).maybeSingle()` sur le blocage comme sur le déblocage, et l'état
+ *   posé depuis la ligne rendue plutôt que depuis ce qu'on croit avoir écrit.
+ * - **`blocked_at` n'est jamais écrit d'ici.** Un trigger le pose
+ *   (`20260806175000_blocage_depuis_quand.sql`) et écrase toute valeur proposée
+ *   par l'appelant : une date de blocage qu'on peut choisir n'est pas une date.
+ *   Les trois champs du geste sont `status`, `blocked_by`, `ended_at`, comme sur
+ *   le web.
+ *
+ * Les confirmations sont des panneaux dans la page, pas des `Alert` :
  * `Alert.alert` ne rend rien d'utilisable sous `react-native-web`, et
  * `mobile:export` — la seule porte qui exerce vraiment Metro — passe par là.
  */
@@ -32,7 +50,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
-import { accesConversation, initialeDe, unblockAffordance } from '@agapeplay/domain'
+import { accesConversation, gestesDeProtection, initialeDe, unblockAffordance } from '@agapeplay/domain'
 import type { Locale, RemoteMessage, TandemStatus } from '@agapeplay/domain'
 import { colors, typography } from '@/theme'
 import { supabase } from '@/supabase'
@@ -50,7 +68,10 @@ export default function TandemScreen() {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [confirming, setConfirming] = useState(false)
+  // Un seul panneau à la fois, et c'est une machine plutôt que deux booléens :
+  // deux confirmations ouvertes ensemble poseraient deux questions contraires.
+  const [panneau, setPanneau] = useState<'aucun' | 'blocage' | 'deblocage'>('aucun')
+  const [signalement, setSignalement] = useState(false)
   const [notice, setNotice] = useState('')
   const t = copy[locale]
 
@@ -118,6 +139,7 @@ export default function TandemScreen() {
   const vue = { status: tandem?.status ?? null, blockedBy: tandem?.blockedBy ?? null, currentUserId: session?.user.id }
   const affordance = unblockAffordance(vue)
   const acces = accesConversation(vue)
+  const gestes = gestesDeProtection(vue)
 
   const envoyer = async () => {
     const body = draft.trim()
@@ -143,18 +165,74 @@ export default function TandemScreen() {
     setDraft('')
   }
 
+  const bloquer = async () => {
+    setPanneau('aucun')
+    if (!supabase || !session || !tandem) return
+    // Les trois mêmes champs que le web, et pas un de plus : `blocked_by` n'est
+    // pas décoratif — la politique refuse un passage à `blocked` qui ne nomme
+    // pas son auteur, et c'est cette colonne qui décidera ensuite qui peut
+    // lever le blocage et qui garde l'historique. `blocked_at`, lui, appartient
+    // au trigger.
+    const { data, error } = await supabase
+      .from('tandems')
+      .update({ status: 'blocked', blocked_by: session.user.id, ended_at: new Date().toISOString() })
+      .eq('id', tandem.id)
+      .select('id, status, blocked_by')
+      .maybeSingle()
+    if (error) { setNotice(t.syncError); return }
+    // Zéro ligne, aucune erreur : le `using` a refusé, en silence. Le cas se
+    // produit si l'autre a bloqué pendant qu'on était sur l'écran. Annoncer
+    // « c'est bloqué » ici serait un mensonge, et le pire des mensonges — celui
+    // qui fait croire qu'on est protégé.
+    if (!data) { setNotice(t.blockRefused); return }
+    // L'état vient de la ligne rendue : c'est le serveur qui dit où en est la
+    // relation, et l'écran se remet à jour sans re-scan. `accesConversation`
+    // referme alors le composeur, `unblockAffordance` ouvre la porte de retour,
+    // et le fil reste lisible — bloquer ne prend pas l'historique à celui qui a
+    // bloqué, il en a souvent besoin pour signaler.
+    setTandem({ id: data.id, status: data.status, blockedBy: data.blocked_by })
+    setNotice(t.blockedNotice)
+  }
+
+  const signaler = async () => {
+    if (signalement || !supabase || !session || !tandem) return
+    setSignalement(true)
+    // Le motif part en français littéral, exactement comme sur le web : il
+    // atterrit dans `reason`, que la modération lit. Le passer par le catalogue
+    // de textes ferait dépendre une donnée de la langue de l'écran.
+    //
+    // Aucun `message_id` non plus : le web n'en envoie pas, et l'espace de
+    // modération sait dire « ce signalement ne pointe pas un message précis ».
+    // Un signalement au message est une décision produit, pas une variante.
+    const { data, error } = await supabase
+      .from('tandem_reports')
+      .insert({ tandem_id: tandem.id, reporter_id: session.user.id, reason: 'Signalement depuis la conversation' })
+      .select('id')
+      .maybeSingle()
+    setSignalement(false)
+    // Un insert refusé par un `with check` lève, contrairement à l'UPDATE — mais
+    // on lit quand même la ligne rendue : sans elle, on annoncerait « transmis »
+    // sur la foi d'une absence d'erreur.
+    setNotice(error || !data ? t.syncError : t.reportSent)
+  }
+
   const unblock = async () => {
-    setConfirming(false)
+    setPanneau('aucun')
     if (!supabase || !tandem) return
     // Les trois champs que le blocage avait posés, défaits ensemble : laisser
     // `blocked_by` en place interdirait à l'autre participant de bloquer
     // un jour à son tour, la politique exigeant `auth.uid() = blocked_by`.
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('tandems')
       .update({ status: 'active', blocked_by: null, ended_at: null })
       .eq('id', tandem.id)
+      .select('id, status, blocked_by')
+      .maybeSingle()
     if (error) { setNotice(t.syncError); return }
-    setTandem({ ...tandem, status: 'active', blockedBy: null })
+    // Même silence que pour le blocage, et même remède : sans ligne rendue,
+    // rien n'a bougé côté serveur et l'écran doit le dire.
+    if (!data) { setNotice(t.unblockRefused); return }
+    setTandem({ id: data.id, status: data.status, blockedBy: data.blocked_by })
     setNotice(t.unblockedNotice)
   }
 
@@ -220,11 +298,11 @@ export default function TandemScreen() {
         </Pressable>
       </View>}
 
-      {affordance !== 'hidden' && !confirming && <View style={styles.panel}>
+      {affordance !== 'hidden' && panneau === 'aucun' && <View style={styles.panel}>
         <Text style={styles.panelKicker}>{t.blockedStatus.toUpperCase()}</Text>
         {affordance === 'unblockable' && <>
           <Text style={styles.panelText}>{t.unblockOwnerNote}</Text>
-          <Pressable style={styles.panelAction} onPress={() => setConfirming(true)}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
+          <Pressable style={styles.panelAction} onPress={() => setPanneau('deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
         </>}
         {/* Aucun bouton dans les deux cas suivants : la politique le refuserait
             pour l'un, personne ne peut rien pour l'autre. La phrase tient lieu
@@ -233,12 +311,39 @@ export default function TandemScreen() {
         {affordance === 'frozen' && <Text style={styles.panelText}>{t.unblockFrozenNote}</Text>}
       </View>}
 
-      {confirming && <View style={styles.panel}>
+      {panneau === 'deblocage' && <View style={styles.panel}>
         <Text style={styles.panelKicker}>{t.unblockTitle}</Text>
         <Text style={styles.panelText}>{t.unblockDescription}</Text>
         <Text style={styles.panelText}>{t.unblockReversible}</Text>
         <Pressable style={styles.panelAction} onPress={() => void unblock()}><Text style={styles.panelActionText}>{t.unblockConfirm}  →</Text></Pressable>
-        <Pressable onPress={() => setConfirming(false)}><Text style={styles.panelCancel}>{t.unblockCancel}</Text></Pressable>
+        <Pressable onPress={() => setPanneau('aucun')}><Text style={styles.panelCancel}>{t.unblockCancel}</Text></Pressable>
+      </View>}
+
+      {/* Le blocage se confirme, là où le web le pose sur un appui unique : sur
+          un téléphone, un bouton se touche par accident, et celui-ci ferme une
+          conversation. Le panneau dit ce qui change, puis ce qui reste
+          réversible — le même ordre que le déblocage juste au-dessus. */}
+      {panneau === 'blocage' && <View style={styles.panel}>
+        <Text style={styles.panelKicker}>{t.blockTitle}</Text>
+        <Text style={styles.panelText}>{t.blockDescription}</Text>
+        <Text style={styles.panelText}>{t.blockReversible}</Text>
+        <Pressable style={styles.panelAction} onPress={() => void bloquer()}><Text style={styles.panelActionText}>{t.blockConfirm}  →</Text></Pressable>
+        <Pressable onPress={() => setPanneau('aucun')}><Text style={styles.panelCancel}>{t.blockCancel}</Text></Pressable>
+      </View>}
+
+      {/* Les deux gestes, en bas de l'écran comme sur le web : ils ne sont pas
+          la conversation, ils sont ce qu'on fait quand elle tourne mal. Le
+          signalement reste offert sur une relation bloquée — c'est souvent là
+          qu'il sert. Rien n'est affiché sans tandem : il n'y aurait rien à
+          bloquer ni à signaler, et un bouton qui ne peut pas aboutir est une
+          promesse trahie. */}
+      {(gestes.peutSignaler || gestes.peutBloquer) && panneau === 'aucun' && <View style={styles.safety}>
+        {gestes.peutSignaler && <Pressable accessibilityRole="button" disabled={signalement} onPress={() => void signaler()}>
+          <Text style={[styles.safetyDanger, signalement && styles.safetyOff]}>{signalement ? t.reporting : t.report}</Text>
+        </Pressable>}
+        {gestes.peutBloquer && <Pressable accessibilityRole="button" onPress={() => setPanneau('blocage')}>
+          <Text style={styles.safetyAction}>{t.block}</Text>
+        </Pressable>}
       </View>}
 
       {notice.length > 0 && <Text style={styles.notice}>{notice}</Text>}
@@ -282,6 +387,10 @@ const styles = StyleSheet.create({
   panelText: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 11 },
   panelAction: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingVertical: 13, paddingHorizontal: 17, marginTop: 18 },
   panelActionText: { color: colors.white, fontFamily: typography.mono, fontSize: 11 },
+  safety: { flexDirection: 'row', gap: 22, marginTop: 30, flexWrap: 'wrap' },
+  safetyDanger: { color: colors.copper, fontFamily: typography.mono, fontSize: 11, textDecorationLine: 'underline' },
+  safetyAction: { color: colors.muted, fontFamily: typography.mono, fontSize: 11, textDecorationLine: 'underline' },
+  safetyOff: { color: colors.line },
   panelCancel: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, marginTop: 14, textDecorationLine: 'underline' },
   notice: { color: colors.copper, fontFamily: typography.mono, fontSize: 10, lineHeight: 16, marginTop: 22, maxWidth: 320 },
   private: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, marginTop: 34 },
