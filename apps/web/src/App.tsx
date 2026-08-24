@@ -14,9 +14,13 @@ import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, T
 import type { DossierModeration, StatutSignalement } from '@agapeplay/domain'
 import { changerStatut, chargerDossiers, chargerJournal, estModerateur } from './moderation'
 import type { LigneJournal } from './moderation'
+import { chargerInvitations, revoquerInvitation } from './invitations'
+import type { InvitationEmise } from './invitations'
+import type { Invitation } from '@agapeplay/domain'
 import {
   AuthDialog, TrustDialog, SettingsDialog, InviteDialog, UnblockDialog, MentorView, ChurchView,
   NavItem, TodayView, JourneyView, SessionFlow, JournalView, TandemView, ModerationView,
+  InvitationsView,
 } from './views'
 
 
@@ -69,6 +73,19 @@ function App() {
   // Incrémenté par « Relire la liste ». Passer par une dépendance d'effet plutôt
   // que par un appel direct garde la garde de démontage sur un seul chemin.
   const [relectureModeration, setRelectureModeration] = useState(0)
+  // Suivi des invitations. `relectureInvitations` suit le même motif que la
+  // modération : le bouton et les évènements (création, annulation) poussent
+  // le compteur, et l'unique effet qui écoute porte la garde de démontage.
+  const [invitationsEmises, setInvitationsEmises] = useState<InvitationEmise[]>([])
+  const [invitationsRecues, setInvitationsRecues] = useState<Invitation[]>([])
+  const [invitationsChargement, setInvitationsChargement] = useState(false)
+  const [invitationsErreur, setInvitationsErreur] = useState(false)
+  const [annulationEnCours, setAnnulationEnCours] = useState<string | null>(null)
+  const [relectureInvitations, setRelectureInvitations] = useState(0)
+  // L'instant qui juge la péremption, figé à chaque lecture. Un `new Date()`
+  // au rendu ferait qu'une invitation change d'état au milieu d'un clic — et
+  // rendrait la vue impossible à éprouver.
+  const [instantLecture, setInstantLecture] = useState(() => new Date())
 
   const t = copy[state.locale]
   const fallbackJourney = useMemo(() => getJourney(state.locale), [state.locale])
@@ -194,6 +211,28 @@ function App() {
     })
     return () => { cancelled = true }
   }, [moderateur, activeTab, relectureModeration])
+
+  // Les invitations ne se lisent qu'une fois l'onglet du tandem ouvert. Comme
+  // pour la modération : rien n'oblige quelqu'un qui vient écrire son journal
+  // à sonder `tandem_contact_bloque` pour chaque invitation vivante — un
+  // parcours séquentiel d'`auth.users` à chaque fois, coût énoncé dans
+  // `20260806161500_invitation_bloquee`.
+  useEffect(() => {
+    const client = supabase
+    if (!client || !authSession || activeTab !== 'tandem') return
+    let cancelled = false
+    const instant = new Date()
+    setInstantLecture(instant)
+    setInvitationsChargement(true)
+    void chargerInvitations(client, authSession.user.id, instant).then(({ emises, recues, erreur }) => {
+      if (cancelled) return
+      setInvitationsEmises(emises)
+      setInvitationsRecues(recues)
+      setInvitationsErreur(erreur)
+      setInvitationsChargement(false)
+    })
+    return () => { cancelled = true }
+  }, [authSession?.user.id, activeTab, relectureInvitations])
 
   useEffect(() => {
     const client = supabase
@@ -570,7 +609,31 @@ function App() {
       return
     }
     setInviteLink(`${window.location.origin}/?invite=${data.token}`)
+    // La liste vient de changer sous l'écran : on la relit plutôt que d'y
+    // pousser la ligne à la main. Le serveur seul connaît `expires_at`, et
+    // c'est lui qui décide de l'état affiché.
+    setRelectureInvitations((tour) => tour + 1)
     showNotice(t.inviteCreated, 4200)
+  }
+
+  const annulerInvitation = async (invitationId: string) => {
+    const client = supabase
+    if (!client) return
+    setAnnulationEnCours(invitationId)
+    const annulee = await revoquerInvitation(client, invitationId)
+    setAnnulationEnCours(null)
+    // `false` couvre les deux échecs, dont celui qui ne lève rien : un UPDATE
+    // que le `using` refuse touche zéro ligne et rend `error: null`. Sans cette
+    // branche, l'écran annoncerait une annulation qui n'a pas eu lieu.
+    if (!annulee) {
+      showNotice(t.invitationsCancelFailed, 4200)
+      return
+    }
+    // Relecture plutôt que mise à jour sur place : contrairement à un dossier
+    // de modération, une invitation annulée change de rang dans la liste, et
+    // la liste est courte — le saut ne fait perdre le fil de personne.
+    setRelectureInvitations((tour) => tour + 1)
+    showNotice(t.invitationsCancelled, 4200)
   }
 
   return (
@@ -674,6 +737,21 @@ function App() {
             {activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
             {activeTab === 'journal' && <JournalView entries={state.journalEntries} draft={journalDraft} setDraft={setJournalDraft} onAdd={addJournalEntry} t={t} />}
             {activeTab === 'tandem' && <TandemView partnerName={remotePartnerName} messages={remoteMessages} currentUserId={authSession?.user.id} status={remoteTandemStatus} affordance={affordance} draft={messageDraft} setDraft={setMessageDraft} onSend={() => void sendMessage()} onBlock={() => void blockTandem()} onUnblock={() => setUnblockOpen(true)} onReport={() => void reportTandem()} onInvite={() => setInviteOpen(true)} t={t} />}
+            {/* Sous la conversation, pas dans un onglet à part : on vient
+                voir ses invitations depuis l'endroit d'où on les a envoyées.
+                Réservé aux comptes connectés — sans session, la politique ne
+                rendrait rien et l'écran afficherait un vide trompeur. */}
+            {activeTab === 'tandem' && authSession && <InvitationsView
+              emises={invitationsEmises}
+              recues={invitationsRecues}
+              chargement={invitationsChargement}
+              erreur={invitationsErreur}
+              maintenant={instantLecture}
+              annulationEnCours={annulationEnCours}
+              t={t}
+              onRefresh={() => setRelectureInvitations((tour) => tour + 1)}
+              onCancel={(invitationId) => void annulerInvitation(invitationId)}
+            />}
             {activeTab === 'mentor' && <MentorView snapshot={mentorSnapshot} t={t} />}
             {activeTab === 'church' && <ChurchView snapshot={churchSnapshot} t={t} />}
             {activeTab === 'moderation' && <ModerationView

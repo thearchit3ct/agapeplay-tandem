@@ -151,6 +151,37 @@ export const copy = {
     messageUnavailable: 'La conversation est indisponible pour le moment.',
     offline: 'Hors connexion · les changements seront synchronisés au retour.',
 
+    // Le suivi des invitations. Le vocabulaire fuit « révoquer », qui est le
+    // mot de la colonne `status` et de personne d'autre : on annule une
+    // invitation. L'état affiché croise `status` et `expires_at` — jamais le
+    // statut seul, rien ne le faisant passer à « expired » (voir
+    // packages/domain/src/invitations.ts).
+    invitationsKicker: 'Suivi',
+    invitationsTitle: 'Tes invitations',
+    invitationsDescription: 'Ce que tu as envoyé, où ça en est, et ce que tu peux encore reprendre.',
+    invitationsLoading: 'Lecture de tes invitations…',
+    invitationsError: 'Tes invitations n’ont pas pu être lues. Réessaie dans un instant.',
+    invitationsRefresh: 'Relire la liste',
+    invitationsSent: 'Envoyées',
+    invitationsEmpty: 'Tu n’as encore invité personne.',
+    invitationsReceived: 'Reçues',
+    invitationsReceivedOne: 'Une invitation t’attend.',
+    invitationsReceivedHint: 'Pour l’accepter, ouvre le lien reçu dans ton e-mail : c’est lui qui porte le code.',
+    invitationsReceivedNoIdentity: 'Une invitation ne dit pas qui l’envoie tant qu’elle n’est pas acceptée. L’e-mail que tu as reçu, lui, le dit.',
+    invitationStateLive: 'En attente de réponse',
+    invitationStateExpired: 'Expirée',
+    invitationStateAccepted: 'Acceptée',
+    invitationStateRevoked: 'Annulée',
+    invitationsSentOn: 'Envoyée le',
+    invitationsExpiresOn: 'Valable jusqu’au',
+    invitationsExpiredOn: 'Expirée le',
+    invitationsAcceptedOn: 'Acceptée le',
+    invitationsCancel: 'Annuler cette invitation',
+    invitationsCancelled: 'Invitation annulée. Le lien ne fonctionne plus.',
+    invitationsCancelFailed: 'L’invitation n’a pas pu être annulée. Relis la liste : son état a peut-être changé entre-temps.',
+    invitationsExpiredNote: 'Ce lien ne fonctionne plus. Envoie une nouvelle invitation si tu veux réessayer.',
+    invitationsBlockedNote: 'Cette personne et toi êtes en blocage : l’application ne peut plus toucher à cette invitation. Elle ne mène nulle part — l’appariement est refusé tant que le blocage tient — et elle s’éteindra d’elle-même à sa date. Pour la reprendre en main, il faut d’abord lever le blocage.',
+
     // Espace modérateur. Le vocabulaire évite « dossier à traiter » au profit
     // de ce qui se passe réellement : quelqu'un a écrit qu'il ne va pas bien
     // dans une relation, et quelqu'un d'autre doit décider. Rien ici ne nomme
@@ -334,6 +365,32 @@ export const copy = {
     reportSent: 'Report sent to moderation.',
     messageUnavailable: 'The conversation is unavailable right now.',
     offline: 'Offline · changes will sync when you are back online.',
+
+    invitationsKicker: 'Follow-up',
+    invitationsTitle: 'Your invitations',
+    invitationsDescription: 'What you sent, where it stands, and what you can still take back.',
+    invitationsLoading: 'Loading your invitations…',
+    invitationsError: 'Your invitations could not be read. Try again in a moment.',
+    invitationsRefresh: 'Reload the list',
+    invitationsSent: 'Sent',
+    invitationsEmpty: 'You have not invited anyone yet.',
+    invitationsReceived: 'Received',
+    invitationsReceivedOne: 'An invitation is waiting for you.',
+    invitationsReceivedHint: 'To accept it, open the link in your email: that is what carries the code.',
+    invitationsReceivedNoIdentity: 'An invitation does not say who sent it until it is accepted. The email you received does.',
+    invitationStateLive: 'Waiting for an answer',
+    invitationStateExpired: 'Expired',
+    invitationStateAccepted: 'Accepted',
+    invitationStateRevoked: 'Cancelled',
+    invitationsSentOn: 'Sent on',
+    invitationsExpiresOn: 'Valid until',
+    invitationsExpiredOn: 'Expired on',
+    invitationsAcceptedOn: 'Accepted on',
+    invitationsCancel: 'Cancel this invitation',
+    invitationsCancelled: 'Invitation cancelled. The link no longer works.',
+    invitationsCancelFailed: 'The invitation could not be cancelled. Reload the list: its state may have changed in the meantime.',
+    invitationsExpiredNote: 'This link no longer works. Send a new invitation if you want to try again.',
+    invitationsBlockedNote: 'You and this person are blocked from each other: the app can no longer touch this invitation. It leads nowhere — pairing is refused while the block holds — and it will lapse on its own at its date. To take it back, the block has to be lifted first.',
 
     moderation: 'Moderation',
     moderationTitle: 'Reports',

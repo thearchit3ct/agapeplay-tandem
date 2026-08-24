@@ -465,3 +465,44 @@ h3 { color: #eeeeea; font-weight: 400; }
   .moderation-dates { margin-left: 0; }
   .moderation-actions { align-items: stretch; flex-direction: column; gap: 10px; }
 }
+
+/* Suivi des invitations.
+   Posé après l'espace modérateur, et pour la même raison : le second bloc
+   `:root` (ligne 217) est celui qui s'applique, et ces règles doivent le
+   suivre. Le vocabulaire visuel reprend celui des dossiers de modération —
+   carte à bord gauche coloré, puce d'état, dates en retrait — sans emprunter
+   ses classes : deux écrans qui se ressemblent aujourd'hui n'ont aucune raison
+   de bouger ensemble demain. */
+.invitations-section { margin-top: 34px; border-top: 1px solid #4a4a45; padding-top: 26px; }
+.invitation-lead { max-width: 640px; margin: 12px 0 0; padding: 12px 14px; border-left: 3px solid #8f8f88; color: #bdbdb6; font-size: 12px; line-height: 1.65; }
+.invitation-state { margin: 22px 0 0; color: #a6a6a0; font-size: 12px; }
+.invitation-absent { margin: 12px 0 0; color: #a6a6a0; font-size: 12px; line-height: 1.65; }
+.invitations-section .section-kicker { display: block; margin-top: 24px; }
+.invitation-list { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.invitation-card { border: 1px solid #4a4a45; border-left-width: 3px; background: #191918; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+/* Ce qui attend encore une réponse se voit de loin ; ce qui est éteint recule.
+   Le bord seul, sans couleur — la palette effective est monochrome, et une
+   invitation qui expire n'est pas une alerte. */
+.invitation-card.etat-vivante { border-left-color: #eeeeea; }
+.invitation-card.etat-perimee { border-left-color: #4a4a45; opacity: .78; }
+.invitation-card.etat-acceptee { border-left-color: #6d9e79; }
+.invitation-card.etat-revoquee { border-left-color: #4a4a45; opacity: .7; }
+.invitation-card-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.invitation-card-top .status-chip { margin-left: 0; }
+.invitation-dates { margin: 0; margin-left: auto; color: #8f8f88; font-size: 10px; }
+.invitation-card-top + .invitation-address { margin-top: 2px; }
+/* `overflow-wrap` n'est pas décoratif : une adresse longue déborderait la carte
+   à 375 px, et c'est précisément la chose qu'on vient lire ici. */
+.invitation-address { color: #eeeeea; font-size: 14px; overflow-wrap: anywhere; }
+.invitation-card .invitation-dates:not(:first-child) { margin-left: 0; }
+.invitation-note { margin: 0; color: #a6a6a0; font-size: 11px; line-height: 1.7; }
+/* `.outline-button` vaut `width: 100%` partout ailleurs : il y sert de bouton
+   pleine largeur sous un panneau. Dans une carte, il se range sur sa propre
+   longueur — comme dans les actions de modération. */
+.invitation-card .outline-button { width: auto; align-self: flex-start; margin-top: 8px; padding: 10px 12px; }
+
+@media (max-width: 620px) {
+  .invitation-card { padding: 16px 14px; box-shadow: 4px 4px 0 #000000; }
+  .invitation-card-top .invitation-dates { margin-left: 0; }
+  .invitation-card .outline-button { width: 100%; }
+}

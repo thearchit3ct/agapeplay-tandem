@@ -22,6 +22,10 @@ import { initialeDe } from '@agapeplay/domain'
 // ici pour que le point d'import d'App.tsx reste unique.
 export { ModerationView } from './moderation'
 
+// Le suivi des invitations, même raison : sa scène et ses règles d'affichage
+// lui sont propres, et il n'emprunte rien aux vues ci-dessous.
+export { InvitationsView } from './invitations'
+
 export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClose: () => void }) {
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)

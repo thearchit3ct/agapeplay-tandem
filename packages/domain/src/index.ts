@@ -14,6 +14,9 @@
 export { unblockAffordance } from './blocking'
 export type { TandemStatus, TandemBlockView, UnblockAffordance } from './blocking'
 
+export { etatInvitation, revocationInvitation, trierInvitations } from './invitations'
+export type { StatutInvitation, EtatInvitation, Invitation, RevocationInvitation } from './invitations'
+
 export { assemblerDossiers, transitionsPossibles } from './moderation'
 export type {
   StatutSignalement, Signalement, ContexteSignale, MessageSignale, OrigineMessage, DossierModeration,
