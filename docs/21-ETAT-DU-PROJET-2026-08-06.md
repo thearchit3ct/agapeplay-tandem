@@ -132,7 +132,17 @@ Au passage : le bouton « Partager avec Élodie » appelle `onOpenTandem`. Il
 n'existe aucun partage de journal — le libellé est trompeur, la fonctionnalité
 manquante n'existe pas.
 
-### 3. Aucune interface de modération
+### 3. Aucune interface de modération — ✅ FAIT (24/08/2026)
+
+**L'état décrit ci-dessous est dépassé.** L'espace modérateur existe dans
+l'application web depuis la branche `feat/interface-moderation` : onglet visible
+des seuls comptes pour lesquels `tandem_est_moderateur()` rend vrai, lecture des
+signalements avec leur contexte et le message signalé, changement de statut, et
+journal des décisions par dossier. **Aucune migration n'a été nécessaire** — les
+six chemins étaient déjà servis à `authenticated`. Le rappel de conception
+ci-dessous tient toujours et n'a pas été touché : `tandem_moderators` n'a
+toujours ni grant ni politique, et la nomination reste un geste humain dans
+l'éditeur SQL. Le paragraphe d'origine reste ci-dessous.
 
 La base est prête et éprouvée. Mais **nommer un modérateur et lire les
 signalements se font à la main dans l'éditeur SQL**. C'est le chantier le plus
