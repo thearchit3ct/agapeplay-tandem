@@ -158,10 +158,16 @@ export function DeleteAccountDialog({ t, onConfirm, onExport, onClose, busy }: {
       <p>{t.deleteConfirmBlocked}</p>
       <p>{t.deleteConfirmSession}</p>
       <p className="delete-export-hint">{t.deleteConfirmExportFirst} <button className="text-button" disabled={busy} onClick={onExport}>{t.exportData}</button></p>
-      <label className="delete-understood"><input type="checkbox" checked={understood} onChange={(event) => setUnderstood(event.target.checked)} /> <span>{t.deleteConfirmUnderstood}</span></label>
-      <div className="unblock-actions">
-        <button className="primary-button danger" disabled={!understood || busy} onClick={onConfirm}>{t.deleteConfirm}</button>
-        <button className="text-button" onClick={onClose}>{t.deleteCancel}</button>
+      {/* La case et les deux boutons ne se séparent pas, et restent au bord bas
+          du dialogue quand il défile : sur un écran de 375 px, cinq paragraphes
+          poussent autrement le geste sous le bord, et un bouton désactivé sans
+          sa case visible ne dit pas ce qui lui manque. */}
+      <div className="delete-decision">
+        <label className="delete-understood"><input type="checkbox" checked={understood} onChange={(event) => setUnderstood(event.target.checked)} /> <span>{t.deleteConfirmUnderstood}</span></label>
+        <div className="unblock-actions">
+          <button className="primary-button danger" disabled={!understood || busy} onClick={onConfirm}>{t.deleteConfirm}</button>
+          <button className="text-button" onClick={onClose}>{t.deleteCancel}</button>
+        </div>
       </div>
     </section>
   </div>

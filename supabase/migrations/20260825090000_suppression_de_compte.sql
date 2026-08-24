@@ -221,7 +221,11 @@ begin
          -- Lu par `nomDepuisIdentite` côté client : ces métadonnées portent un
          -- vrai nom, les vider n'a rien de cosmétique.
          raw_user_meta_data = '{}'::jsonb,
-         raw_app_meta_data = '{}'::jsonb,
+         -- `raw_app_meta_data` n'est PAS touchée : elle porte `provider` et
+         -- `providers`, données de contrôle de GoTrue et non données de la
+         -- personne. Ni la purge ni le blocage de connexion n'en dépendent, et
+         -- la plus petite empreinte possible dans `auth.*` est ce qui rend le
+         -- contrôle de droits ci-dessus simple à tenir.
          banned_until = timezone('utc', now()) + interval '100 years',
          deleted_at = timezone('utc', now()),
          updated_at = timezone('utc', now())

@@ -389,8 +389,13 @@ h3 { color: #eeeeea; font-weight: 400; }
 .delete-dialog { max-height: min(86vh, 720px); overflow-y: auto; }
 .delete-dialog p { margin-top: 12px; color: #4b4b46; font-size: 12px; line-height: 1.65; }
 .delete-export-hint .text-button { color: #171716; font-size: 12px; }
-.delete-understood { display: flex; align-items: flex-start; gap: 9px; margin-top: 21px; color: #363632; font-size: 12px; line-height: 1.5; }
+.delete-understood { display: flex; align-items: flex-start; gap: 9px; color: #363632; font-size: 12px; line-height: 1.5; }
 .delete-understood input { margin-top: 2px; accent-color: #171716; }
+/* Collé au bord bas du dialogue, qui est lui-même le conteneur qui défile. Les
+   marges négatives lui font couvrir le rembourrage du dialogue, sinon le texte
+   défilerait dans la bande laissée en dessous. */
+.delete-decision { position: sticky; bottom: 0; margin: 24px -31px -31px; padding: 18px 31px 31px; background: var(--paper); border-top: 1px solid #aaa9a1; }
+.delete-decision .unblock-actions { margin-top: 16px; }
 .delete-dialog .primary-button[disabled] { opacity: .45; box-shadow: 4px 4px 0 #b4b4ac; }
 .section-header-actions { display: flex; align-items: flex-start; gap: 12px; }
 .invite-result { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 19px; }

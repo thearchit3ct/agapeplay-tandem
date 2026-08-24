@@ -90,7 +90,21 @@ describe('ce que l’export dit de ses propres trous', () => {
 
     const resultat = await rassemblerExport(lire, COMPTE, LE_JOUR)
     expect(resultat.limites).toHaveLength(1)
-    expect(resultat.limites[0]).toMatch(/bloqué/)
+    expect(resultat.limites[0]).toMatch(/bloquée/)
+  })
+
+  it('compte la relation gelée sans affirmer que quelqu’un a bloqué', async () => {
+    // `blocked_by` NULL est le cas des lignes antérieures à la migration
+    // `20260806012728`, où le schéma dit ne pas savoir qui a bloqué. Les
+    // messages sont bien illisibles — la limite est réelle — mais la phrase
+    // n'a personne à mettre derrière.
+    const { lire } = lecteur({
+      'tandems:participant_a_id': { data: [{ id: 't1', status: 'blocked', blocked_by: null }], error: null },
+    })
+
+    const resultat = await rassemblerExport(lire, COMPTE, LE_JOUR)
+    expect(resultat.limites).toHaveLength(1)
+    expect(resultat.limites[0]).not.toMatch(/quelqu/)
   })
 
   it('ne signale rien quand c’est soi qui a bloqué — la lecture reste ouverte', async () => {

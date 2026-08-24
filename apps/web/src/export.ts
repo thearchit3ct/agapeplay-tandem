@@ -123,18 +123,26 @@ export const rassemblerExport = async (
 /**
  * Ce que l'export ne peut pas contenir, écrit dans l'export lui-même.
  *
- * `messages_select_member` referme la lecture d'une conversation sur la
- * personne qui a été bloquée. Ses propres messages y deviennent illisibles pour
- * elle — la politique ne fait pas d'exception pour l'auteur — et le fichier
- * sortirait donc silencieusement amputé. Rien dans la réponse ne signale ce
- * manque : c'est une absence de lignes, pas une erreur. On le déduit du seul
- * indice disponible, la ligne du tandem, qui reste lisible.
+ * `messages_select_member` referme la lecture d'une conversation sur toute
+ * personne qui n'est pas celle ayant posé le blocage. Ses propres messages y
+ * deviennent illisibles pour elle — la politique ne fait pas d'exception pour
+ * l'auteur — et le fichier sortirait donc silencieusement amputé. Rien dans la
+ * réponse ne signale ce manque : c'est une absence de lignes, pas une erreur.
+ * On le déduit du seul indice disponible, la ligne du tandem, qui reste
+ * lisible.
+ *
+ * La phrase ne nomme personne, et c'est mesuré. Une ligne gelée d'avant la
+ * migration `20260806012728` porte `status = 'blocked'` avec `blocked_by` NULL :
+ * le schéma dit explicitement qu'il ne sait pas qui a bloqué. Elle entre bien
+ * dans le compte — les messages sont réellement illisibles, pour les deux — mais
+ * écrire « quelqu'un t'a bloqué·e » y serait une affirmation que la base ne
+ * peut pas soutenir.
  */
 const limitesConnues = (donnees: Record<string, Ligne[]>, monId: string): string[] => {
-  const bloquants = (donnees.tandems ?? []).filter((t) => t.status === 'blocked' && t.blocked_by !== monId)
-  if (bloquants.length === 0) return []
+  const fermes = (donnees.tandems ?? []).filter((t) => t.status === 'blocked' && t.blocked_by !== monId)
+  if (fermes.length === 0) return []
   return [
-    `Les messages de ${bloquants.length === 1 ? 'une relation' : `${bloquants.length} relations`} où quelqu’un t’a bloqué·e ne sont plus lisibles depuis ton compte : ils ne figurent pas dans ce fichier.`,
+    `Les messages de ${fermes.length === 1 ? 'une relation bloquée' : `${fermes.length} relations bloquées`} ne sont plus lisibles depuis ton compte : ils ne figurent pas dans ce fichier.`,
   ]
 }
 
