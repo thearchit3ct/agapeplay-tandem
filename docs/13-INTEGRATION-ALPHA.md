@@ -99,7 +99,10 @@ d'Église recopie le texte d'une session Alpha dans un champ libre de Tandem.
 Aucun schéma n'attrape un copier-coller. Ce qui l'attrape est une mention
 écrite à l'endroit du geste — le champ « lien vers la ressource officielle »
 doit dire, sous le champ, que Tandem ne reçoit pas de contenu de parcours — et
-la modération, si un signalement remonte.
+la modération, si un signalement remonte. C'est le même mode de défaillance que
+celui nommé au doc 23 § « La fuite que rien de tout cela n'arrête » : la clause
+de provenance qu'il réclame pour la charte éditoriale couvre ce cas-ci comme
+elle couvre le sien.
 
 ### L'écart avec la roadmap, qui n'est pas tranché ici
 

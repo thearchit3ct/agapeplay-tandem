@@ -100,8 +100,13 @@ du produit, dans l'atelier de l'auteur.
 **`journal_entries` est own-only.** Quatre politiques dans
 `20260804000001_tandem_foundation.sql`, toutes en `(select auth.uid()) =
 user_id`, pour SELECT, INSERT, UPDATE et DELETE. Le seul `grant` de la table va
-à `authenticated` ; ni `anon` ni `service_role` n'en reçoit. Une clé de service
-volée ne lit pas cette table.
+à `authenticated` ; ni `anon` ni `service_role` n'en reçoit. Ce dernier point
+n'est pas une déduction : `20260806163000_role_moderateur.sql` et
+`20260806012728_blocage_effectif.sql` consignent tous deux que, sur la base que
+ces migrations reconstruisent, `service_role` n'a aucun droit sur ces tables, et
+le doc 21 en tire déjà une conséquence d'exploitation — toute recette passe par
+l'éditeur SQL du tableau de bord. Une clé de service volée ne lit pas cette
+table.
 
 **Le seul chemin vers autrui est un partage explicite, entrée par entrée, vers
 le binôme et vers personne d'autre.** `20260825160000_partage_du_journal.sql`
@@ -139,6 +144,14 @@ Ce qui le tient :
 - **le point de contrôle du workflow** : l'étape 4, « contrôle des droits de
   contenu », est étendue à la provenance. Elle vérifiait d'où vient le texte
   biblique ; elle vérifie désormais aussi d'où vient l'anecdote.
+
+**Le même point de contrôle sert deux fois.** Le doc 13 rencontre exactement ce
+mode de défaillance sous un autre visage : un responsable d'Église qui recopie
+le texte d'une session Alpha dans un champ libre de Tandem, qu'aucun
+`license_status` n'arrête. Contenu protégé d'un côté, contenu d'utilisateur de
+l'autre, et dans les deux cas c'est un copier-coller qu'aucun schéma n'attrape.
+La clause de provenance décrite ici est la forme générale ; le cas Alpha en est
+une instance.
 
 **Contrepartie assumée** : c'est une garantie de procédure, pas d'architecture,
 et elle est donc d'une autre nature que les trois précédentes. Le document le
