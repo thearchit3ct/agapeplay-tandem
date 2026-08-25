@@ -1124,3 +1124,94 @@ purge nommée par le #17, et il se soldera avec elle ou pas du tout.
   explicite, et sa trace résiduelle avait faussé la mutation suivante avant
   qu'on s'en aperçoive.
 - `tsc -b` et `vite build` : passent.
+
+---
+
+## Amendement du 26 août 2026 — la conformité des stores et la politique publique (issue #23)
+
+L'issue #23 demandait six choses : un inventaire des données et des SDK, les
+labels Apple, le formulaire Data Safety de Google, un mécanisme de suppression
+documenté, une politique de confidentialité relue, une revue juridique planifiée.
+Le tout vit maintenant dans **`docs/28-CONFORMITE-STORES.md`**, et la politique
+elle-même est **une page publique servie sans compte**.
+
+### Ce qui existe désormais
+
+- `docs/28-CONFORMITE-STORES.md` : l'inventaire par donnée (finalité, base
+  légale proposée, durée, ce qui l'efface), l'inventaire des paquets et des
+  tiers, les deux déclarations de store **prêtes à saisir**, le mécanisme de
+  suppression, la dette de conformité et le plan de revue juridique ;
+- la **politique de confidentialité publique**, en français et en anglais,
+  à `/confidentialite`, sans session, sans requête réseau autre que les polices,
+  sans une écriture dans le stockage — vérifié au navigateur ;
+- un lien vers elle depuis les trois écrans qui la citent : l'écran de confiance
+  (avant les cases à cocher), l'écran de connexion, les réglages ;
+- `apps/web/vercel.json`, qui versionne la réécriture SPA dont dépend l'adresse.
+
+### La décision qui gouverne la page : elle ne pose rien
+
+`App()` lit et écrit `localStorage` dès son premier `useState`, et sa chaîne
+d'imports construit le client Supabase à l'évaluation du module — lequel relit
+la session stockée et peut rafraîchir son jeton. Une page qui promet « rien
+n'est posé sur ton appareil » et qui monte `App` avant de rendre sa première
+phrase serait fausse avant d'être lue.
+
+D'où deux choses : le branchement se fait dans `main.tsx`, **avant** `App`, et
+`App` y est chargé par `import()` dynamique. Ce n'est pas une optimisation de
+poids ; c'est ce qui rend la promesse vérifiable. Elle a d'ailleurs été
+vérifiée : `localStorage` vide après chargement, et deux seules destinations
+réseau, `fonts.googleapis.com` et `fonts.gstatic.com`.
+
+### Deux arbitrages qu'on devra défendre
+
+**Google Fonts : dans la prose, pas dans les cases.** La feuille de style
+importe deux polices depuis Google ; l'IP du visiteur y parvient. La politique
+publique le dit platement. Les formulaires de store, eux, ne le déclarent pas
+comme un partage : ils portent sur les données que l'application **collecte puis
+transmet**, et cette requête ne transporte aucune donnée collectée. Le
+raisonnement est écrit au doc 28 pour être opposé tel quel.
+
+**La mesure n'est « pas liée à l'identité », et la phrase exacte compte.** Ce
+n'est pas « le serveur ne sait jamais qui écrit » — l'insertion est réservée à
+`authenticated`, donc la requête porte un JWT. C'est **le serveur sait
+momentanément qui écrit et n'en stocke rien** : la ligne écrite n'a aucune
+colonne d'identité, et aucune jointure ne la reconstitue. C'est la formulation
+qui survit à une relecture juridique ; l'autre ne survit pas.
+
+### Ce que le chantier a trouvé sans le chercher
+
+- **L'application mobile serait rejetée par l'App Store.** La règle 5.1.1(v)
+  exige la suppression de compte depuis l'application ; `supprimer_mon_compte()`
+  existe, l'écran mobile ne l'appelle nulle part. L'écart était déjà nommé au
+  doc 25 comme un manque produit ; il est en plus bloquant pour la publication.
+- **On fait accepter des règles d'utilisation qui n'existent pas.** L'écran de
+  confiance coche `termsConsent` et écrit `profiles.terms_consent_at` ; aucun
+  document ne porte ces règles, nulle part dans le dépôt. La politique de
+  confidentialité, elle, existe désormais.
+- **Le pays d'hébergement de la base n'est écrit nulle part** — information de
+  conformité de premier plan, absente du dépôt.
+
+### Écart assumé : des repères `[À COMPLÉTER]` sur une page publique
+
+Trois trous restent visibles sur la page : SIRET et adresse du siège, adresse
+e-mail de contact, pays d'hébergement. Ils sont encadrés d'un filet tireté pour
+gêner quiconque relirait la page avant publication sans les avoir remplis. Un
+SIRET inventé aurait rendu la page « finie » et fausse ; un trou marqué est une
+page honnête qui n'est pas encore publiable. La liste complète de ce qui attend
+un humain est la section 8 du doc 28.
+
+### Vérifié
+
+- `npm test` — 205 tests (20 fichiers), dont la parité des copies sur les
+  quelque cinquante-cinq clés de la politique, dans les deux langues.
+- `tsc -b` et `vite build` : passent. Le morceau d'entrée du paquet ne contient
+  **pas** le SDK Supabase, constaté par recherche dans le fichier produit —
+  c'est ce qui prouve que la page publique ne le télécharge pas.
+- Rendu au navigateur, à 375 px et à 1280 px, en français et en anglais : deux
+  défauts trouvés et corrigés, tous deux venus d'un emprunt au thème de
+  l'application. `h2` vaut l'encre sombre hors de `.content-section` — tous les
+  titres de section étaient invisibles ; et `.brand-lockup` est escamoté puis
+  masqué par les points de rupture de la barre latérale — la marque disparaissait
+  sous 375 px. La page a désormais son propre bloc de marque.
+- Aucune migration, aucun changement mobile, aucun changement de comportement
+  produit : le périmètre est `docs/`, `apps/web/**` et les textes partagés.

@@ -17,6 +17,22 @@ import type { Copy } from '@agapeplay/content/copy/web'
 import type { CategorieSignalement, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance, PartageDuJournal, EtatDeSemaine, InvitationDouce } from '@agapeplay/domain'
 import { CATEGORIES_PROPOSEES, ETATS_DE_SEMAINE, initialeDe, urgenceDe } from '@agapeplay/domain'
 import type { EntreePartagee, PartageEmis } from '../partageJournal'
+import { ROUTE_CONFIDENTIALITE } from './confidentialite'
+
+/**
+ * Le lien vers la politique de confidentialité — issue #23.
+ *
+ * Toujours dans un onglet neuf : les trois endroits où il apparaît sont des
+ * dialogues, et deux d'entre eux portent un geste en cours — une case cochée
+ * qu'on n'a pas encore validée, une adresse tapée qu'on n'a pas encore
+ * envoyée. Naviguer dans le même onglet perdrait ce geste, et lire ce qu'on
+ * s'apprête à accepter ne doit rien coûter.
+ */
+function LienConfidentialite({ t }: { t: Copy }) {
+  return <p className="policy-link">
+    <a href={ROUTE_CONFIDENTIALITE} target="_blank" rel="noreferrer">{t.privacyPolicyLink}</a>
+  </p>
+}
 
 // L'espace modérateur vit dans son propre fichier : il ne partage rien avec les
 // vues ci-dessous et il porte sa propre scène de conception. Il se réexporte
@@ -89,6 +105,7 @@ export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean;
         <button className="primary-button" type="submit" disabled={loading || sending}>{sending ? '…' : t.sendMagicLink}<span aria-hidden="true">→</span></button>
       </form>
       {status && <p className="auth-status" role="status">{status}</p>}
+      <LienConfidentialite t={t} />
     </section>
   </div>
 }
@@ -99,6 +116,10 @@ export function TrustDialog({ t, ageConfirmed, setAgeConfirmed, privacyAccepted,
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span></div>
       <h2 id="trust-dialog-title">{t.trustTitle}</h2>
       <p>{t.trustDescription}</p>
+      {/* Le lien vient AVANT les cases : c'est ici qu'on demande à quelqu'un de
+          seize ans de cocher `privacyConsent`, et une politique qu'on ne peut
+          lire qu'après avoir accepté n'est pas une politique. */}
+      <LienConfidentialite t={t} />
       <div className="trust-checks">
         <label><input type="checkbox" checked={ageConfirmed} onChange={(event) => setAgeConfirmed(event.target.checked)} /> <span>{t.ageConfirm}</span></label>
         <label><input type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} /> <span>{t.privacyConsent}</span></label>
@@ -115,6 +136,7 @@ export function SettingsDialog({ t, prefs, onToggle, onClose, onExport, onSignOu
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="settings-dialog-title">{t.settingsTitle}</h2>
       <p>{t.protected}</p>
+      <LienConfidentialite t={t} />
       <div className="notification-settings">
         <strong>{t.notifications}</strong>
         <p>{t.notificationDescription}</p>
