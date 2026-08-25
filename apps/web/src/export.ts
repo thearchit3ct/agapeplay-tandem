@@ -91,6 +91,12 @@ export const SECTIONS: readonly SectionExport[] = [
   { clef: 'communaute', table: 'church_members', colonnes: 'church_id, role, status, created_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'cohortes', table: 'group_members', colonnes: 'group_id, created_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'accompagnements', table: 'mentor_assignments', colonnes: 'id, church_id, group_id, mentor_id, participant_id, status, created_at', colonne: 'participant_id', cible: 'compte' },
+  // Issue #16. Les deux gestes de l'espace mentor entrent ici du côté où la
+  // personne les a posés ; le côté reçu est ajouté par les deux sections
+  // miroir plus bas, comme pour les accompagnements. Aucune des deux tables ne
+  // porte de texte libre : ce qui sort est une catégorie et une clé.
+  { clef: 'demandes_d_aide_emises', table: 'help_requests', colonnes: 'id, assignment_id, mentor_id, category, status, created_at, acknowledged_at', colonne: 'requester_id', cible: 'compte' },
+  { clef: 'encouragements_recus', table: 'mentor_encouragements', colonnes: 'id, assignment_id, mentor_id, message_key, jour, created_at', colonne: 'participant_id', cible: 'compte' },
   { clef: 'liens_d_invitation_emis', table: 'church_invitations', colonnes: 'church_id, group_id, status, uses, max_uses, expires_at, created_at', colonne: 'created_by', cible: 'compte' },
   { clef: 'tandems', table: 'tandems', colonnes: 'id, status, blocked_by, created_at, ended_at', colonne: 'participant_a_id', cible: 'compte' },
   { clef: 'messages_envoyes', table: 'tandem_messages', colonnes: 'id, tandem_id, body, created_at', colonne: 'sender_id', cible: 'compte' },
@@ -158,6 +164,27 @@ const SECTION_ACCOMPAGNEMENTS_MENTOR: SectionExport = {
   colonne: 'mentor_id', cible: 'compte',
 }
 
+/**
+ * Les deux miroirs de l'espace mentor — issue #16, même motif que ci-dessus.
+ *
+ * Une demande d'aide et un encouragement nomment deux personnes, et
+ * appartiennent aux deux : celui qui a appelé et celui qui a été appelé, celui
+ * qui a écrit et celui qui a reçu. Les clefs distinguent les deux sens plutôt
+ * que de les fondre, parce que « ce que j'ai demandé » et « ce qu'on m'a
+ * demandé » ne se lisent pas de la même façon dans un fichier d'export.
+ */
+const SECTION_AIDES_RECUES: SectionExport = {
+  clef: 'demandes_d_aide_recues', table: 'help_requests',
+  colonnes: 'id, assignment_id, requester_id, category, status, created_at, acknowledged_at',
+  colonne: 'mentor_id', cible: 'compte',
+}
+
+const SECTION_ENCOURAGEMENTS_EMIS: SectionExport = {
+  clef: 'encouragements_emis', table: 'mentor_encouragements',
+  colonnes: 'id, assignment_id, participant_id, message_key, jour, created_at',
+  colonne: 'mentor_id', cible: 'compte',
+}
+
 const exiger = (section: SectionExport, reponse: Reponse): Ligne[] => {
   if (reponse.error) {
     throw new Error(`export interrompu : la lecture de « ${section.clef} » a échoué (${reponse.error.message})`)
@@ -189,6 +216,10 @@ export const rassemblerExport = async (
     ...donnees.accompagnements,
     ...exiger(SECTION_ACCOMPAGNEMENTS_MENTOR, await lire(SECTION_ACCOMPAGNEMENTS_MENTOR)),
   ]
+  // Les deux sens de l'espace mentor. Sous leur propre clef, et non fusionnés :
+  // voir le commentaire des sections.
+  donnees.demandes_d_aide_recues = exiger(SECTION_AIDES_RECUES, await lire(SECTION_AIDES_RECUES))
+  donnees.encouragements_emis = exiger(SECTION_ENCOURAGEMENTS_EMIS, await lire(SECTION_ENCOURAGEMENTS_EMIS))
 
   return {
     genere_le: maintenant.toISOString(),
