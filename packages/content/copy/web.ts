@@ -443,6 +443,112 @@ export const copy = {
     moderationEscalationTitle: 'Quand un dossier sort de l’application',
     moderationEscalationImmediate: 'Urgence immédiate : prévenir le responsable produit d’AgapePlay sans attendre. Danger pour un mineur : 119 (enfance en danger) ou 17. Contenu illégal : signalement PHAROS.',
     moderationEscalationNote: 'Rien n’est détecté automatiquement : un dossier n’arrive ici que si quelqu’un l’a signalé. La procédure complète — délais, personnes, ce qu’on consigne — est versionnée dans docs/22-PROCEDURE-ESCALADE.md.',
+
+    // -----------------------------------------------------------------------
+    // La politique de confidentialité publique — issue #23.
+    //
+    // Elle vit ici, et non dans un fichier à part, pour deux raisons : le test
+    // de parité ne surveille que les catalogues qu'il connaît, et une politique
+    // de confidentialité qui existerait en français mais pas en anglais serait
+    // exactement le genre d'écart qu'un formulaire de store fait remonter.
+    //
+    // Chaque phrase décrit le produit tel qu'il est aujourd'hui, pas tel qu'on
+    // aimerait le présenter. Les manques sont écrits comme des manques.
+    // -----------------------------------------------------------------------
+    privacyPolicyLink: 'Lire la politique de confidentialité',
+    privacyPageTitle: 'Politique de confidentialité',
+    privacyPageUpdated: 'Écrite le 26 août 2026. C’est la première version.',
+    privacyPageLead: 'Cette page dit ce qu’AgapePlay Tandem garde de toi, pourquoi, et comment tout effacer. Elle est écrite pour être lue — par toi, et par tes parents si tu veux la leur montrer.',
+    privacyPageBack: 'Ouvrir l’application',
+
+    privacySummaryTitle: 'L’essentiel, d’abord',
+    privacySummary1: 'Ton journal est à toi. Personne ne le lit — ni nous, ni ton mentor, ni ton église — sauf les entrées que tu ouvres toi-même à ton binôme, une par une.',
+    privacySummary2: 'Vos conversations ne sont lisibles que par ton binôme et toi. Un modérateur ne voit un message que si quelqu’un le signale, et rien d’autre autour.',
+    privacySummary3: 'On ne vend rien, on n’affiche aucune publicité, et aucune intelligence artificielle ne lit ce que tu écris.',
+    privacySummary4: 'Aucun traqueur, aucun pixel de réseau social, aucun outil d’analyse extérieur n’est branché sur l’application.',
+    privacySummary5: 'Tu peux tout télécharger et tout supprimer depuis les réglages, sans nous écrire et sans te justifier.',
+
+    privacyWhoTitle: 'Qui garde ces données',
+    privacyWhoBody: 'AgapePlay Tandem est édité par AGAPE PLAY, société par actions simplifiée unipersonnelle immatriculée à Gagny, en France. C’est elle le responsable du traitement, au sens du RGPD.',
+    privacyWhoTodo: '[À COMPLÉTER avant publication : numéro SIRET, adresse du siège, adresse e-mail de contact.]',
+
+    privacyDataTitle: 'Ce qu’on garde, et pourquoi',
+    privacyDataIntro: 'Rien n’est gardé « au cas où ». Chaque ligne ci-dessous existe parce qu’un écran de l’application en a besoin pour fonctionner.',
+    privacyDataAccount: 'Ton compte : ton adresse e-mail, le nom que tu affiches, la langue que tu as choisie. L’adresse sert à te connecter — par un lien envoyé dans ta boîte, ou par ton compte Google ou Microsoft si tu préfères. Sans elle, il n’y a pas de compte.',
+    privacyDataJournal: 'Ton journal : ce que tu écris, l’humeur que tu poses à côté, la date. C’est fermé par défaut. Tu peux ouvrir une entrée à ton binôme puis la refermer — mais ce qu’il a déjà lu, il l’a lu.',
+    privacyDataMessages: 'Tes messages de tandem : le texte, qui l’a écrit, quand. Ils font la conversation, et ils vivent tant que la relation vit.',
+    privacyDataProgress: 'Ta progression : quelles séances tu as terminées, et quand. C’est ce qui te permet de reprendre là où tu t’étais arrêté.',
+    privacyDataWeekly: 'Ton bilan de fin de semaine : un mot parmi cinq — paisible, dense, rude, ailleurs, incertain — et la semaine concernée. Un mot, pas une note : rien n’est calculé avec.',
+    privacyDataCommunity: 'Ta communauté : l’église et le groupe que tu as rejoints, ton rôle, la date de ton entrée. Et, si un mentor t’a été proposé et que tu as dit oui, cette affectation.',
+    privacyDataMentor: 'Ce qui passe par ton mentor : une demande d’aide est une catégorie choisie dans une liste, jamais un texte que tu écris. Un encouragement qu’il t’envoie est l’un de six messages écrits d’avance. Ton mentor ne lit ni ton journal, ni tes messages, ni tes bilans.',
+    privacyDataReports: 'Tes signalements : la catégorie que tu choisis, le message visé si tu en désignes un, et les quelques mots que tu ajoutes si tu en as envie. Un modérateur d’AgapePlay les lit. Ni ton église, ni la personne concernée n’apprennent que tu as signalé.',
+    privacyDataInvites: 'L’adresse de la personne que tu invites : on la garde le temps qu’elle réponde, sept jours au plus. Si tu supprimes ton compte, toutes tes invitations partent — celles que tu as envoyées comme celles que tu as reçues.',
+    privacyDataMeasure: 'Les comptages : voir la section qui leur est consacrée plus bas. C’est la seule chose ici qui ne porte aucun nom.',
+    privacyDataDevice: 'Sur ton appareil : ton brouillon en cours, ta langue et ce que l’application n’a pas encore pu envoyer restent dans la mémoire de ton navigateur. Ça ne va nulle part ailleurs, et ça part avec l’historique de ton navigateur.',
+
+    privacySensitiveTitle: 'Ce que tu écris est sensible, et on le traite comme tel',
+    privacySensitiveBody: 'Un journal de prière, un message à son binôme, un bilan de semaine difficile : ce sont des convictions religieuses et des choses intimes. La loi française et européenne les range parmi les données sensibles, et nous aussi. Concrètement : elles ne servent à rien d’autre qu’à te les réafficher, elles ne sortent pas de l’application, et personne ne les lit hors des cas décrits ici.',
+
+    privacyWhoReadsTitle: 'Qui peut lire quoi',
+    privacyWhoReadsJournal: 'Ton journal : toi. Et ton binôme, sur les seules entrées que tu lui as ouvertes.',
+    privacyWhoReadsMessages: 'Vos messages : ton binôme et toi, personne d’autre — sauf un message précis que quelqu’un a signalé.',
+    privacyWhoReadsMentor: 'Ton mentor : un mot parmi quatre qui dit comment ça va en gros, et tes demandes d’aide. Rien de ce que tu écris.',
+    privacyWhoReadsChurch: 'Ton église : qui est membre, qui accompagne qui. Aucun contenu.',
+    privacyWhoReadsModeration: 'Un modérateur d’AgapePlay : seulement ce qui est attaché à un signalement — la catégorie, le message visé, tes quelques mots. Le reste de la conversation lui reste fermé.',
+    privacyWhoReadsUs: 'Nous : rien de plus que ci-dessus. L’application ne nous ouvre aucun écran sur les journaux ou les conversations, et c’est la base de données elle-même qui refuse ces lectures, pas notre bonne volonté. Il reste qu’une poignée de personnes administre cette base et pourrait techniquement y accéder : c’est vrai de tout service en ligne, et ça ne se fait que pour réparer une panne ou répondre à une réquisition de la justice.',
+
+    privacyNeverTitle: 'Ce qu’on ne fait jamais',
+    privacyNever1: 'On ne vend, ne loue et n’échange aucune de tes données. Il n’y a pas de publicité derrière cette application.',
+    privacyNever2: 'On n’affiche aucune publicité, et rien de ce que tu écris ne sert à en cibler ailleurs.',
+    privacyNever3: 'Aucune intelligence artificielle ne lit ton journal, tes messages ou tes bilans, et rien de ce que tu écris n’entraîne un modèle. L’IA, chez nous, aide des auteurs à préparer des parcours avant publication — elle n’est jamais dans ton écran.',
+    privacyNever4: 'On n’a installé aucun traqueur, aucun pixel de réseau social, aucun outil de statistiques extérieur. Il n’y a rien à refuser parce qu’il n’y a rien.',
+    privacyNever5: 'On ne met personne en relation au hasard. Une relation naît d’une invitation que tu envoies, ou d’un mentor que ton église propose et que tu acceptes.',
+
+    privacyMeasureTitle: 'Comment on compte, sans savoir qui',
+    privacyMeasureIntro: 'Pour savoir si l’application aide vraiment, on compte des gestes : une séance terminée, une invitation envoyée, un signalement déposé. Jamais ce que tu écris.',
+    privacyMeasureAnonymous: 'Ces comptages ne portent pas ton nom, et ne peuvent pas le porter. Chaque appareil tire un numéro au hasard qui n’est relié à aucun compte : la base refuse d’enregistrer un événement dont le numéro serait celui de ton compte, et aucune autre table ne contient ce numéro. Il n’existe donc aucun moyen de reconstituer « ce qu’une personne a fait ». Ce numéro est remplacé au bout de treize mois.',
+    privacyMeasureHonest: 'Une précision d’honnêteté : ces envois partent d’un compte connecté, donc à l’instant de l’envoi le serveur sait qui parle. Il n’en garde rien — la ligne écrite n’a aucune colonne qui désigne un compte.',
+    privacyMeasureOptOut: 'Tu peux couper la mesure dans les réglages. Ton refus efface le numéro sur-le-champ et vaut sur tous tes appareils. Comme rien n’était relié à toi, il n’y a ensuite rien à supprimer : c’est le résultat cherché, pas une pirouette.',
+
+    privacyThirdTitle: 'Ce qui sort de nos murs',
+    privacyThirdHosting: 'La base de données, les comptes et l’envoi des liens de connexion passent par Supabase, notre hébergeur. Le site est servi par Vercel. Ces deux-là travaillent pour nous et ne font rien d’autre de tes données.',
+    privacyThirdFonts: 'Deux polices de caractères — celles que tu lis en ce moment — sont chargées depuis les serveurs de Google Fonts. Ton adresse IP leur parvient pour cette raison, comme pour n’importe quelle image affichée depuis un autre site. Aucune donnée de ton compte ne part avec.',
+    privacyThirdOauth: 'Si tu choisis de te connecter avec Google ou Microsoft, c’est chez eux que tu tapes ton mot de passe : on reçoit ton adresse et ton nom, rien d’autre. Si tu préfères ne rien avoir à faire avec eux, le lien envoyé par e-mail fait le même travail.',
+    privacyThirdTodo: '[À COMPLÉTER avant publication : pays d’hébergement de la base et éventuel transfert hors Union européenne.]',
+
+    privacyKeepTitle: 'Combien de temps',
+    privacyKeepAccount: 'Ton compte et ce que tu y écris : tant que le compte existe. Le jour où tu le supprimes, tout part le jour même.',
+    privacyKeepInvites: 'Une invitation de binôme : sept jours si personne ne répond. Un lien d’invitation d’église : trente jours par défaut, quatre-vingt-dix au maximum.',
+    privacyKeepMeasure: 'Les comptages : le numéro d’appareil est remplacé au bout de treize mois, et les événements ne désignent personne.',
+    privacyKeepReports: 'Les signalements et les décisions de modération : ils restent après la suppression du compte, parce qu’ils protègent quelqu’un. Sans ça, la façon la plus simple de faire disparaître une preuve serait de supprimer son compte.',
+    privacyKeepDebt: 'À dire franchement : les messages d’un tandem terminé n’ont pas encore de durée de conservation fixée. Ce manque est écrit dans notre documentation technique, et il sera comblé.',
+
+    privacyDeleteTitle: 'Emporter tes données, ou tout effacer',
+    privacyDeleteExport: 'Emporter : Réglages → Télécharger mes données. Tu obtiens un fichier avec ton profil, tes préférences, ton journal, ta progression, tes bilans, tes partages, les messages que tu as envoyés, tes invitations, ta communauté et tes signalements. Il est fabriqué sur ton appareil. Ce que tes binômes t’ont écrit ou partagé n’y est pas : ce sont leurs mots, pas tes données.',
+    privacyDeletePath: 'Effacer : Réglages → Supprimer mon compte. Un écran te dit exactement ce qui part et ce qui reste, avant que tu confirmes.',
+    privacyDeleteGoes: 'Ce qui part : ton nom, ton adresse, ton journal, ta progression, tes bilans, tes préférences, tes invitations, tes appartenances. Tes sessions ouvertes sont fermées et ce compte ne peut plus se connecter.',
+    privacyDeleteStays: 'Ce qui reste : les messages que tu as laissés dans la conversation de ton binôme, sans ton nom au-dessus — ce sont ses souvenirs autant que les tiens. Les signalements et les décisions de modération restent aussi. Et un blocage que tu as posé tient toujours après ton départ.',
+    privacyDeleteReturn: 'Tu peux revenir un jour avec la même adresse : ce sera un compte neuf, vide.',
+    privacyDeleteNoAccess: 'Si tu n’arrives plus à te connecter et que tu veux quand même être supprimé, écris à l’adresse ci-dessous. On te demandera de prouver que l’adresse est bien la tienne — sinon n’importe qui pourrait faire supprimer le compte d’un autre.',
+    privacyDeleteMobile: 'À dire franchement : l’application mobile n’a pas encore ce bouton. Il est sur le site, et il supprime le même compte.',
+
+    privacyAgeTitle: 'Ton âge',
+    privacyAgeBody: 'Il faut avoir 16 ans pour utiliser Tandem. On te demande de le confirmer à l’inscription et on te croit : aucune pièce d’identité n’est demandée, et on n’en veut pas. Un mentor, lui, ne peut accompagner personne tant que son église ne l’a pas validé — et cette validation se fait hors de l’application, entre adultes.',
+
+    privacyRightsTitle: 'Tes droits',
+    privacyRightsBody: 'La loi te donne le droit de savoir ce qu’on a sur toi, de le corriger, de l’emporter, de le faire effacer et de t’opposer à certains usages. Les deux plus utiles — emporter et effacer — sont des boutons dans l’application, sans avoir à écrire à personne. Pour le reste, écris-nous : on répond dans le mois.',
+    privacyRightsMinor: 'Si tu es mineur, tes parents peuvent t’aider à exercer ces droits, et nous écrire avec toi.',
+    privacyRightsCnil: 'Si notre réponse ne te convient pas, tu peux saisir la CNIL, l’autorité française de protection des données, sur cnil.fr.',
+
+    privacyEmergencyTitle: 'En cas d’urgence',
+    privacyEmergencyBody: 'Cette application n’est pas un service d’urgence, et personne ne la surveille la nuit. Si quelqu’un est en danger tout de suite : 119 (enfance en danger) ou 17.',
+
+    privacyChangesTitle: 'Si cette page change',
+    privacyChangesBody: 'Cette page porte sa date. Si on change quelque chose qui compte, on te le dira dans l’application plutôt que de compter sur toi pour revenir lire.',
+
+    privacyContactTitle: 'Nous écrire',
+    privacyContactBody: 'Une question, une demande, un doute : écris-nous. C’est une personne qui répond.',
+    privacyContactTodo: '[À COMPLÉTER avant publication : adresse e-mail de contact, qui sert aussi aux demandes de suppression.]',
   },
   en: {
     ...sharedLabels.en,
@@ -832,6 +938,102 @@ export const copy = {
     moderationEscalationTitle: 'When a case leaves the app',
     moderationEscalationImmediate: 'Immediate: alert the AgapePlay product lead without waiting. Danger to a minor: 119 (child protection, France) or 17. Illegal content: report to PHAROS.',
     moderationEscalationNote: 'Nothing is detected automatically: a case only lands here because someone reported it. The full procedure — deadlines, people, what gets recorded — is versioned in docs/22-PROCEDURE-ESCALADE.md.',
+
+    // The public privacy policy — see the French block for why it lives here.
+    privacyPolicyLink: 'Read the privacy policy',
+    privacyPageTitle: 'Privacy policy',
+    privacyPageUpdated: 'Written on 26 August 2026. This is the first version.',
+    privacyPageLead: 'This page says what AgapePlay Tandem keeps about you, why, and how to erase all of it. It is written to be read — by you, and by your parents if you want to show it to them.',
+    privacyPageBack: 'Open the app',
+
+    privacySummaryTitle: 'The short version',
+    privacySummary1: 'Your journal is yours. Nobody reads it — not us, not your mentor, not your church — except the entries you open to your partner yourself, one at a time.',
+    privacySummary2: 'Your conversations can only be read by your partner and you. A moderator sees one message only when someone reports it, and nothing around it.',
+    privacySummary3: 'We sell nothing, we show no ads, and no artificial intelligence reads what you write.',
+    privacySummary4: 'No tracker, no social network pixel, no outside analytics tool is plugged into the app.',
+    privacySummary5: 'You can download everything and erase everything from the settings, without writing to us and without explaining yourself.',
+
+    privacyWhoTitle: 'Who keeps this data',
+    privacyWhoBody: 'AgapePlay Tandem is published by AGAPE PLAY, a single-shareholder simplified joint-stock company registered in Gagny, France. It is the data controller under the GDPR.',
+    privacyWhoTodo: '[TO BE COMPLETED before release: company registration number, registered address, contact email address.]',
+
+    privacyDataTitle: 'What we keep, and why',
+    privacyDataIntro: 'Nothing is kept just in case. Every line below exists because a screen in the app needs it to work.',
+    privacyDataAccount: 'Your account: your email address, the name you display, the language you picked. The address is how you sign in — through a link sent to your inbox, or through your Google or Microsoft account if you prefer. Without it there is no account.',
+    privacyDataJournal: 'Your journal: what you write, the mood you set beside it, the date. It is closed by default. You can open an entry to your partner and close it again — but what they already read, they read.',
+    privacyDataMessages: 'Your tandem messages: the text, who wrote it, when. They are the conversation, and they live as long as the relationship lives.',
+    privacyDataProgress: 'Your progress: which sessions you finished, and when. That is what lets you pick up where you stopped.',
+    privacyDataWeekly: 'Your end-of-week note: one word out of five — peaceful, full, rough, elsewhere, unsure — and the week it belongs to. One word, not a score: nothing is computed from it.',
+    privacyDataCommunity: 'Your community: the church and the group you joined, your role, the date you came in. And, if a mentor was offered to you and you said yes, that assignment.',
+    privacyDataMentor: 'What goes through your mentor: a request for help is a category picked from a list, never text you write. An encouragement they send you is one of six messages written in advance. Your mentor reads neither your journal, nor your messages, nor your weekly notes.',
+    privacyDataReports: 'Your reports: the category you pick, the message you point at if you point at one, and the few words you add if you feel like it. An AgapePlay moderator reads them. Neither your church nor the person involved learns that you reported.',
+    privacyDataInvites: 'The address of the person you invite: we keep it while they make up their mind, seven days at most. If you delete your account, all your invitations go — the ones you sent as well as the ones you received.',
+    privacyDataMeasure: 'The counts: see the section devoted to them below. It is the only thing here that carries no name.',
+    privacyDataDevice: 'On your device: your current draft, your language and whatever the app has not managed to send yet stay in your browser memory. They go nowhere else, and they leave with your browsing history.',
+
+    privacySensitiveTitle: 'What you write is sensitive, and we treat it that way',
+    privacySensitiveBody: 'A prayer journal, a message to your partner, a note about a hard week: these are religious beliefs and private things. French and European law count them as sensitive data, and so do we. In practice: they serve nothing beyond showing them back to you, they do not leave the app, and nobody reads them outside the cases described here.',
+
+    privacyWhoReadsTitle: 'Who can read what',
+    privacyWhoReadsJournal: 'Your journal: you. And your partner, on the entries you opened to them and no others.',
+    privacyWhoReadsMessages: 'Your messages: your partner and you, nobody else — except one precise message somebody reported.',
+    privacyWhoReadsMentor: 'Your mentor: one word out of four saying roughly how you are doing, and your requests for help. Nothing you write.',
+    privacyWhoReadsChurch: 'Your church: who is a member, who accompanies whom. No content.',
+    privacyWhoReadsModeration: 'An AgapePlay moderator: only what is attached to a report — the category, the message pointed at, your few words. The rest of the conversation stays closed to them.',
+    privacyWhoReadsUs: 'Us: nothing beyond the above. The app opens no screen onto journals or conversations for us, and it is the database itself that refuses those reads, not our good intentions. It remains true that a handful of people administer that database and could technically reach it: this holds for any online service, and it happens only to repair a failure or to answer a court order.',
+
+    privacyNeverTitle: 'What we never do',
+    privacyNever1: 'We never sell, rent or trade any of your data. There is no advertising business behind this app.',
+    privacyNever2: 'We show no ads, and nothing you write is used to target any elsewhere.',
+    privacyNever3: 'No artificial intelligence reads your journal, your messages or your weekly notes, and nothing you write trains a model. AI, here, helps authors prepare journeys before they are published — it is never on your screen.',
+    privacyNever4: 'We installed no tracker, no social network pixel, no outside statistics tool. There is nothing to refuse because there is nothing there.',
+    privacyNever5: 'We match nobody at random. A relationship starts from an invitation you send, or from a mentor your church proposes and you accept.',
+
+    privacyMeasureTitle: 'How we count without knowing who',
+    privacyMeasureIntro: 'To know whether the app really helps, we count actions: a session finished, an invitation sent, a report filed. Never what you write.',
+    privacyMeasureAnonymous: 'These counts carry no name, and cannot carry one. Each device draws a random number tied to no account: the database refuses to record an event whose number would be your account, and no other table holds that number. There is therefore no way to piece together what one person did. That number is replaced after thirteen months.',
+    privacyMeasureHonest: 'One point of honesty: these are sent from a signed-in account, so at the instant of sending the server knows who is speaking. It keeps none of it — the row that gets written has no column pointing at an account.',
+    privacyMeasureOptOut: 'You can switch measurement off in the settings. Your refusal erases the number right away and holds on all your devices. Since nothing was tied to you, there is nothing left to delete afterwards: that is the point, not a dodge.',
+
+    privacyThirdTitle: 'What leaves our walls',
+    privacyThirdHosting: 'The database, the accounts and the sending of sign-in links go through Supabase, our host. The site is served by Vercel. Those two work for us and do nothing else with your data.',
+    privacyThirdFonts: 'Two typefaces — the ones you are reading right now — are loaded from Google Fonts servers. Your IP address reaches them for that reason, as it would for any image displayed from another site. No data from your account travels with it.',
+    privacyThirdOauth: 'If you choose to sign in with Google or Microsoft, your password is typed on their side: we receive your address and your name, nothing else. If you would rather have nothing to do with them, the link sent by email does the same job.',
+    privacyThirdTodo: '[TO BE COMPLETED before release: country hosting the database, and any transfer outside the European Union.]',
+
+    privacyKeepTitle: 'For how long',
+    privacyKeepAccount: 'Your account and what you write in it: as long as the account exists. The day you delete it, everything goes that same day.',
+    privacyKeepInvites: 'A partner invitation: seven days if nobody answers. A church invitation link: thirty days by default, ninety at most.',
+    privacyKeepMeasure: 'The counts: the device number is replaced after thirteen months, and the events point at nobody.',
+    privacyKeepReports: 'Reports and moderation decisions: they stay after an account is deleted, because they protect somebody. Without that, the easiest way to make evidence disappear would be to delete your account.',
+    privacyKeepDebt: 'To say it plainly: messages in a tandem that has ended have no retention period set yet. That gap is written down in our technical documentation, and it will be closed.',
+
+    privacyDeleteTitle: 'Taking your data with you, or erasing everything',
+    privacyDeleteExport: 'Taking it: Settings → Download my data. You get a file with your profile, your preferences, your journal, your progress, your weekly notes, your shares, the messages you sent, your invitations, your community and your reports. It is built on your device. What your partners wrote or shared with you is not in it: those are their words, not your data.',
+    privacyDeletePath: 'Erasing: Settings → Delete my account. A screen tells you exactly what goes and what stays, before you confirm.',
+    privacyDeleteGoes: 'What goes: your name, your address, your journal, your progress, your weekly notes, your preferences, your invitations, your memberships. Your open sessions are closed and that account can no longer sign in.',
+    privacyDeleteStays: 'What stays: the messages you left in your partner’s conversation, with no name above them — they are their memories as much as yours. Reports and moderation decisions stay too. And a block you set still holds after you leave.',
+    privacyDeleteReturn: 'You can come back one day with the same address: it will be a new, empty account.',
+    privacyDeleteNoAccess: 'If you can no longer sign in and still want to be deleted, write to the address below. We will ask you to prove the address is yours — otherwise anyone could have somebody else’s account deleted.',
+    privacyDeleteMobile: 'To say it plainly: the mobile app does not have that button yet. It is on the website, and it deletes the same account.',
+
+    privacyAgeTitle: 'Your age',
+    privacyAgeBody: 'You must be 16 to use Tandem. We ask you to confirm it when you sign up and we believe you: no identity document is asked for, and we do not want one. A mentor, for their part, can accompany nobody until their church has cleared them — and that clearing happens outside the app, between adults.',
+
+    privacyRightsTitle: 'Your rights',
+    privacyRightsBody: 'The law gives you the right to know what we hold about you, to correct it, to take it with you, to have it erased and to object to certain uses. The two most useful ones — taking and erasing — are buttons in the app, with nobody to write to. For the rest, write to us: we answer within a month.',
+    privacyRightsMinor: 'If you are under 18, your parents can help you exercise these rights and write to us with you.',
+    privacyRightsCnil: 'If our answer does not satisfy you, you can refer the matter to the CNIL, the French data protection authority, at cnil.fr.',
+
+    privacyEmergencyTitle: 'In an emergency',
+    privacyEmergencyBody: 'This app is not an emergency service, and nobody is watching it at night. If someone is in danger right now: call 119 (child protection, France) or 17.',
+
+    privacyChangesTitle: 'If this page changes',
+    privacyChangesBody: 'This page carries its date. If we change something that matters, we will tell you inside the app rather than count on you coming back to read.',
+
+    privacyContactTitle: 'Writing to us',
+    privacyContactBody: 'A question, a request, a doubt: write to us. A person answers.',
+    privacyContactTodo: '[TO BE COMPLETED before release: contact email address, also used for deletion requests.]',
   },
 } as const
 

@@ -591,3 +591,54 @@ h3 { color: #eeeeea; font-weight: 400; }
 .checkin-panel, .gentle-note { margin-bottom: 20px; }
 .checkin-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .checkin-footer { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 16px; }
+
+/* La politique de confidentialité publique — issue #23.
+   Un document, pas un écran d'application : pas de barre latérale, pas de
+   cartes, une seule colonne de la largeur d'une page imprimée. La mesure qui
+   gouverne tout le bloc est la longueur de ligne — 66 caractères — parce que
+   ce texte se lit d'un bout à l'autre, ce qu'aucun autre écran du produit ne
+   demande. Le reste emprunte le thème tel quel : même encre, même trame, même
+   machine à écrire pour les titres. Aucune couleur n'est ajoutée, sauf le
+   filet du repère à compléter, qui doit se voir de loin tant qu'il est là. */
+.legal-page { min-height: 100vh; padding: 40px 20px 80px; display: flex; justify-content: center; }
+.legal-sheet { width: 100%; max-width: 66ch; }
+.legal-brand { display: flex; align-items: center; gap: 11px; color: #eeeeea; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+.legal-brand strong { font-family: 'Special Elite', serif; font-weight: 400; }
+.legal-mark { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #eeeeea; font-family: 'Special Elite', serif; font-size: 17px; transform: rotate(-4deg); }
+.legal-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-bottom: 20px; border-bottom: 1px solid #4a4a45; }
+.legal-sheet h1 { margin: 34px 0 0; font-size: 32px; line-height: 1.1; }
+.legal-date { margin: 12px 0 0; color: #a6a6a0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+.legal-lead { margin: 22px 0 0; font-size: 15px; line-height: 1.75; color: #d1d1ca; }
+.legal-sheet section { margin-top: 44px; }
+/* `h2` vaut l'encre sombre par défaut (elle sert aux cartes claires du
+   parcours) ; hors de `.content-section`, il faut la rendre lisible ici. */
+.legal-sheet h2 { margin: 0 0 16px; font-size: 21px; line-height: 1.25; color: #eeeeea; }
+.legal-sheet p { margin: 0 0 14px; font-size: 14px; line-height: 1.8; color: #d1d1ca; }
+.legal-sheet p:last-child { margin-bottom: 0; }
+.legal-sheet ul { margin: 0; padding: 0; list-style: none; }
+/* Le tiret est posé en `::before` plutôt que par une puce : la liste des
+   données est faite de phrases entières, et une puce ronde centrée sur la
+   première ligne d'un paragraphe de quatre lignes flotte au mauvais endroit. */
+.legal-sheet li { position: relative; padding-left: 20px; margin-bottom: 16px; font-size: 14px; line-height: 1.8; color: #d1d1ca; }
+.legal-sheet li::before { content: '—'; position: absolute; left: 0; color: #8f8f88; }
+.legal-sheet li:last-child { margin-bottom: 0; }
+.legal-summary { margin-top: 34px; padding: 24px; border: 1px solid #eeeeea; box-shadow: 6px 6px 0 #2a2a28; }
+.legal-emergency { padding: 20px 24px; border-left: 3px solid #eeeeea; }
+/* Ce qui attend un humain se voit, et se voit mal : ce filet doit gêner
+   quiconque relit la page avant publication sans avoir rempli les trous. */
+.legal-todo { margin: 18px 0 0 !important; padding: 12px 14px; border: 1px dashed #eeeeea; color: #eeeeea !important; font-size: 12px !important; letter-spacing: .04em; }
+.legal-foot { margin-top: 56px; padding-top: 22px; border-top: 1px solid #4a4a45; }
+.legal-foot a { color: #eeeeea; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; text-underline-offset: 4px; }
+
+@media (max-width: 640px) {
+  .legal-page { padding: 26px 16px 60px; }
+  .legal-sheet h1 { font-size: 26px; }
+  .legal-sheet h2 { font-size: 18px; }
+  .legal-summary { padding: 18px; box-shadow: 4px 4px 0 #2a2a28; }
+}
+/* Le lien vers la politique, dans les trois dialogues qui la citent. Discret
+   sans être caché : même encre que le texte courant, souligné, jamais un
+   bouton — ce n'est pas une action du produit, c'est une lecture. */
+.policy-link { margin: 14px 0 0; font-size: 11px; }
+.policy-link a { color: #d1d1ca; text-underline-offset: 3px; }
+.policy-link a:hover { color: #eeeeea; }
