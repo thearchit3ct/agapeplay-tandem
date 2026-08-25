@@ -542,7 +542,11 @@ create table if not exists public.church_invitations (
   -- communauté **et** cette cohorte, d'un seul geste.
   group_id uuid references public.church_groups(id) on delete cascade,
   created_by uuid not null references auth.users(id) on delete cascade,
-  token text not null unique default encode(gen_random_bytes(24), 'hex'),
+  -- `extensions.` qualifié : pgcrypto vit dans ce schéma chez Supabase, et le
+  -- push distant applique les migrations sous un search_path qui ne le porte
+  -- pas — mesuré le 25/08/2026, échec en production quand la forme nue passait
+  -- en local. Même transaction : rien n'avait été appliqué.
+  token text not null unique default encode(extensions.gen_random_bytes(24), 'hex'),
   status text not null default 'pending' check (status in ('pending', 'revoked')),
   max_uses integer not null default 50 check (max_uses between 1 and 500),
   uses integer not null default 0 check (uses >= 0),
