@@ -1486,3 +1486,158 @@ rien à changer.
 - **Rien n'a été prouvé sur un appareil** : aucune build n'a été lancée, aucun
   compte n'est connecté. La liste de ce qu'il faudra vérifier après la première
   build est en fin de doc 29.
+
+---
+
+## Amendement du 25 août 2026 — le feel natif mobile
+
+*Le fondateur a installé l'APK réel sur un téléphone Android et en a rapporté
+deux choses : « l'application se comporte comme une web app », et « les cases à
+remplir : lorsque le clavier s'ouvre, il masque la case ». Ce chantier répond
+aux deux. C'est de la finition : aucun écran n'a disparu, aucune règle produit
+n'a bougé, aucun texte n'a été ajouté — la parité fr/en de
+`packages/content/copy` est donc inchangée.*
+
+### Le clavier — ce qui se passait vraiment
+
+La cause n'était pas un `KeyboardAvoidingView` mal réglé : c'est qu'il n'y en
+avait aucun, et qu'aucun réglage de `app.json` ne pouvait suffire.
+
+**Depuis le SDK 54, Android est en bord-à-bord obligatoire.** Le greffon
+`withEdgeToEdge` d'Expo le dit lui-même — « Android 16 makes edge-to-edge
+mandatory » — et il **refuse** désormais qu'on le débraye : déclarer
+`android.edgeToEdgeEnabled` ne produit qu'un avertissement. Or en bord-à-bord la
+fenêtre ne se redimensionne plus à l'ouverture du clavier. Donc
+`android:windowSoftInputMode=adjustResize`, c'est-à-dire
+`android.softwareKeyboardLayoutMode: "resize"`, **ne déplace plus rien tout
+seul**. Le champ restait où il était, et le clavier passait devant.
+
+Décision : `softwareKeyboardLayoutMode` reste déclaré à `"resize"`. C'est déjà
+le défaut, la valeur est inerte en bord-à-bord, et `"pan"` — la seule autre —
+ferait glisser toute la fenêtre vers le haut, ce qui décollerait un composeur
+censé rester au ras du clavier. On garde donc la valeur qui ne nuit pas, et
+l'écart se rattrape en JavaScript, dans `apps/mobile/src/clavier.ts` :
+
+- `useHauteurDuClavier` écoute `keyboardWillShow/Hide` sur iOS et
+  `keyboardDidShow/Hide` sur Android — Android n'émet pas les `Will…`, et
+  écouter les quatre partout ferait deux mises à jour par ouverture sur iOS ;
+- `useEspacementDuClavier` en soustrait `insets.bottom`. Android mesure la
+  hauteur du clavier depuis le bas de l'**écran**, pas depuis le bas de la zone
+  sûre : sans cette soustraction, la barre de navigation serait comptée deux
+  fois et laisserait une cinquantaine de points de blanc sous le champ ;
+- `useChampAuDessusDuClavier` ajoute `remonter`, branché sur le `onFocus` du
+  champ. Il appelle `scrollResponderScrollNativeHandleToKeyboard` — méthode
+  **publique et typée** de `ScrollView`, écrite exactement pour ce problème, et
+  qui diffère d'elle-même son défilement quand les mesures du clavier ne sont
+  pas encore connues. La réserve de 96 points sous le champ n'est pas
+  décorative : dans cette application le bouton d'envoi est toujours **sous** la
+  case, et un champ visible dont on ne peut pas atteindre le bouton ne règle que
+  la moitié du défaut.
+
+Pas de `KeyboardAvoidingView`, et pas de module clavier natif : `behavior="height"`
+s'appuie précisément sur le redimensionnement qui n'existe plus, `undefined` sur
+Android — le montage le plus répandu — ne fait rien du tout ici, et une
+dépendance native serait la seule chose dont `mobile:export`, notre unique garde
+sans appareil, ne pourrait rien dire.
+
+**La liste réelle des écrans à saisie est plus courte que prévu.** `index.tsx`,
+`compte.tsx` et `invite.tsx` n'importent aucun `TextInput` — le bilan hebdomadaire
+est un jeu de `Pressable`, et il n'y a pas de mot libre sur l'accueil. Restent
+**trois écrans et quatre cases** : `auth.tsx` (e-mail), `journal.tsx` (entrée),
+`tandem.tsx` (composeur, et mot libre du panneau de signalement).
+
+### La conversation, seule restructuration
+
+Le composeur est sorti du `ScrollView`. Fil et composeur sont désormais deux
+frères d'une colonne, et c'est **la colonne** qui remonte au-dessus du clavier :
+le fil, en `flex: 1`, se rétrécit d'autant, et le composeur reste au ras du
+clavier. C'est le comportement d'une messagerie, et c'était impossible tant que
+la case défilait avec le fil.
+
+Deux conséquences assumées : le fil s'ouvre et revient sur son dernier message
+(à la fin du chargement et après un envoi, jamais sur un effet de `messages` —
+cela ferait deux défilements) ; et le composeur s'efface pendant qu'un panneau
+est ouvert, parce qu'épinglé il recouvrirait le bouton de confirmation, et qu'il
+proposerait d'écrire à quelqu'un à qui on est en train de dire qu'on le bloque.
+
+Ce qui n'a pas bougé : `accesConversation` gouverne toujours ce que le composeur
+autorise, et il reste **affiché fermé** plutôt que retiré, comme sur le web.
+
+### L'identité au lancement
+
+Rien n'a été inventé ni recoloré : tout vient de
+`versets-flash/assets/Logo/`, adapté aux formats Expo avec Pillow.
+
+- **Icône : le monogramme** (`agapeplay-monogramme.png`), sur le crème du lockup
+  `#FCF4DD` échantillonné sur `agapeplay.png`. Le sceau a été écarté après essai
+  : son texte circulaire « AGAPE PLAY · ÉDITIONS DE JEUX » devient illisible à
+  48 points, la taille réelle d'un lanceur.
+- **Icône adaptative Android** : le même monogramme sur fond transparent, tenu à
+  46 % du carré pour rester dans le disque de sûreté de 66 % — vérifié sous
+  masque circulaire *et* sous masque arrondi, les deux plus sévères.
+- **Écran de démarrage : le sceau** (`agapeplay-sceau.png`), à 200 points de
+  large sur le même crème. Il a ici la place d'être lu, et le démarrage reste
+  dans la même famille tonale que l'icône : pas de flash crème puis nuit.
+- `userInterfaceStyle` passe de `"dark"` à `"light"`. L'application est crème et
+  encre, elle n'a jamais eu de mode sombre, et Android tirait sa barre système
+  de cette déclaration.
+
+### La main
+
+- **Transitions** : `Stack` passe de `animation: 'fade'` à `'default'`. Un fondu
+  entre deux routes est exactement ce que fait un site ; un téléphone glisse
+  l'écran suivant depuis le bord. Cela rétablit du même coup le geste de retour
+  au bord de l'écran, que le fondu rendait muet.
+- **Retour d'appui** : `theme.ts` porte `presse` (opacité, pour les libellés),
+  `ondeEncre` / `ondeClaire` (l'onde de matériau d'Android sous les grandes
+  surfaces) et `toucheMinimale` (44 points). **Aucun `Pressable` de
+  l'application n'avait de retour au doigt** avant ce chantier : c'est la moitié
+  du « ça se comporte comme une web app ».
+- **Haptique** (`src/toucher.ts`, trois nuances) : `toucherLeger` pour ce qui
+  part — message, entrée, partage, interrupteur de rappel, export prêt ;
+  `toucherAbouti` pour ce qui s'achève — séance terminée, bilan posé ;
+  `toucherGrave` pour les gestes de protection — bloquer, signaler, supprimer
+  une entrée ou son compte. Vibré **sur la réponse du serveur, jamais sur
+  l'appui** : la main doit apprendre que la chose est faite, pas qu'un bouton a
+  été touché. Naviguer, ouvrir un panneau, changer de langue, annuler : rien.
+- **Tirer-pour-rafraîchir** sur l'accueil, le journal et la conversation. Les
+  trois lectures sont sorties de `useFocusEffect` pour que le geste emprunte
+  exactement le même chemin que l'arrivée sur l'écran — un second chemin de
+  rechargement finirait par diverger. Les gardes de démontage ont suivi :
+  servant deux appelants, elles sont devenues des `ref`.
+
+### La barre d'onglets — refusée, et pourquoi
+
+Le brief l'autorisait. Elle n'a pas été faite, pour quatre raisons qui tiennent
+ensemble :
+
+1. **Il n'y a pas d'icônes.** `@expo/vector-icons` n'est pas une dépendance
+   déclarée, et aucun trait de marque n'existe pour Accueil / Parcours / Journal
+   / Tandem. Une barre d'onglets en texte seul lit *moins* natif que les cartes
+   numérotées actuelles : on paierait la restructuration pour s'éloigner du but.
+2. **La langue est un état d'écran.** `locale` est un `useState<Locale>('fr')`
+   dans sept composants séparés. Un jeu de libellés d'onglets ne peut pas suivre
+   une bascule qui n'a pas de source unique.
+3. **C'est une restructuration de routes** — quatre fichiers vers `app/(tabs)/`,
+   un layout de plus, et le retrait du lien `← Aujourd'hui` sur quatre écrans.
+   C'est la refonte que le chantier excluait.
+4. **Les deux changements qui répondent vraiment au reproche** — les transitions
+   de plateforme et le retour d'appui — sont livrés ici.
+
+Prérequis du chantier suivant, si on la veut : remonter `locale` dans
+`stockage` derrière un hook partagé (ce qui corrigerait au passage une vraie
+verrue — changer de langue sur un écran ne suit pas sur le suivant), et
+commander quatre icônes dans le trait imprimé de la marque.
+
+### Vérifié, et ce qui ne l'est pas
+
+- `npm test` — 235 tests (23 fichiers) : verts, inchangés.
+- `npm run mobile:typecheck` et `npm run mobile:export` : passent après chaque
+  front.
+- `npx expo config --type public` : icône, icône adaptative, greffon de
+  démarrage et version 0.2.1 correctement résolus.
+- Les rendus d'icône et de démarrage ont été relus à l'œil, aux tailles réelles
+  et sous les masques d'Android.
+- **Rien n'est prouvé sur un appareil.** Le clavier, les vibrations et l'écran
+  de démarrage ne se vérifient qu'après une build EAS : la checklist de recette
+  au doigt est dans la PR.

@@ -43,16 +43,31 @@
  * Les confirmations sont des panneaux dans la page, pas des `Alert` :
  * `Alert.alert` ne rend rien d'utilisable sous `react-native-web`, et
  * `mobile:export` — la seule porte qui exerce vraiment Metro — passe par là.
+ *
+ * - **Le composeur est sorti du `ScrollView` le 25/08/2026.** C'est la seule
+ *   modification de structure de la finition mobile, et elle était nécessaire :
+ *   une conversation dont la case de saisie défile avec le fil ne se comporte
+ *   pas comme une messagerie, et sous Android en bord-à-bord le clavier la
+ *   recouvrait purement et simplement. Le fil et le composeur sont désormais
+ *   deux frères dans une colonne, et c'est la colonne qui remonte au-dessus du
+ *   clavier : le fil se rétrécit, le composeur reste au ras du clavier. Aucune
+ *   règle n'a changé — `accesConversation` gouverne toujours ce que le
+ *   composeur autorise, et il reste affiché fermé plutôt que retiré.
+ * - Le composeur s'efface pendant qu'un panneau est ouvert : épinglé en bas, il
+ *   recouvrirait le bouton de confirmation du panneau, et il proposerait
+ *   d'écrire à quelqu'un à qui on est en train de dire qu'on le bloque.
  */
 import { Link, useFocusEffect } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
-import { useCallback, useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
 import { CATEGORIES_PROPOSEES, accesConversation, gestesDeProtection, initialeDe, unblockAffordance, urgenceDe } from '@agapeplay/domain'
 import type { CategorieSignalement, Locale, RemoteMessage, TandemStatus } from '@agapeplay/domain'
-import { colors, typography } from '@/theme'
+import { colors, ondeClaire, ondeEncre, toucheMinimale, typography } from '@/theme'
+import { useChampAuDessusDuClavier } from '@/clavier'
+import { toucherGrave, toucherLeger } from '@/toucher'
 import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 
@@ -101,59 +116,105 @@ export default function TandemScreen() {
   const [categorie, setCategorie] = useState<CategorieSignalement | null>(null)
   const [motLibre, setMotLibre] = useState('')
   const [notice, setNotice] = useState('')
+  const [rafraichissement, setRafraichissement] = useState(false)
+  const { espacement, refDefilement, remonter } = useChampAuDessusDuClavier()
   const t = copy[locale]
+
+  /**
+   * La garde de démontage, devenue une `ref` : `load` sert désormais deux
+   * appelants — l'arrivée sur l'écran et le tirer-pour-rafraîchir — et une
+   * variable refermée dans l'effet ne protégerait que le premier.
+   */
+  const active = useRef(true)
+
+  const load = useCallback(async () => {
+    if (!supabase) { if (active.current) setLoading(false); return }
+    const { data: sessionData } = await supabase.auth.getSession()
+    // Garde de démontage après chaque await : l'écran peut disparaître
+    // pendant la requête, et écrire dans un état démonté ne sert personne.
+    if (!active.current) return
+    setSession(sessionData.session)
+    if (!sessionData.session) { setLoading(false); return }
+    const { data, error } = await supabase
+      .from('tandems')
+      .select('id, status, blocked_by, created_at')
+      .or(`participant_a_id.eq.${sessionData.session.user.id},participant_b_id.eq.${sessionData.session.user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    if (!active.current) return
+    if (error) setNotice(t.syncError)
+    else if (data?.[0]) {
+      const ligneTandem: RemoteTandem = { id: data[0].id, status: data[0].status, blockedBy: data[0].blocked_by }
+      setTandem(ligneTandem)
+      const partenaire = await supabase.rpc('tandem_partenaire')
+      if (!active.current) return
+      if (!partenaire.error) {
+        const ligne = (partenaire.data as Array<{ tandem_id: string; display_name: string | null }> | null)?.find((l) => l.tandem_id === ligneTandem.id)
+        setPartnerName(ligne?.display_name?.trim() || null)
+      }
+      // Lu même quand `peutLire` est faux : la réponse serait vide, mais
+      // c'est le serveur qui décide, pas l'écran. Le client ne s'autorise à
+      // rien de plus fermé que la politique — jamais l'inverse non plus.
+      const fil = await supabase
+        .from('tandem_messages')
+        .select('id, sender_id, body, created_at')
+        .eq('tandem_id', ligneTandem.id)
+        .order('created_at', { ascending: true })
+      if (!active.current) return
+      if (fil.error) setNotice(t.syncError)
+      else setMessages((fil.data ?? []).map((m) => ({ id: m.id, senderId: m.sender_id, body: m.body, createdAt: m.created_at })))
+    }
+    setLoading(false)
+    // Aucune dépendance : `t.syncError` est capturé au montage, et changer de
+    // langue n'a pas à relancer une lecture — la phrase d'erreur suivante sera
+    // dans la bonne langue.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // `useFocusEffect` et non `useEffect(…, [])` : sans temps réel, un message
   // reçu n'apparaît que sur une relecture, et le seul geste qu'un adolescent
   // fera naturellement est de revenir sur l'écran. L'accueil suit déjà ce
-  // motif. Aucun bouton « relire » : le web n'en a pas sur la conversation.
+  // motif.
   useFocusEffect(useCallback(() => {
-    let active = true
-    const load = async () => {
-      if (!supabase) { if (active) setLoading(false); return }
-      const { data: sessionData } = await supabase.auth.getSession()
-      // Garde de démontage après chaque await : l'écran peut disparaître
-      // pendant la requête, et écrire dans un état démonté ne sert personne.
-      if (!active) return
-      setSession(sessionData.session)
-      if (!sessionData.session) { setLoading(false); return }
-      const { data, error } = await supabase
-        .from('tandems')
-        .select('id, status, blocked_by, created_at')
-        .or(`participant_a_id.eq.${sessionData.session.user.id},participant_b_id.eq.${sessionData.session.user.id}`)
-        .order('created_at', { ascending: false })
-        .limit(1)
-      if (!active) return
-      if (error) setNotice(t.syncError)
-      else if (data?.[0]) {
-        const ligneTandem: RemoteTandem = { id: data[0].id, status: data[0].status, blockedBy: data[0].blocked_by }
-        setTandem(ligneTandem)
-        const partenaire = await supabase.rpc('tandem_partenaire')
-        if (!active) return
-        if (!partenaire.error) {
-          const ligne = (partenaire.data as Array<{ tandem_id: string; display_name: string | null }> | null)?.find((l) => l.tandem_id === ligneTandem.id)
-          setPartnerName(ligne?.display_name?.trim() || null)
-        }
-        // Lu même quand `peutLire` est faux : la réponse serait vide, mais
-        // c'est le serveur qui décide, pas l'écran. Le client ne s'autorise à
-        // rien de plus fermé que la politique — jamais l'inverse non plus.
-        const fil = await supabase
-          .from('tandem_messages')
-          .select('id, sender_id, body, created_at')
-          .eq('tandem_id', ligneTandem.id)
-          .order('created_at', { ascending: true })
-        if (!active) return
-        if (fil.error) setNotice(t.syncError)
-        else setMessages((fil.data ?? []).map((m) => ({ id: m.id, senderId: m.sender_id, body: m.body, createdAt: m.created_at })))
-      }
-      setLoading(false)
-    }
+    active.current = true
     void load()
-    return () => { active = false }
-    // Aucune dépendance : `t.syncError` est capturé au montage, et changer de
-    // langue n'a pas à relancer une lecture — la phrase d'erreur suivante sera
-    // dans la bonne langue.
-  }, []))
+    return () => { active.current = false }
+  }, [load]))
+
+  /**
+   * Le tirer-pour-rafraîchir : le geste que tout le monde connaît des
+   * messageries, et le seul moyen de relire le fil sans quitter l'écran. Il
+   * appelle exactement la lecture ci-dessus — pas un second chemin qui
+   * finirait par en diverger. C'est aussi ce qui remplace le bouton « relire »
+   * que le web n'a pas.
+   */
+  const rafraichir = useCallback(async () => {
+    setRafraichissement(true)
+    await load()
+    if (active.current) setRafraichissement(false)
+  }, [load])
+
+  /**
+   * Le fil, ramené sur son dernier message.
+   *
+   * Sans temps réel, les deux moments où le bas du fil compte sont l'arrivée
+   * sur l'écran et l'envoi d'un message. `scrollToEnd` amène la fin du contenu
+   * défilant, qui comprend aussi les liens de protection et la note de
+   * confidentialité — courts, et depuis toujours sous le fil : les derniers
+   * messages restent sous les yeux.
+   */
+  const auDernierMessage = useCallback(() => {
+    // Après le rendu, sinon la hauteur mesurée est celle d'avant le message.
+    requestAnimationFrame(() => refDefilement.current?.scrollToEnd({ animated: true }))
+  }, [refDefilement])
+
+  // Une conversation s'ouvre sur ce qui vient d'être dit, pas sur son début.
+  // Déclenché sur la fin du chargement et non sur `messages` : à chaque envoi,
+  // `envoyer` s'en charge déjà, et réagir aux deux ferait deux défilements.
+  useEffect(() => {
+    if (!loading && messages.length > 0) auDernierMessage()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
   // Le web efface ses messages au bout de quelques secondes ; ici il n'y a pas
   // de `showNotice`, et une phrase laissée là finirait par annoncer la reprise
@@ -189,8 +250,12 @@ export default function TandemScreen() {
       setNotice(t.sendError)
       return
     }
+    // Vibré sur la ligne rendue par le serveur, jamais sur l'appui : ce que la
+    // main doit sentir, c'est que le message est **parti**.
+    toucherLeger()
     setMessages((precedents) => [...precedents, { id: data.id, senderId: data.sender_id, body: data.body, createdAt: data.created_at }])
     setDraft('')
+    auDernierMessage()
   }
 
   const bloquer = async () => {
@@ -218,6 +283,9 @@ export default function TandemScreen() {
     // referme alors le composeur, `unblockAffordance` ouvre la porte de retour,
     // et le fil reste lisible — bloquer ne prend pas l'historique à celui qui a
     // bloqué, il en a souvent besoin pour signaler.
+    // Plus lourd que l'envoi : fermer une conversation n'est pas un geste
+    // ordinaire, et la main doit le savoir.
+    toucherGrave()
     setTandem({ id: data.id, status: data.status, blockedBy: data.blocked_by })
     setNotice(t.blockedNotice)
   }
@@ -255,6 +323,7 @@ export default function TandemScreen() {
     // on lit quand même la ligne rendue : sans elle, on annoncerait « transmis »
     // sur la foi d'une absence d'erreur.
     if (error || !data) { setNotice(t.syncError); return }
+    toucherGrave()
     // Le doc 08 autorise `category` et `channel_type` sur cet événement, et
     // rien de plus. Le mot libre reste ici : c'est la phrase de la personne.
     void emettre('report_created', { locale, proprietes: { category: categorie, channel_type: 'conversation' } })
@@ -286,46 +355,192 @@ export default function TandemScreen() {
 
   const blocked = tandem?.status === 'blocked' || tandem?.status === 'ended'
 
+  // Le composeur ne s'affiche pas par-dessus un panneau ouvert : voir l'en-tête
+  // du fichier.
+  const composeurVisible = tandem !== null && panneau === 'aucun'
+
   return <SafeAreaView style={styles.safe}>
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.topline}>
-        <Link href="/" style={styles.back}>← {t.today}</Link>
-        <Pressable accessibilityRole="button" accessibilityLabel={t.language} onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}><Text style={styles.locale}>{locale.toUpperCase()}</Text></Pressable>
-      </View>
+    {/* C'est la colonne qui remonte au-dessus du clavier, et non chacun de ses
+        deux enfants : le fil, en `flex: 1`, se rétrécit d'autant, et le
+        composeur se retrouve au ras du clavier — le comportement d'une
+        messagerie. */}
+    <View style={[styles.colonne, { paddingBottom: espacement }]}>
+      <ScrollView
+        ref={refDefilement}
+        style={styles.fil}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        refreshControl={<RefreshControl
+          refreshing={rafraichissement}
+          onRefresh={() => void rafraichir()}
+          colors={[colors.copper]}
+          tintColor={colors.copper}
+        />}
+      >
+        <View style={styles.topline}>
+          <Link href="/" asChild>
+            <Pressable style={[styles.backTouch, toucheMinimale]}>
+              {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
+            </Pressable>
+          </Link>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.language}
+            style={[styles.localeTouch, toucheMinimale]}
+            onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+          >
+            {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
+          </Pressable>
+        </View>
 
-      <Text style={styles.kicker}>{t.kicker}</Text>
-      <Text style={styles.title}>{t.title}</Text>
-      {/* Le vrai nom, plus jamais celui de la maquette. Sans tandem ou sans
-          nom posé, la ligne d'indice ci-dessous dit déjà la situation. */}
-      <View style={styles.avatar}><Text style={styles.avatarText}>{initialeDe(partnerName)}</Text></View>
-      <Text style={styles.name}>{partnerName ?? (loading ? '…' : t.noTandem)}</Text>
-      <Text style={styles.status}>{loading ? t.loading : !tandem ? ' ' : blocked ? `— ${t.blockedStatus}` : `● ${t.online}`}</Text>
+        <Text style={styles.kicker}>{t.kicker}</Text>
+        <Text style={styles.title}>{t.title}</Text>
+        {/* Le vrai nom, plus jamais celui de la maquette. Sans tandem ou sans
+            nom posé, la ligne d'indice ci-dessous dit déjà la situation. */}
+        <View style={styles.avatar}><Text style={styles.avatarText}>{initialeDe(partnerName)}</Text></View>
+        <Text style={styles.name}>{partnerName ?? (loading ? '…' : t.noTandem)}</Text>
+        <Text style={styles.status}>{loading ? t.loading : !tandem ? ' ' : blocked ? `— ${t.blockedStatus}` : `● ${t.online}`}</Text>
 
-      {!loading && !session && <Text style={styles.hint}>{t.signInPrompt}</Text>}
-      {!loading && session && !tandem && <Text style={styles.hint}>{t.noTandem}</Text>}
+        {!loading && !session && <Text style={styles.hint}>{t.signInPrompt}</Text>}
+        {!loading && session && !tandem && <Text style={styles.hint}>{t.noTandem}</Text>}
 
-      {tandem && <View style={styles.thread}>
-        {/* Trois cas, et le troisième est le seul qui se voit vraiment : une
-            lecture coupée par la politique rend une liste vide, exactement
-            comme une conversation qui n'a jamais commencé. */}
-        {!acces.peutLire
-          ? <Text style={styles.threadNote}>{t.threadClosed}</Text>
-          : messages.length === 0
-            ? <Text style={styles.threadNote}>{t.emptyThread}</Text>
-            : messages.map((message) => {
-              const deMoi = message.senderId === session?.user.id
-              return <View key={message.id} style={[styles.bubble, deMoi ? styles.bubbleMine : styles.bubbleTheirs]}>
-                <Text style={[styles.author, deMoi && styles.authorMine]}>{deMoi ? t.me : partnerName ?? t.tandem}</Text>
-                <Text style={[styles.body, deMoi && styles.bodyMine]}>{message.body}</Text>
-                <Text style={[styles.time, deMoi && styles.timeMine]}>{new Date(message.createdAt).toLocaleString()}</Text>
-              </View>
-            })}
-      </View>}
+        {tandem && <View style={styles.thread}>
+          {/* Trois cas, et le troisième est le seul qui se voit vraiment : une
+              lecture coupée par la politique rend une liste vide, exactement
+              comme une conversation qui n'a jamais commencé. */}
+          {!acces.peutLire
+            ? <Text style={styles.threadNote}>{t.threadClosed}</Text>
+            : messages.length === 0
+              ? <Text style={styles.threadNote}>{t.emptyThread}</Text>
+              : messages.map((message) => {
+                const deMoi = message.senderId === session?.user.id
+                return <View key={message.id} style={[styles.bubble, deMoi ? styles.bubbleMine : styles.bubbleTheirs]}>
+                  <Text style={[styles.author, deMoi && styles.authorMine]}>{deMoi ? t.me : partnerName ?? t.tandem}</Text>
+                  <Text style={[styles.body, deMoi && styles.bodyMine]}>{message.body}</Text>
+                  <Text style={[styles.time, deMoi && styles.timeMine]}>{new Date(message.createdAt).toLocaleString()}</Text>
+                </View>
+              })}
+        </View>}
 
-      {tandem && <View style={styles.composer}>
-        {/* Le composeur reste visible mais fermé, comme sur le web : le retirer
-            laisserait croire que la conversation n'a jamais eu de composeur,
-            là où le placeholder dit qu'elle est close. */}
+        {affordance !== 'hidden' && panneau === 'aucun' && <View style={styles.panel}>
+          <Text style={styles.panelKicker}>{t.blockedStatus.toUpperCase()}</Text>
+          {affordance === 'unblockable' && <>
+            <Text style={styles.panelText}>{t.unblockOwnerNote}</Text>
+            <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => setPanneau('deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
+          </>}
+          {/* Aucun bouton dans les deux cas suivants : la politique le refuserait
+              pour l'un, personne ne peut rien pour l'autre. La phrase tient lieu
+              de réponse, ce qui est plus honnête qu'un geste qui échoue. */}
+          {affordance === 'blocked-by-other' && <Text style={styles.panelText}>{t.unblockOtherNote}</Text>}
+          {affordance === 'frozen' && <Text style={styles.panelText}>{t.unblockFrozenNote}</Text>}
+        </View>}
+
+        {panneau === 'deblocage' && <View style={styles.panel}>
+          <Text style={styles.panelKicker}>{t.unblockTitle}</Text>
+          <Text style={styles.panelText}>{t.unblockDescription}</Text>
+          <Text style={styles.panelText}>{t.unblockReversible}</Text>
+          <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void unblock()}><Text style={styles.panelActionText}>{t.unblockConfirm}  →</Text></Pressable>
+          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.unblockCancel}</Text>}</Pressable>
+        </View>}
+
+        {/* Le blocage se confirme, là où le web le pose sur un appui unique : sur
+            un téléphone, un bouton se touche par accident, et celui-ci ferme une
+            conversation. Le panneau dit ce qui change, puis ce qui reste
+            réversible — le même ordre que le déblocage juste au-dessus. */}
+        {panneau === 'blocage' && <View style={styles.panel}>
+          <Text style={styles.panelKicker}>{t.blockTitle}</Text>
+          <Text style={styles.panelText}>{t.blockDescription}</Text>
+          <Text style={styles.panelText}>{t.blockReversible}</Text>
+          <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void bloquer()}><Text style={styles.panelActionText}>{t.blockConfirm}  →</Text></Pressable>
+          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.blockCancel}</Text>}</Pressable>
+        </View>}
+
+
+        {/* Le signalement, devenu une question. Panneau dans la page et non
+            `Alert.alert` : celui-ci ne rend rien d'utilisable sous
+            react-native-web, et `mobile:export` est la seule garde Metro sans
+            appareil. C'est la même règle que la confirmation de blocage.
+
+            Le mot libre est facultatif et l'écran le dit : à ce moment-là,
+            raconter est difficile, choisir une ligne ne l'est pas — et un champ
+            qu'on croit obligatoire est un signalement abandonné. */}
+        {panneau === 'signalement' && <View style={styles.panel}>
+          <Text style={styles.panelKicker}>{t.report}</Text>
+          <Text style={styles.panelTitle}>{t.reportTitle}</Text>
+          <Text style={styles.panelText}>{t.reportDescription}</Text>
+
+          <View style={styles.categories}>
+            {CATEGORIES_PROPOSEES.map((valeur) => (
+              <Pressable
+                key={valeur}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: categorie === valeur }}
+                android_ripple={ondeEncre}
+                style={({ pressed }) => [styles.category, categorie === valeur && styles.categoryChosen, pressed && styles.pressed]}
+                onPress={() => setCategorie(valeur)}
+              >
+                <Text style={[styles.categoryText, categorie === valeur && styles.categoryTextChosen]}>{libelleCategorie(valeur, t)}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Dit sur les deux seules catégories d'urgence immédiate, et nulle part
+              ailleurs : sous chacune il deviendrait invisible, absent il
+              laisserait croire qu'envoyer ce formulaire est un secours. */}
+          {categorie && urgenceDe(categorie) === 'immediate' && <>
+            <Text style={styles.panelAlert}>{t.reportHelplineNote}</Text>
+            <Text style={styles.panelText}>{t.reportUrgentNote}</Text>
+          </>}
+
+          <Text style={styles.panelLabel}>{t.reportNoteLabel}</Text>
+          <TextInput
+            style={styles.noteInput}
+            value={motLibre}
+            onChangeText={setMotLibre}
+            onFocus={remonter}
+            maxLength={1000}
+            multiline
+            placeholder={t.reportNotePlaceholder}
+            placeholderTextColor={colors.muted}
+          />
+
+          {/* Sans catégorie il n'y a rien à envoyer : `category` est `not null` et
+              sans défaut, la base refuserait l'insert. */}
+          <Pressable
+            accessibilityRole="button"
+            disabled={!categorie || signalement}
+            android_ripple={ondeClaire}
+            style={({ pressed }) => [styles.panelAction, (!categorie || signalement) && styles.panelActionOff, pressed && styles.pressed]}
+            onPress={() => void signaler()}
+          ><Text style={styles.panelActionText}>{signalement ? t.reporting : t.reportConfirm}  →</Text></Pressable>
+          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.reportCancel}</Text>}</Pressable>
+        </View>}
+
+        {/* Les deux gestes, en bas de l'écran comme sur le web : ils ne sont pas
+            la conversation, ils sont ce qu'on fait quand elle tourne mal. Le
+            signalement reste offert sur une relation bloquée — c'est souvent là
+            qu'il sert. Rien n'est affiché sans tandem : il n'y aurait rien à
+            bloquer ni à signaler, et un bouton qui ne peut pas aboutir est une
+            promesse trahie. */}
+        {(gestes.peutSignaler || gestes.peutBloquer) && panneau === 'aucun' && <View style={styles.safety}>
+          {gestes.peutSignaler && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => setPanneau('signalement')}>
+            {({ pressed }) => <Text style={[styles.safetyDanger, pressed && styles.pressed]}>{t.report}</Text>}
+          </Pressable>}
+          {gestes.peutBloquer && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => setPanneau('blocage')}>
+            {({ pressed }) => <Text style={[styles.safetyAction, pressed && styles.pressed]}>{t.block}</Text>}
+          </Pressable>}
+        </View>}
+
+        {notice.length > 0 && <Text style={styles.notice}>{notice}</Text>}
+        <Text style={styles.private}>{t.privacyNote}</Text>
+      </ScrollView>
+
+      {/* Le composeur, épinglé. Il reste **visible mais fermé** quand la relation
+          ne permet plus d'écrire, comme sur le web : le retirer laisserait croire
+          que la conversation n'a jamais eu de composeur, là où le placeholder dit
+          qu'elle est close. */}
+      {composeurVisible && <View style={styles.composer}>
         <TextInput
           style={[styles.input, !acces.peutEcrire && styles.inputClosed]}
           value={draft}
@@ -335,135 +550,38 @@ export default function TandemScreen() {
           placeholder={acces.peutEcrire ? t.composerPlaceholder : t.composerClosed}
           placeholderTextColor={colors.muted}
           accessibilityLabel={t.composerPlaceholder}
+          // Le fil descend sur son dernier message quand la case prend le
+          // clavier : sans cela, le clavier monterait devant la fin de la
+          // conversation qu'on est justement en train de poursuivre.
+          onFocus={auDernierMessage}
         />
         <Pressable
           accessibilityRole="button"
           disabled={!acces.peutEcrire || sending || !draft.trim()}
-          style={[styles.sendButton, (!acces.peutEcrire || sending || !draft.trim()) && styles.sendButtonOff]}
+          android_ripple={ondeClaire}
+          style={({ pressed }) => [styles.sendButton, (!acces.peutEcrire || sending || !draft.trim()) && styles.sendButtonOff, pressed && styles.pressed]}
           onPress={() => void envoyer()}
         >
           <Text style={styles.sendButtonText}>{sending ? t.sending : `${t.send}  →`}</Text>
         </Pressable>
       </View>}
-
-      {affordance !== 'hidden' && panneau === 'aucun' && <View style={styles.panel}>
-        <Text style={styles.panelKicker}>{t.blockedStatus.toUpperCase()}</Text>
-        {affordance === 'unblockable' && <>
-          <Text style={styles.panelText}>{t.unblockOwnerNote}</Text>
-          <Pressable style={styles.panelAction} onPress={() => setPanneau('deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
-        </>}
-        {/* Aucun bouton dans les deux cas suivants : la politique le refuserait
-            pour l'un, personne ne peut rien pour l'autre. La phrase tient lieu
-            de réponse, ce qui est plus honnête qu'un geste qui échoue. */}
-        {affordance === 'blocked-by-other' && <Text style={styles.panelText}>{t.unblockOtherNote}</Text>}
-        {affordance === 'frozen' && <Text style={styles.panelText}>{t.unblockFrozenNote}</Text>}
-      </View>}
-
-      {panneau === 'deblocage' && <View style={styles.panel}>
-        <Text style={styles.panelKicker}>{t.unblockTitle}</Text>
-        <Text style={styles.panelText}>{t.unblockDescription}</Text>
-        <Text style={styles.panelText}>{t.unblockReversible}</Text>
-        <Pressable style={styles.panelAction} onPress={() => void unblock()}><Text style={styles.panelActionText}>{t.unblockConfirm}  →</Text></Pressable>
-        <Pressable onPress={() => setPanneau('aucun')}><Text style={styles.panelCancel}>{t.unblockCancel}</Text></Pressable>
-      </View>}
-
-      {/* Le blocage se confirme, là où le web le pose sur un appui unique : sur
-          un téléphone, un bouton se touche par accident, et celui-ci ferme une
-          conversation. Le panneau dit ce qui change, puis ce qui reste
-          réversible — le même ordre que le déblocage juste au-dessus. */}
-      {panneau === 'blocage' && <View style={styles.panel}>
-        <Text style={styles.panelKicker}>{t.blockTitle}</Text>
-        <Text style={styles.panelText}>{t.blockDescription}</Text>
-        <Text style={styles.panelText}>{t.blockReversible}</Text>
-        <Pressable style={styles.panelAction} onPress={() => void bloquer()}><Text style={styles.panelActionText}>{t.blockConfirm}  →</Text></Pressable>
-        <Pressable onPress={() => setPanneau('aucun')}><Text style={styles.panelCancel}>{t.blockCancel}</Text></Pressable>
-      </View>}
-
-
-      {/* Le signalement, devenu une question. Panneau dans la page et non
-          `Alert.alert` : celui-ci ne rend rien d'utilisable sous
-          react-native-web, et `mobile:export` est la seule garde Metro sans
-          appareil. C'est la même règle que la confirmation de blocage.
-
-          Le mot libre est facultatif et l'écran le dit : à ce moment-là,
-          raconter est difficile, choisir une ligne ne l'est pas — et un champ
-          qu'on croit obligatoire est un signalement abandonné. */}
-      {panneau === 'signalement' && <View style={styles.panel}>
-        <Text style={styles.panelKicker}>{t.report}</Text>
-        <Text style={styles.panelTitle}>{t.reportTitle}</Text>
-        <Text style={styles.panelText}>{t.reportDescription}</Text>
-
-        <View style={styles.categories}>
-          {CATEGORIES_PROPOSEES.map((valeur) => (
-            <Pressable
-              key={valeur}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: categorie === valeur }}
-              style={[styles.category, categorie === valeur && styles.categoryChosen]}
-              onPress={() => setCategorie(valeur)}
-            >
-              <Text style={[styles.categoryText, categorie === valeur && styles.categoryTextChosen]}>{libelleCategorie(valeur, t)}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* Dit sur les deux seules catégories d'urgence immédiate, et nulle part
-            ailleurs : sous chacune il deviendrait invisible, absent il
-            laisserait croire qu'envoyer ce formulaire est un secours. */}
-        {categorie && urgenceDe(categorie) === 'immediate' && <>
-          <Text style={styles.panelAlert}>{t.reportHelplineNote}</Text>
-          <Text style={styles.panelText}>{t.reportUrgentNote}</Text>
-        </>}
-
-        <Text style={styles.panelLabel}>{t.reportNoteLabel}</Text>
-        <TextInput
-          style={styles.noteInput}
-          value={motLibre}
-          onChangeText={setMotLibre}
-          maxLength={1000}
-          multiline
-          placeholder={t.reportNotePlaceholder}
-          placeholderTextColor={colors.muted}
-        />
-
-        {/* Sans catégorie il n'y a rien à envoyer : `category` est `not null` et
-            sans défaut, la base refuserait l'insert. */}
-        <Pressable
-          accessibilityRole="button"
-          disabled={!categorie || signalement}
-          style={[styles.panelAction, (!categorie || signalement) && styles.panelActionOff]}
-          onPress={() => void signaler()}
-        ><Text style={styles.panelActionText}>{signalement ? t.reporting : t.reportConfirm}  →</Text></Pressable>
-        <Pressable onPress={() => setPanneau('aucun')}><Text style={styles.panelCancel}>{t.reportCancel}</Text></Pressable>
-      </View>}
-
-      {/* Les deux gestes, en bas de l'écran comme sur le web : ils ne sont pas
-          la conversation, ils sont ce qu'on fait quand elle tourne mal. Le
-          signalement reste offert sur une relation bloquée — c'est souvent là
-          qu'il sert. Rien n'est affiché sans tandem : il n'y aurait rien à
-          bloquer ni à signaler, et un bouton qui ne peut pas aboutir est une
-          promesse trahie. */}
-      {(gestes.peutSignaler || gestes.peutBloquer) && panneau === 'aucun' && <View style={styles.safety}>
-        {gestes.peutSignaler && <Pressable accessibilityRole="button" onPress={() => setPanneau('signalement')}>
-          <Text style={styles.safetyDanger}>{t.report}</Text>
-        </Pressable>}
-        {gestes.peutBloquer && <Pressable accessibilityRole="button" onPress={() => setPanneau('blocage')}>
-          <Text style={styles.safetyAction}>{t.block}</Text>
-        </Pressable>}
-      </View>}
-
-      {notice.length > 0 && <Text style={styles.notice}>{notice}</Text>}
-      <Text style={styles.private}>{t.privacyNote}</Text>
-    </ScrollView>
+    </View>
   </SafeAreaView>
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
-  container: { padding: 24, paddingBottom: 48 },
-  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 54 },
+  colonne: { flex: 1 },
+  // `flex: 1` sur la ScrollView elle-même, et non sur son contenu : c'est la
+  // hauteur du fil qui doit céder quand le clavier prend sa place.
+  fil: { flex: 1 },
+  container: { padding: 24, paddingBottom: 32 },
+  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 },
+  backTouch: { alignSelf: 'flex-start' },
   back: { color: colors.muted, fontFamily: typography.mono, fontSize: 11 },
+  localeTouch: { alignItems: 'flex-end', paddingLeft: 16 },
   locale: { color: colors.ink, fontFamily: typography.mono, fontSize: 11, borderBottomWidth: 1, borderBottomColor: colors.ink, paddingBottom: 3 },
+  pressed: { opacity: 0.55 },
   kicker: { color: colors.copper, fontFamily: typography.mono, fontSize: 10, letterSpacing: 1 },
   title: { color: colors.ink, fontFamily: typography.display, fontSize: 42, marginTop: 16 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.copper, justifyContent: 'center', alignItems: 'center', marginTop: 34 },
@@ -482,8 +600,12 @@ const styles = StyleSheet.create({
   bodyMine: { color: colors.white },
   time: { color: colors.muted, fontFamily: typography.mono, fontSize: 9, marginTop: 10 },
   timeMine: { color: colors.soft },
-  composer: { marginTop: 26, gap: 12, maxWidth: 340 },
-  input: { borderWidth: 1, borderColor: colors.ink, padding: 14, minHeight: 74, color: colors.ink, fontSize: 15, lineHeight: 22, textAlignVertical: 'top' },
+  // Épinglé sous le fil : un filet le sépare de la conversation, et il porte
+  // le fond du papier pour que les bulles ne transparaissent pas dessous.
+  composer: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 14, gap: 10, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.paper },
+  // `maxHeight` : une case qui grandit sans fin finirait par manger le fil
+  // au-dessus d'elle. Au-delà, la saisie défile dans la case.
+  input: { borderWidth: 1, borderColor: colors.ink, padding: 12, minHeight: 52, maxHeight: 140, color: colors.ink, fontSize: 15, lineHeight: 22, textAlignVertical: 'top' },
   inputClosed: { borderColor: colors.line, backgroundColor: colors.soft },
   sendButton: { alignSelf: 'flex-start', backgroundColor: colors.copper, paddingVertical: 13, paddingHorizontal: 18 },
   sendButtonOff: { backgroundColor: colors.line },
@@ -506,7 +628,7 @@ const styles = StyleSheet.create({
   panelActionOff: { backgroundColor: colors.line },
   panelAction: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingVertical: 13, paddingHorizontal: 17, marginTop: 18 },
   panelActionText: { color: colors.white, fontFamily: typography.mono, fontSize: 11 },
-  safety: { flexDirection: 'row', gap: 22, marginTop: 30, flexWrap: 'wrap' },
+  safety: { flexDirection: 'row', gap: 22, marginTop: 24, flexWrap: 'wrap', alignItems: 'center' },
   safetyDanger: { color: colors.copper, fontFamily: typography.mono, fontSize: 11, textDecorationLine: 'underline' },
   safetyAction: { color: colors.muted, fontFamily: typography.mono, fontSize: 11, textDecorationLine: 'underline' },
   safetyOff: { color: colors.line },

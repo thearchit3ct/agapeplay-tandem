@@ -27,7 +27,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-compte'
 import type { Locale } from '@agapeplay/domain'
-import { colors, typography } from '@/theme'
+import { colors, ondeClaire, toucheMinimale, typography } from '@/theme'
+import { toucherGrave, toucherLeger } from '@/toucher'
 import { supabase } from '@/supabase'
 import { deconnexionPartout, emporterMesDonnees, supprimerMonCompte } from '@/compte'
 
@@ -69,6 +70,8 @@ export default function CompteScreen() {
     // ferait croire à une perte de données.
     if (resultat === 'echec-assemblage') { setNotice(t.exportFailed); return }
     if (resultat === 'sans-partage') { setNotice(t.exportNoSharing); return }
+    // Le fichier est assemblé et proposé : c'est cela que la main confirme.
+    toucherLeger()
     setNotice(t.exportReady)
   }
 
@@ -88,6 +91,8 @@ export default function CompteScreen() {
     const supprime = await supprimerMonCompte()
     setEnCours(null)
     if (!supprime) { setNotice(t.deleteFailed); return }
+    // Le geste le plus lourd de l'application, et le seul qui ne se défait pas.
+    toucherGrave()
     setConfirmation(false)
     setSession(null)
     setNotice(t.deleteDone)
@@ -100,8 +105,19 @@ export default function CompteScreen() {
   return <SafeAreaView style={styles.safe}>
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.topline}>
-        <Link href="/" style={styles.back}>← {t.today}</Link>
-        <Pressable accessibilityRole="button" accessibilityLabel={t.language} onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}><Text style={styles.locale}>{locale.toUpperCase()}</Text></Pressable>
+        <Link href="/" asChild>
+          <Pressable style={[styles.backTouch, toucheMinimale]}>
+            {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
+          </Pressable>
+        </Link>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t.language}
+          style={[styles.localeTouch, toucheMinimale]}
+          onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+        >
+          {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
+        </Pressable>
       </View>
 
       <Text style={styles.kicker}>{t.kicker}</Text>
@@ -118,7 +134,8 @@ export default function CompteScreen() {
           <Pressable
             accessibilityRole="button"
             disabled={enCours !== null}
-            style={[styles.action, enCours !== null && styles.actionOff]}
+            android_ripple={ondeClaire}
+            style={({ pressed }) => [styles.action, enCours !== null && styles.actionOff, pressed && styles.pressed]}
             onPress={() => void emporter()}
           ><Text style={styles.actionText}>{enCours === 'export' ? t.exportWorking : `${t.exportData}  →`}</Text></Pressable>
         </View>
@@ -128,8 +145,9 @@ export default function CompteScreen() {
           <Pressable
             accessibilityRole="button"
             disabled={enCours !== null}
+            style={toucheMinimale}
             onPress={() => void partirDePartout()}
-          ><Text style={styles.link}>{t.signOutEverywhere}</Text></Pressable>
+          >{({ pressed }) => <Text style={[styles.link, pressed && styles.pressed]}>{t.signOutEverywhere}</Text>}</Pressable>
         </View>
 
         <View style={styles.blockDanger}>
@@ -138,8 +156,9 @@ export default function CompteScreen() {
           {!confirmation && <Pressable
             accessibilityRole="button"
             disabled={enCours !== null}
+            style={toucheMinimale}
             onPress={() => setConfirmation(true)}
-          ><Text style={styles.danger}>{t.deleteAccount}</Text></Pressable>}
+          >{({ pressed }) => <Text style={[styles.danger, pressed && styles.pressed]}>{t.deleteAccount}</Text>}</Pressable>}
 
           {/* Ce qui va se passer, énuméré avant la question. L'ordre est celui
               du web : ce qui part, ce qui reste, le blocage, les sessions — et
@@ -155,10 +174,11 @@ export default function CompteScreen() {
             <Pressable
               accessibilityRole="button"
               disabled={enCours !== null}
-              style={[styles.action, enCours !== null && styles.actionOff]}
+              android_ripple={ondeClaire}
+              style={({ pressed }) => [styles.action, enCours !== null && styles.actionOff, pressed && styles.pressed]}
               onPress={() => void supprimer()}
             ><Text style={styles.actionText}>{enCours === 'suppression' ? t.deleteWorking : `${t.deleteConfirm}  →`}</Text></Pressable>
-            <Pressable onPress={() => setConfirmation(false)}><Text style={styles.panelCancel}>{t.deleteCancel}</Text></Pressable>
+            <Pressable style={toucheMinimale} onPress={() => setConfirmation(false)}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.deleteCancel}</Text>}</Pressable>
           </View>}
         </View>
       </>}
@@ -171,9 +191,12 @@ export default function CompteScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
   container: { padding: 24, paddingBottom: 48 },
-  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 54 },
+  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 },
+  backTouch: { alignSelf: 'flex-start' },
   back: { color: colors.muted, fontFamily: typography.mono, fontSize: 11 },
+  localeTouch: { alignItems: 'flex-end', paddingLeft: 16 },
   locale: { color: colors.ink, fontFamily: typography.mono, fontSize: 11, borderBottomWidth: 1, borderBottomColor: colors.ink, paddingBottom: 3 },
+  pressed: { opacity: 0.55 },
   kicker: { color: colors.copper, fontFamily: typography.mono, fontSize: 10, letterSpacing: 1 },
   title: { color: colors.ink, fontFamily: typography.display, fontSize: 36, lineHeight: 41, marginTop: 16 },
   account: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, marginTop: 18 },
