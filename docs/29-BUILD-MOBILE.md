@@ -36,8 +36,7 @@ C'est le cas, et seulement le cas, quand :
   `npx expo install` pose et qui a du code Android/iOS derrière
   (`expo-notifications`, `react-native-reanimated`, `expo-updates` lui-même…) ;
 - une **clé native d'`app.json`** bouge : `plugins`, `scheme`, `permissions`,
-  `intentFilters`, `associatedDomains`, `package`, `bundleIdentifier`,
-  `newArchEnabled` ;
+  `intentFilters`, `associatedDomains`, `package`, `bundleIdentifier` ;
 - l'**icône ou l'écran de démarrage** change — ce sont des ressources compilées
   dans le binaire, pas des images servies au vol ;
 - le **SDK Expo** monte d'un cran.
