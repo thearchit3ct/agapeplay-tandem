@@ -25,7 +25,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-invite'
 import type { FormeDeLien, Locale, RefusDAdhesion } from '@agapeplay/domain'
-import { colors, typography } from '@/theme'
+import { colors, ondeClaire, toucheMinimale, typography } from '@/theme'
 import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 import { accepterInvitationTandem, jetonRetenu, oublierJeton, rejoindreLaCommunaute, retenirJeton } from '@/invitations'
@@ -128,13 +128,24 @@ export default function InviteScreen() {
   return <SafeAreaView style={styles.safe}>
     <View style={styles.container}>
       <View style={styles.topline}>
-        <Link href="/" style={styles.back}>← {t.today}</Link>
-        <Pressable accessibilityRole="button" accessibilityLabel={t.language} onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}><Text style={styles.locale}>{locale.toUpperCase()}</Text></Pressable>
+        <Link href="/" asChild>
+          <Pressable style={[styles.backTouch, toucheMinimale]}>
+            {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
+          </Pressable>
+        </Link>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t.language}
+          style={[styles.localeTouch, toucheMinimale]}
+          onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+        >
+          {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
+        </Pressable>
       </View>
       <Text style={styles.kicker}>{t.kicker}</Text>
       <Text style={styles.title}>{forme === 'communaute' ? t.communityTitle : t.tandemTitle}</Text>
       <Text style={styles.message}>{message || t.checking}</Text>
-      <Pressable style={styles.primary} onPress={() => router.replace('/')}><Text style={styles.primaryText}>{t.continue} →</Text></Pressable>
+      <Pressable style={({ pressed }) => [styles.primary, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => router.replace('/')}><Text style={styles.primaryText}>{t.continue} →</Text></Pressable>
     </View>
   </SafeAreaView>
 }
@@ -142,9 +153,12 @@ export default function InviteScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
   container: { flex: 1, padding: 24 },
-  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 74 },
+  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 58 },
+  backTouch: { alignSelf: 'flex-start' },
   back: { color: colors.muted, fontFamily: typography.mono, fontSize: 11 },
+  localeTouch: { alignItems: 'flex-end', paddingLeft: 16 },
   locale: { color: colors.ink, fontFamily: typography.mono, fontSize: 11, borderBottomWidth: 1, borderBottomColor: colors.ink, paddingBottom: 3 },
+  pressed: { opacity: 0.55 },
   kicker: { color: colors.copper, fontFamily: typography.mono, fontSize: 10, letterSpacing: 1 },
   title: { color: colors.ink, fontFamily: typography.display, fontSize: 42, lineHeight: 46, marginTop: 16 },
   message: { color: colors.muted, fontSize: 17, lineHeight: 25, marginTop: 28, maxWidth: 310 },
