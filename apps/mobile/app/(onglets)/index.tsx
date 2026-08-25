@@ -7,6 +7,7 @@ import { copy } from '@agapeplay/content/copy/mobile-home'
 import type { EtatDeSemaine, Journey } from '@agapeplay/domain'
 import { ETATS_DE_SEMAINE, invitationDouce, prochaineSeance, semaineDuBilan } from '@agapeplay/domain'
 import { bordsDOnglet, colors, ondeClaire, ondeEncre, toucheMinimale, typography } from '@/theme'
+import { Appui } from '@/appui'
 import { useLangue } from '@/langue'
 import { Squelette, SqueletteDeParagraphe } from '@/squelette'
 import { toucherAbouti, toucherLeger } from '@/toucher'
@@ -298,7 +299,24 @@ export default function HomeScreen() {
                 <Text style={styles.title}>{seance.title}</Text>
                 <Text style={styles.verse}>{seance.verse}</Text>
                 <Text style={styles.prompt}>{seance.prompt}</Text>
-                <Link href={{ pathname: '/session', params: { jour: String(seance.day) } }} asChild><Pressable style={({ pressed }) => [styles.primary, pressed && styles.pressed]} android_ripple={ondeClaire}><Text style={styles.primaryText}>{t.start}  →</Text></Pressable></Link>
+                {/* La même transition d'ouverture que sur le Parcours — voir le
+                    commentaire de `journey.tsx` pour ce qu'elle est et pour son
+                    repli hors d'iOS 18.
+
+                    **Ce qui grandit ici est le bouton, pas la carte du jour**, et
+                    c'est un arbitrage, pas un oubli : la carte n'est pas un lien
+                    — elle porte un titre, un verset, une invitation, et un seul
+                    de ses éléments mène à la séance. La rendre entièrement
+                    touchable pour que la transition parte d'elle changerait ce
+                    qu'un appui fait, c'est-à-dire du produit, dans un chantier
+                    qui n'anime que ce qui existe. À juger au doigt : si l'effet
+                    paraît petit, la décision suivante est de faire de la carte
+                    le lien, et elle se prend à la recette. */}
+                <Link href={{ pathname: '/session', params: { jour: String(seance.day) } }} asChild>
+                  <Link.AppleZoom>
+                    <Appui style={({ pressed }) => [styles.primary, pressed && styles.pressed]} android_ripple={ondeClaire}><Text style={styles.primaryText}>{t.start}  →</Text></Appui>
+                  </Link.AppleZoom>
+                </Link>
               </>
             : <Text style={styles.verse}>{t.sessionNotDownloaded}</Text>}
       </View>
