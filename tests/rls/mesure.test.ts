@@ -215,6 +215,18 @@ describe('le consentement, et la suppression', () => {
     await commeService((client) => client.query('delete from public.mesure_preferences where user_id = $1', [personne.id]))
   })
 
+  it('ne laisse aucun droit sur la préférence de mesure à un visiteur non connecté', async () => {
+    // La RLS ferme déjà la porte — la politique ne vise que `authenticated` —
+    // mais jusqu'au 30 octobre 2026 les privilèges par défaut du schéma
+    // `public` accordent encore à `anon`. Le `revoke` explicite de la migration
+    // est ce que ce test épingle.
+    const { rows } = await commeService((client) => client.query(
+      `select has_table_privilege('anon', 'public.mesure_preferences', 'select') as lire,
+              has_table_privilege('anon', 'public.mesure_preferences', 'insert') as ecrire,
+              has_table_privilege('authenticated', 'public.mesure_preferences', 'select') as temoin`))
+    expect(rows[0]).toEqual({ lire: false, ecrire: false, temoin: true })
+  })
+
   it('emporte la préférence de mesure avec le compte, et aucun événement', async () => {
     // La procédure de suppression, mesurée : ce qui est nominatif part, ce qui
     // ne l'est pas reste — parce qu'aucun prédicat ne pourrait le désigner.

@@ -127,6 +127,15 @@ demande d'ouvrir l'éditeur SQL. C'est cohérent avec un produit qui n'a aucun
 composant serveur, et c'est ce qui évite d'ajouter une surface d'accès à des
 données qu'on vient de fermer.
 
+**Comment lire les premières semaines, et surtout comment ne pas les lire.**
+`account_created` est émis à l'écran de confiance : les comptes qui existaient
+avant la mise en service l'ont déjà passé et ne l'émettront jamais, alors qu'ils
+émettront les étapes 2 à 6. Le funnel se lira donc **à l'envers** au début —
+plus de séances terminées que de comptes créés. Ce n'est pas une instrumentation
+cassée, et les taux de passage ne veulent rien dire tant qu'une cohorte entière
+n'est pas passée par l'étape 1. Le commentaire de la vue le répète, pour qui
+l'ouvrira sans ce document.
+
 ```sql
 -- Le funnel, tel quel.
 select * from public.mesure_funnel_binome;
@@ -272,6 +281,13 @@ par appareil, et le funnel dirait qu'il se crée plus de comptes qu'il n'y a de
 personnes. Les autres absences côté mobile suivent la même règle : le geste n'y
 existe pas encore (pas d'invitation, pas de partage, pas de choix de parcours).
 
+**Le mobile envoie `day: 1` en dur.** Son écran de séance ne connaît qu'une
+séance, écrite en dur elle aussi — c'est un écart antérieur à ce chantier, pas
+une décision de mesure. Conséquence à ne pas oublier en lisant les chiffres :
+une distribution de `day` mélangeant web et mobile est fausse, et le mobile dira
+éternellement que personne ne dépasse la première séance. À reprendre quand
+l'écran mobile lira le parcours publié.
+
 **`duration_bucket`, jamais la durée.** Une durée à la seconde près est un
 signal de comportement : elle dit combien de temps quelqu'un est resté sur une
 page de journal intime, et deux durées exactes suffisent souvent à reconnaître
@@ -280,6 +296,26 @@ répondent à la question qu'on se pose réellement : la séance a-t-elle été
 traversée ou vécue.
 
 ---
+
+---
+
+## Mettre en service
+
+**La migration passe avant le déploiement des applications, ou en même temps —
+jamais après.** Tant qu'elle dort, la politique de `…_000007` est encore là :
+insertion ouverte à `anon`, aucune contrainte, aucun trigger. Une application
+déployée en premier écrirait donc réellement dans la table, sans qu'aucun de ces
+verrous ne la relise ; le seul filtre serait le domaine partagé, qui protège
+d'une erreur de programmation mais pas d'autre chose.
+
+Dans cet intervalle, deux comportements à connaître :
+
+- `mesure_preferences` n'existant pas, la lecture du consentement du compte
+  échoue proprement et **le refus ne traverse pas d'un appareil à l'autre** : le
+  critère « respecté partout » est alors tenu par le code seul ;
+- sur le web, basculer le réglage affiche l'erreur de synchronisation alors même
+  que le réglage local a bien été pris — l'écriture distante est la seule qui
+  ait échoué, et l'écran dit ce qui s'est passé plutôt que de le taire.
 
 ## Ce qui reste ouvert
 

@@ -908,9 +908,15 @@ function App() {
     }
     // « Compte créé » — ici, et pas à la première session Supabase. Un compte
     // n'existe pour ce produit qu'une fois l'âge confirmé et les deux
-    // consentements posés : c'est ce que cet écran vient d'écrire, une seule
-    // fois par compte, et c'est la première étape du funnel du doc 08.
-    void emettre(supabase, 'account_created', { locale: state.locale })
+    // consentements posés : c'est ce que cet écran vient d'écrire, et c'est la
+    // première étape du funnel du doc 08.
+    //
+    // Sous jalon, parce que le dialogue n'a pas d'état occupé : deux clics
+    // rapides sur « Enregistrer » feraient deux `upsert` — sans conséquence,
+    // c'est le même contenu — et deux `account_created`. L'étape 1 est celle
+    // qui normalise toutes les autres ; la gonfler fausserait chaque taux de
+    // passage du funnel.
+    if (premiereFois('compte')) void emettre(supabase, 'account_created', { locale: state.locale })
     setTrustOpen(false)
   }
 

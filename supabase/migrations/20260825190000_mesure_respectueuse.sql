@@ -17,6 +17,15 @@
 --      n'existait, et il n'en est pas ajouté. La vue du funnel, plus bas, n'a
 --      aucun `grant` : elle se lit depuis l'éditeur SQL du tableau de bord.
 --
+-- ⚠️ **Ordre de déploiement.** Cette migration passe AVANT le déploiement des
+-- applications, ou en même temps — jamais après. Tant qu'elle dort, la
+-- politique de `…_000007` est encore en place : insertion ouverte à `anon`,
+-- aucune contrainte, aucun trigger. Une application déployée en premier
+-- écrirait donc bel et bien dans la table, sans qu'aucun de ces verrous ne la
+-- relise ; le seul filtre serait `packages/domain/src/mesure.ts`. Et
+-- `mesure_preferences` n'existant pas encore, un refus posé sur un appareil ne
+-- traverserait pas vers les autres.
+--
 -- Ce que ce fichier ne fait **pas**, et qui est le cœur du dispositif :
 -- `anonymous_id` n'est relié à aucun compte. Il naît sur l'appareil, il n'est
 -- pas dérivé d'`auth.uid()`, et aucune table ne les rapproche. C'est ce qui
@@ -252,7 +261,7 @@ group by e.rang, e.etape, e.evenement
 order by e.rang;
 
 comment on view public.mesure_funnel_binome is
-  'Funnel du doc 08, sept étapes mesurables. Compte des APPAREILS (anonymous_id distincts), jamais des personnes — un même adolescent sur téléphone et navigateur compte deux fois. La ligne « semaine accompagnée » rend zéro tant que le bilan hebdomadaire (issue #18) n''existe pas. AUCUN grant : se lit en postgres depuis l''éditeur SQL, ne pas en accorder.';
+  'Funnel du doc 08, sept étapes mesurables. Compte des APPAREILS (anonymous_id distincts), jamais des personnes — un même adolescent sur téléphone et navigateur compte deux fois. ATTENTION aux premières semaines : l''étape 1 ne compte que les comptes créés APRÈS la mise en service (elle est émise à l''écran de confiance, que les comptes existants ont déjà passé), si bien que les étapes 2 à 6 la dépassent au début — ce n''est pas une instrumentation cassée. La ligne « semaine accompagnée » rend zéro tant que le bilan hebdomadaire (issue #18) n''existe pas. AUCUN grant : se lit en postgres depuis l''éditeur SQL, ne pas en accorder.';
 
 revoke all on public.mesure_funnel_binome from anon, authenticated;
 
@@ -292,6 +301,12 @@ create policy "mesure_preferences_own"
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
+-- `revoke` explicite avant le `grant`, comme partout dans ce dépôt : jusqu'au
+-- 30 octobre 2026, les privilèges par défaut du schéma `public` accordent encore
+-- au rôle `anon`. La RLS ferme déjà la porte — la politique ne vise que
+-- `authenticated`, et aucune politique anon n'existe — mais un droit qui ne
+-- devrait pas être là finit par rencontrer une politique ajoutée à la hâte.
+revoke all on public.mesure_preferences from anon;
 grant select, insert, update, delete on public.mesure_preferences to authenticated;
 
 
