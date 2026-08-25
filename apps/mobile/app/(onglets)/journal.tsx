@@ -39,7 +39,7 @@ import { bordsDOnglet, colors, ondeClaire, toucheMinimale, typography } from '@/
 import { useLangue } from '@/langue'
 import { Squelette, SqueletteDeParagraphe } from '@/squelette'
 import { Appui } from '@/appui'
-import { ENTREE_DEPUIS_LE_BAS, ENTREE_SIMPLE, SORTIE_SIMPLE, useNouveauxVenus } from '@/presence'
+import { ENTREE_SIMPLE, SORTIE_SIMPLE, Venue, useNouveauxVenus } from '@/presence'
 import { useChampAuDessusDuClavier } from '@/clavier'
 import { toucherGrave, toucherLeger, toucherRefus } from '@/toucher'
 import { emettre } from '@/mesure'
@@ -307,10 +307,10 @@ export default function JournalScreen() {
         // retire. `exiting` est la raison d'être de Reanimated ici : au moment
         // où l'on voudrait animer la sortie à la main, React a déjà démonté
         // l'entrée.
-        return <Animated.View
+        return <Venue
           key={entree.id}
-          entering={estNouvelle(entree.id) ? ENTREE_DEPUIS_LE_BAS : undefined}
-          exiting={SORTIE_SIMPLE}
+          nouveau={estNouvelle(entree.id)}
+          sortie={SORTIE_SIMPLE}
           style={styles.entry}
         >
           <View style={styles.entryHead}>
@@ -344,7 +344,7 @@ export default function JournalScreen() {
             <Appui style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void supprimer(entree.id)}><Text style={styles.panelActionText}>{t.deleteEntryConfirm}  →</Text></Appui>
             <Pressable style={toucheMinimale} onPress={() => setASupprimer(null)}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.deleteEntryCancel}</Text>}</Pressable>
           </Animated.View>}
-        </Animated.View>
+        </Venue>
       })}
 
       {session && <View style={styles.received}>

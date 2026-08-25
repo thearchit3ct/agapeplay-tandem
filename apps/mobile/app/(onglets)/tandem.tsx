@@ -68,14 +68,13 @@ import { router, useFocusEffect } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import Animated from 'react-native-reanimated'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
 import { accesConversation, gestesDeProtection, initialeDe, unblockAffordance } from '@agapeplay/domain'
 import type { RemoteMessage, TandemStatus } from '@agapeplay/domain'
 import { bordsDOnglet, colors, ondeClaire, toucheMinimale, typography } from '@/theme'
 import { Appui } from '@/appui'
-import { ENTREE_DEPUIS_LE_BAS, useNouveauxVenus } from '@/presence'
+import { Venue, useNouveauxVenus } from '@/presence'
 import { useHauteurDuClavier } from '@/clavier'
 import { useGesteDeFeuille } from '@/feuilles'
 import type { ChargesDeFeuille } from '@/feuilles'
@@ -499,15 +498,15 @@ export default function TandemScreen() {
                 // cinquante messages les ferait tous entrer en cascade, ce qui
                 // est de la décoration — et une décoration qui retarde la
                 // lecture de ce qui vient d'être dit. Voir `useNouveauxVenus`.
-                return <Animated.View
+                return <Venue
                   key={message.id}
-                  entering={estNouveau(message.id) ? ENTREE_DEPUIS_LE_BAS : undefined}
+                  nouveau={estNouveau(message.id)}
                   style={[styles.bubble, deMoi ? styles.bubbleMine : styles.bubbleTheirs]}
                 >
                   <Text style={[styles.author, deMoi && styles.authorMine]}>{deMoi ? t.me : partnerName ?? t.tandem}</Text>
                   <Text style={[styles.body, deMoi && styles.bodyMine]}>{message.body}</Text>
                   <Text style={[styles.time, deMoi && styles.timeMine]}>{new Date(message.createdAt).toLocaleString()}</Text>
-                </Animated.View>
+                </Venue>
               })}
         </View>}
 

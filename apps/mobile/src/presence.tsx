@@ -37,8 +37,11 @@
  * plus légère translation, 150 à 220 ms : au-delà, on attend l'animation ; en
  * deçà, on ne la voit pas.
  */
-import { useEffect, useRef } from 'react'
-import { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated'
+import { useEffect, useRef, useState } from 'react'
+import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated'
+import type { StyleProp, ViewStyle } from 'react-native'
+import type { ReactNode } from 'react'
+import type { BaseAnimationBuilder, EntryExitAnimationFunction } from 'react-native-reanimated'
 
 /**
  * Ce qui arrive **par le bas** : un message qui vient d'être reçu ou envoyé, une
@@ -51,8 +54,19 @@ export const ENTREE_DEPUIS_LE_BAS = FadeInDown
   .duration(220)
   .withInitialValues({ transform: [{ translateY: 10 }] })
 
-/** Ce qui arrive sans venir de nulle part : une confirmation qui remplace une question. */
+/** Ce qui arrive sans venir de nulle part : un encadré qui s'ouvre. */
 export const ENTREE_SIMPLE = FadeIn.duration(180)
+
+/**
+ * Ce qui arrive **à la place** de ce qui vient de partir.
+ *
+ * Le retard n'est pas un raffinement : Reanimated garde une vue sortante dans la
+ * hiérarchie jusqu'à la fin de son animation. Sans les 160 ms, le remplaçant
+ * s'installerait *pendant* que le sortant s'efface, et la carte grandirait puis
+ * rétrécirait d'un coup — exactement le saut de mise en page que cette phase
+ * existe pour supprimer. On attend donc que la place soit libre.
+ */
+export const ENTREE_APRES_SORTIE = FadeIn.duration(180).delay(160)
 
 /**
  * Ce qui s'en va. Plus court que l'entrée, et c'est délibéré : on regarde ce qui
@@ -82,6 +96,36 @@ export const SORTIE_SIMPLE = FadeOut.duration(150)
  * Un rafraîchissement qui rend les mêmes lignes n'anime rien : les identifiants
  * sont ceux de la base (`message.id`, `entree.id`), et ils ne changent pas.
  */
+type Animation = BaseAnimationBuilder | typeof BaseAnimationBuilder | EntryExitAnimationFunction
+
+/**
+ * Un élément de liste, dont l'entrée est **décidée une fois pour toutes au
+ * montage**.
+ *
+ * Le défaut que ce composant existe pour empêcher : `useNouveauxVenus` répond
+ * « oui, celui-ci est neuf » au rendu où l'élément apparaît, puis « non » à
+ * tous les suivants. Passer cette réponse directement à `entering` ferait donc
+ * *retirer* la prop pendant que l'animation est en vol — et selon la façon dont
+ * la bibliothèque relit ses props à la mise à jour, cela va du clignotement à
+ * une bulle qui reste à opacité zéro. Un message envoyé qui n'apparaît pas est
+ * une avarie, pas un défaut d'esthétique.
+ *
+ * Le remède tient dans `useState` avec un initialisateur : la valeur est lue au
+ * premier rendu de *cet* élément et ne change plus. Les clés sont celles de la
+ * base, si bien qu'un élément ne se remonte pas sans raison.
+ */
+export function Venue({ nouveau, sortie, style, children }: {
+  nouveau: boolean
+  sortie?: Animation
+  style?: StyleProp<ViewStyle>
+  children: ReactNode
+}) {
+  const [neuf] = useState(nouveau)
+  return <Animated.View entering={neuf ? ENTREE_DEPUIS_LE_BAS : undefined} exiting={sortie} style={style}>
+    {children}
+  </Animated.View>
+}
+
 export function useNouveauxVenus(identifiants: string[], pret: boolean): (identifiant: string) => boolean {
   // `null` tant que la première fournée n'a pas été arrêtée : c'est ce qui
   // distingue « on ne sait pas encore » de « la liste était vide ».

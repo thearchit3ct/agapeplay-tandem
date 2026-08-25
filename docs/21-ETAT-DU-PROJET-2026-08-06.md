@@ -2006,6 +2006,22 @@ qui arrive, on ne regarde pas ce qui part.
 3. **Le mouvement réduit est déjà tenu par la bibliothèque.** Les constructeurs
    de Reanimated portent `ReduceMotion.System` par défaut : ils lisent le même
    drapeau système que nous et n'animent pas quand il est levé.
+4. **L'entrée est décidée au montage, jamais reprise ensuite.**
+   `useNouveauxVenus` répond « oui, celui-ci est neuf » au rendu où l'élément
+   apparaît, puis « non » à tous les suivants. Passer cette réponse directement
+   à `entering` reviendrait à *retirer* la prop pendant que l'animation est en
+   vol, et selon la façon dont la bibliothèque relit ses props à la mise à jour,
+   cela va du clignotement à une bulle qui reste à opacité zéro — un message
+   envoyé qui n'apparaît pas est une avarie, pas un défaut d'esthétique. Le
+   composant `Venue` gèle donc la décision avec `useState` : lue au premier
+   rendu de *cet* élément, elle ne change plus. Rien à vérifier sur appareil, le
+   cas est rendu impossible.
+5. **Une entrée qui remplace une sortie attend que la place soit libre.**
+   Reanimated garde une vue sortante dans la hiérarchie jusqu'à la fin de son
+   animation : sur la carte du bilan, la confirmation se serait installée
+   *pendant* que les cinq boutons s'effacent, et la carte aurait grandi puis
+   rétréci d'un coup. `ENTREE_APRES_SORTIE` porte les 160 ms de retard qui
+   l'évitent.
 
 ### Front 3 — la main
 
@@ -2052,6 +2068,11 @@ Deux corrections de cohérence sont venues avec :
 - **Le blocage vibrait, le déblocage non** — la même relation, deux poids.
   Rouvrir une conversation qu'on avait fermée est le même ordre de geste que la
   fermer, et souvent le plus difficile des deux.
+- **Le refus de mesure était muet** alors que les deux rappels voisins, sur la
+  même grille de l'accueil, vibraient. Trois interrupteurs dont un seul silencieux,
+  c'est la grammaire qui se contredit à trois lignes d'intervalle. Il n'a pas
+  reçu de `toucherRefus` en face pour autant : `basculerMesure` rend l'état
+  effectif et n'a pas de chemin d'échec à annoncer.
 
 **Aucune haptique sur la navigation**, et la règle est maintenant écrite dans le
 module pour que les futurs écrans la suivent : ouvrir un écran, changer

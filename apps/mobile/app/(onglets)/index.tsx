@@ -9,7 +9,7 @@ import type { EtatDeSemaine, Journey } from '@agapeplay/domain'
 import { ETATS_DE_SEMAINE, invitationDouce, prochaineSeance, semaineDuBilan } from '@agapeplay/domain'
 import { bordsDOnglet, colors, ondeClaire, ondeEncre, toucheMinimale, typography } from '@/theme'
 import { Appui } from '@/appui'
-import { ENTREE_SIMPLE, SORTIE_SIMPLE } from '@/presence'
+import { ENTREE_APRES_SORTIE, SORTIE_SIMPLE } from '@/presence'
 import { useLangue } from '@/langue'
 import { Squelette, SqueletteDeParagraphe } from '@/squelette'
 import { toucherAbouti, toucherLeger, toucherRefus } from '@/toucher'
@@ -257,8 +257,21 @@ export default function HomeScreen() {
     ))
   }
 
+  /**
+   * Le refus de mesure. Il vibre du même poids que les deux rappels voisins
+   * depuis le 28/08/2026 : trois interrupteurs sur la même grille, dont un seul
+   * muet, c'est la grammaire haptique qui se contredit à trois lignes
+   * d'intervalle.
+   *
+   * Aucun `toucherRefus` en face, et ce n'est pas un oubli : `basculerMesure`
+   * rend l'état effectif — il n'a pas de chemin d'échec à annoncer. Écart nommé
+   * plutôt que deviné.
+   */
   const basculerLaMesure = async () => {
-    setMesure(await basculerMesure(!mesure, session?.user.id ?? null))
+    const effectif = await basculerMesure(!mesure, session?.user.id ?? null)
+    // Vibré sur l'état rendu, jamais sur l'appui — comme partout ailleurs.
+    toucherLeger()
+    setMesure(effectif)
   }
 
   return <SafeAreaView style={styles.safe} edges={bordsDOnglet}>
@@ -343,7 +356,7 @@ export default function HomeScreen() {
       {(invitation.forme === 'bilan' || bilanRepondu) && <View style={styles.gentleCard}>
         <Text style={styles.kickerDark}>{t.checkinTitle}</Text>
         {bilanRepondu
-          ? <Animated.Text entering={ENTREE_SIMPLE} style={styles.gentleBody}>{t.checkinSaved}  {t[LIBELLE_ETAT[bilanRepondu]]}</Animated.Text>
+          ? <Animated.Text entering={ENTREE_APRES_SORTIE} style={styles.gentleBody}>{t.checkinSaved}  {t[LIBELLE_ETAT[bilanRepondu]]}</Animated.Text>
           : <Animated.View exiting={SORTIE_SIMPLE}>
               <Text style={styles.gentleBody}>{t.checkinQuestion}</Text>
               <View style={styles.checkinChoices}>{ETATS_DE_SEMAINE.map((etat) => (
