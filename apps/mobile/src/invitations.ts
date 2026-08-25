@@ -70,7 +70,14 @@ export function useLiensDInvitation() {
       if (!recu) return
       await retenirJeton(recu)
       if (!actif) return
-      router.push('/invite')
+      try {
+        router.push('/invite')
+      } catch {
+        // Une navigation demandée avant que l'arbre de routes ne soit prêt
+        // lève. Le jeton, lui, est déjà écrit : l'accueil affiche « une
+        // invitation t'attend » et donne le chemin. C'est pour cela que
+        // l'écriture vient avant la navigation, et non l'inverse.
+      }
     }
     void Linking.getInitialURL().then(traiter)
     const abonnement = Linking.addEventListener('url', (evenement) => { void traiter(evenement.url) })

@@ -10,7 +10,8 @@ import { colors, typography } from '@/theme'
 import { flushProgressQueue } from '@/offlineQueue'
 import { supabase } from '@/supabase'
 import { synchroniserRappels } from '@/notifications'
-import type { TextesDeRappel } from '@/notifications'
+import type { EtatDesRappels, TextesDeRappel } from '@/notifications'
+import { jetonRetenu } from '@/invitations'
 import { basculerMesure, emettre, lireConsentementDuCompte, mesureAcceptee } from '@/mesure'
 import { chargerParcours } from '@/parcours'
 import { basculerRappel, lireEtatDuBilan, poserBilan } from '@/bilan'
@@ -33,10 +34,11 @@ export default function HomeScreen() {
   const [locale, setLocale] = useState<Locale>('fr')
   const [offline, setOffline] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
-  // `true` tant qu'on n'a pas constaté le contraire : la phrase « ce téléphone
-  // ne peut pas » n'apparaît qu'après une tentative réelle de planification,
-  // jamais par défaut.
-  const [rappelsPosables, setRappelsPosables] = useState(true)
+  // « Posée » tant qu'on n'a pas constaté le contraire : aucune phrase sur les
+  // rappels n'apparaît avant une tentative réelle de planification.
+  const [etatRappels, setEtatRappels] = useState<EtatDesRappels>('posee')
+  // Un jeton d'invitation reçu par lien et pas encore joué.
+  const [invitationEnAttente, setInvitationEnAttente] = useState(false)
   const [mesure, setMesure] = useState(true)
   // Le parcours publié, lu depuis la base ou depuis le cache de ce téléphone.
   // `null` tant qu'on ne sait pas : la carte affiche alors ce qu'elle sait, et
@@ -73,6 +75,9 @@ export default function HomeScreen() {
     // état de maquette qu'un appui allumait : une promesse de synchronisation
     // doit être adossée à quelque chose qui attend vraiment.
     void flushProgressQueue().then((restants) => { if (active) setOffline(restants > 0) })
+    // Une invitation retenue mais pas encore jouée doit se voir : le lien peut
+    // avoir été ouvert avant toute connexion, ou l'écran quitté en route.
+    void jetonRetenu().then((recu) => { if (active) setInvitationEnAttente(recu !== null) })
     return () => { active = false; abonnement?.subscription.unsubscribe() }
   }, []))
 
@@ -134,7 +139,7 @@ export default function HomeScreen() {
     void synchroniserRappels(
       { sessions: etatBilan.rappelSeance, weekly_checkin: etatBilan.rappelBilan },
       textesDeRappel,
-    ).then((pose) => { if (actif) setRappelsPosables(pose) })
+    ).then((etat) => { if (actif) setEtatRappels(etat) })
     return () => { actif = false }
   }, [etatBilan?.rappelSeance, etatBilan?.rappelBilan, textesDeRappel])
 
@@ -190,7 +195,7 @@ export default function HomeScreen() {
     const pose = await basculerRappel(compteId, clef, !avant)
     if (!pose) { setNotice(t.checkinFailed); return }
     setEtatBilan({ ...etatBilan, rappelBilan: pose.rappelBilan, rappelSeance: pose.rappelSeance })
-    setRappelsPosables(await synchroniserRappels(
+    setEtatRappels(await synchroniserRappels(
       { sessions: pose.rappelSeance, weekly_checkin: pose.rappelBilan },
       textesDeRappel,
       { demanderPermission: true },
@@ -205,6 +210,7 @@ export default function HomeScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.topline}><Text style={styles.eyebrow}>{t.eyebrow}</Text><View style={styles.topActions}><Pressable accessibilityRole="button" accessibilityLabel={t.language} onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}><Text style={styles.locale}>{locale.toUpperCase()}</Text></Pressable><Link href="/auth" asChild><Pressable><Text style={styles.authLink}>{session ? t.signedIn : t.signIn}</Text></Pressable></Link></View></View>
       {offline && <Pressable style={styles.offline} onPress={() => setOffline(false)}><Text style={styles.offlineText}>{t.offline}</Text></Pressable>}
+      {invitationEnAttente && <Link href="/invite" asChild><Pressable style={styles.offline}><Text style={styles.offlineText}>{t.pendingInvite}  →</Text></Pressable></Link>}
       <Text style={styles.greeting}>{t.greeting}</Text>
       <Text style={styles.subtitle}>{t.subtitle}</Text>
 
@@ -280,7 +286,11 @@ export default function HomeScreen() {
       {/* Dit seulement quand un rappel est demandé et que l'appareil n'a pas
           pu le poser : le réglage reste vrai sur le compte, c'est la
           planification qui manque, et la phrase ne dit rien de plus. */}
-      {etatBilan && (etatBilan.rappelSeance || etatBilan.rappelBilan) && !rappelsPosables && <Text style={styles.measurementNote}>{t.reminderUnavailable}</Text>}
+      {etatBilan && (etatBilan.rappelSeance || etatBilan.rappelBilan) && etatRappels !== 'posee' && <Text style={styles.measurementNote}>{
+        etatRappels === 'permission-a-demander' ? t.reminderNeedsPermission
+          : etatRappels === 'permission-refusee' ? t.reminderDenied
+            : t.reminderUnavailable
+      }</Text>}
       <Text style={styles.measurementNote}>{t.measurementDescription}</Text>
     </ScrollView>
   </SafeAreaView>

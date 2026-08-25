@@ -1465,6 +1465,15 @@ rien à changer.
 - **Aucune icône de marque.** `app.json` n'en déclare pas, et aucune n'a été
   inventée : le logo existe côté studio. Bloquant pour une soumission, pas pour
   un test interne.
+- **`journey_started` n'est toujours pas émis par le mobile.** Le web le pose au
+  démarrage d'un parcours ; le mobile n'a pas ce moment — il ouvre une séance,
+  il ne « commence » rien. Le funnel du doc 08 le verra donc comme une étape
+  manquante côté mobile, au même titre qu'`account_created` (doc 25).
+  `share_created`, lui, est désormais émis des deux côtés — sans `journey_id`
+  sur mobile, l'écran du journal ne chargeant pas le parcours.
+- **`expo-dev-client` fait viser un build de développement à `expo start`.**
+  Presser `s` revient à Expo Go. Noté au doc 29, parce que c'est la première
+  surprise d'un matin après un `git pull`.
 
 ### Vérifié
 

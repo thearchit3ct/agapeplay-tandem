@@ -29,6 +29,7 @@ import { copy } from '@agapeplay/content/copy/mobile-journal'
 import { partageDuJournal } from '@agapeplay/domain'
 import type { Locale } from '@agapeplay/domain'
 import { colors, typography } from '@/theme'
+import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 import {
   chargerJournal, chargerPartagesEmis, chargerPartagesRecus, ecrireEntree,
@@ -137,6 +138,12 @@ export default function JournalScreen() {
     setEnCours(null)
     if (!pose) { setNotice(t.shareEntryFailed); return }
     setPartages((precedents) => new Set(precedents).add(entree.id))
+    // Le même événement que le web pose sur ce geste, et les mêmes propriétés :
+    // `share_type` et rien d'autre — surtout pas ce qui a été partagé. Sans
+    // `journeyId` en revanche : cet écran ne charge pas le parcours, et lui en
+    // faire lire un pour étiqueter un événement serait payer une requête pour
+    // une colonne facultative. Écart nommé plutôt que deviné.
+    void emettre('share_created', { locale, proprietes: { share_type: 'journal_entry' } })
     setNotice(t.shareEntryDone)
   }
 

@@ -96,6 +96,12 @@ npx expo-doctor                   # 19/21 — deux échecs, tous deux antérieur
 npm run mobile:export             # depuis la racine : le bundle Metro passe
 ```
 
+**`expo-dev-client` change ce que vise `npm run mobile:start`.** Depuis qu'il
+est en dépendance, `expo start` s'ouvre en mode *build de développement* et non
+en mode Expo Go — l'environnement dans lequel l'équipe a testé jusqu'ici, et que
+le doc 21 décrit longuement. Presser `s` dans le terminal bascule d'un mode à
+l'autre.
+
 `npm run mobile:export` est **la seule garde réelle** de ce dépôt : Metro ne
 surveille pas les fichiers sur la machine de développement, et
 `mobile:typecheck` ne prouve pas la résolution des modules d'un workspace.

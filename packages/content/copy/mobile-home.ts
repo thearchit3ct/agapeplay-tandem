@@ -29,16 +29,23 @@ export const copy = {
     minutes: 'MIN',
     journal: 'Journal privé',
     account: 'Mon compte',
+    // Une invitation reçue par lien et pas encore jouée. Sans cette ligne, un
+    // jeton retenu n'existerait nulle part dans l'application : personne ne
+    // saurait qu'il attend, et personne ne pourrait le reprendre.
+    pendingInvite: 'Une invitation t’attend.',
     privacyNote: 'Ton espace reste privé.',
     offline: 'Hors ligne · tes actions seront synchronisées.',
     reminder: 'Rappel quotidien',
     reminderOn: 'Rappel activé à 08:00',
     reminderOff: 'Activer le rappel quotidien',
-    // Ce que l'appareil ne peut pas faire, dit une fois sous les cartes de
-    // rappel : dans Expo Go les notifications n'existent pas, et un téléphone
-    // qui a refusé la permission ne les posera pas davantage. Le réglage, lui,
-    // reste enregistré sur le compte — il vaudra pour le prochain appareil.
+    // Trois phrases pour trois situations, parce qu'une seule mentait : sur une
+    // installation neuve, les réglages valent « oui » par défaut et personne
+    // n'a encore vu de demande système. Dire « ce téléphone ne peut pas » y
+    // serait faux — il peut, on ne lui a rien demandé. Le réglage, lui, reste
+    // enregistré sur le compte dans les trois cas.
     reminderUnavailable: 'Les rappels s’activeront sur l’application installée : ce téléphone ne peut pas les poser pour l’instant.',
+    reminderNeedsPermission: 'Touche la carte du rappel pour autoriser les notifications : il sera posé juste après.',
+    reminderDenied: 'Les notifications sont refusées pour cette application. Ça se rouvre dans les réglages de ton téléphone.',
     // Les textes des notifications elles-mêmes. Ils ne disent ni série, ni
     // retard, ni « tu n’as pas… » : une notification est une proposition, et la
     // seule chose qu’elle a le droit d’annoncer est ce qui attend.
@@ -85,12 +92,15 @@ export const copy = {
     minutes: 'MIN',
     journal: 'Private journal',
     account: 'My account',
+    pendingInvite: 'An invitation is waiting for you.',
     privacyNote: 'Your space stays private.',
     offline: 'Offline · your actions will sync later.',
     reminder: 'Daily reminder',
     reminderOn: 'Reminder set for 08:00',
     reminderOff: 'Turn on daily reminder',
     reminderUnavailable: 'Reminders will start on the installed app: this phone cannot schedule them right now.',
+    reminderNeedsPermission: 'Tap the reminder card to allow notifications: it will be scheduled right after.',
+    reminderDenied: 'Notifications are turned off for this app. You can turn them back on in your phone settings.',
     reminderSessionNotifTitle: 'Your step for today',
     reminderSessionNotifBody: 'Your session is ready whenever you are.',
     reminderCheckinNotifTitle: 'Your week',

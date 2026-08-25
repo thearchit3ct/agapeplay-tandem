@@ -20,7 +20,7 @@
  */
 import { Link, router, useLocalSearchParams } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-invite'
@@ -57,6 +57,22 @@ export default function InviteScreen() {
   const [locale, setLocale] = useState<Locale>('fr')
   const [forme, setForme] = useState<FormeDeLien>('tandem')
   const [message, setMessage] = useState('')
+  /**
+   * Le jeton n'est joué qu'une fois, quoi qu'il arrive.
+   *
+   * Deux chemins mènent ici — la lecture de session au montage et
+   * `onAuthStateChange`, qui émet `INITIAL_SESSION` juste après l'abonnement —
+   * et sur un compte déjà connecté, les deux partent. Sans verrou, la RPC
+   * était appelée deux fois : la seconde échouait, et son refus écrasait
+   * l'annonce de succès (« Tu appartiens déjà à une communauté » juste après
+   * l'avoir rejointe), pendant que `partner_accepted` était émis en double.
+   *
+   * Une `ref` et non un état : la valeur doit être lue et posée dans le même
+   * bloc synchrone, avant le premier `await`, sinon les deux appelants passent
+   * tous les deux. Le verrou est posé **après** la garde de session, pour
+   * qu'une visite sans compte laisse la place à la connexion qui suit.
+   */
+  const dejaJoue = useRef(false)
   const t = copy[locale]
 
   useEffect(() => {
@@ -73,6 +89,8 @@ export default function InviteScreen() {
       setForme(recu.forme)
 
       if (!session) { setMessage(t.signInPrompt); return }
+      if (dejaJoue.current) return
+      dejaJoue.current = true
 
       setMessage(t.checking)
       // Consommé avant de connaître le résultat : voir l'en-tête.

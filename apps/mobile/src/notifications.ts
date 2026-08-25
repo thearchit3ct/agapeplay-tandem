@@ -53,6 +53,26 @@ const CANAL = 'rappels'
 /** Ce que chaque rappel dit, dans la langue de l'écran qui l'a posé. */
 export type TextesDeRappel = Record<RappelPlanifie['clef'], { titre: string; corps: string }>
 
+/**
+ * L'état réel de la planification sur cet appareil.
+ *
+ * Quatre cas, et non un booléen, parce qu'ils n'appellent pas la même phrase à
+ * l'écran — et qu'un seul drapeau produisait un mensonge mesurable : sur une
+ * installation neuve, les préférences valent `true` par défaut, personne n'a
+ * encore vu de demande système, et l'écran annonçait « ce téléphone ne peut
+ * pas poser de rappel » sous une carte qui disait « Rappel activé à 08:00 ».
+ * Les deux étaient faux.
+ *
+ * - `posee` : la file de l'appareil reflète les préférences — y compris quand
+ *   elles ne demandent aucun rappel ;
+ * - `permission-a-demander` : personne n'a encore été sollicité. Un appui sur
+ *   la carte posera la question, et l'écran le dit ;
+ * - `permission-refusee` : refus déjà exprimé, que l'application ne peut plus
+ *   redemander. Cela se lève dans les réglages du téléphone, pas ici ;
+ * - `indisponible` : Expo Go, ou un simulateur. Aucun rappel ne peut exister.
+ */
+export type EtatDesRappels = 'posee' | 'permission-a-demander' | 'permission-refusee' | 'indisponible'
+
 const chargerNotifications = () => {
   // Voir l'en-tête : dans Expo Go, on ne tente même pas le chargement.
   if (Constants.executionEnvironment === 'storeClient') return null
@@ -118,18 +138,17 @@ const declencheur = (
  * moyen d'obtenir un refus définitif. Sur un appui sur l'interrupteur, en
  * revanche, la question est attendue.
  *
- * Rend `true` si la file de l'appareil reflète bien les préférences — y
- * compris quand elles ne demandent aucun rappel. `false` veut dire « ce
- * téléphone ne peut pas », et l'écran le dit plutôt que d'afficher un rappel
- * qui n'existe pas.
+ * Rend l'état réel de la planification (voir `EtatDesRappels`), et non un
+ * booléen : l'écran doit pouvoir distinguer « ce téléphone ne peut pas » de
+ * « personne n'a encore été sollicité », qui n'appellent pas la même phrase.
  */
 export const synchroniserRappels = async (
   preferences: PreferencesDeRappel,
   textes: TextesDeRappel,
   options: { demanderPermission: boolean } = { demanderPermission: false },
-): Promise<boolean> => {
+): Promise<EtatDesRappels> => {
   const Notifications = chargerNotifications()
-  if (!Notifications) return false
+  if (!Notifications) return 'indisponible'
 
   try {
     // L'annulation vient avant toute question de permission : couper un rappel
@@ -143,16 +162,19 @@ export const synchroniserRappels = async (
     await stockage.removeItem(CLEF_IDENTIFIANTS)
 
     const rappels = rappelsAPlanifier(preferences)
-    if (rappels.length === 0) return true
+    if (rappels.length === 0) return 'posee'
 
     // Un simulateur ne planifie rien d'utile, et `Device.isDevice` est le seul
     // moyen de le savoir avant d'échouer.
-    if (!Device.isDevice) return false
+    if (!Device.isDevice) return 'indisponible'
 
     const etat = options.demanderPermission
       ? await Notifications.requestPermissionsAsync()
       : await Notifications.getPermissionsAsync()
-    if (!etat.granted) return false
+    // `canAskAgain` sépare les deux refus : « on n'a pas encore demandé » et
+    // « on a demandé, c'est non, et on ne redemandera plus ». Les confondre
+    // ferait dire à une installation neuve qu'elle a refusé.
+    if (!etat.granted) return etat.canAskAgain ? 'permission-a-demander' : 'permission-refusee'
 
     await Notifications.setNotificationChannelAsync(CANAL, {
       name: 'Rappels AgapePlay Tandem',
@@ -174,9 +196,9 @@ export const synchroniserRappels = async (
     // un identifiant inventé ici serait un rappel qu'on ne saurait plus
     // annuler.
     await stockage.setItem(CLEF_IDENTIFIANTS, JSON.stringify(identifiants))
-    return true
+    return 'posee'
   } catch {
-    return false
+    return 'indisponible'
   }
 }
 
