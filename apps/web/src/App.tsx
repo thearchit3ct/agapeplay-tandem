@@ -390,6 +390,13 @@ function App() {
       // laisserait l'autre décider à l'aveugle.
       const bilansResult = await chargerBilans(client)
       if (!cancelled) {
+        // Une lecture qui échoue laisse `bilans` vide, et l'écran repose donc
+        // la question de la semaine — peut-être à quelqu'un qui vient d'y
+        // répondre. C'est le repli choisi, pas le repli subi : le seul autre
+        // possible (tout supposer répondu) ferait disparaître le geste sans
+        // rien dire. Entre insister à tort et s'effacer à tort, on insiste,
+        // parce que c'est le seul des deux qui se corrige d'un appui. Même
+        // raisonnement, mêmes mots, dans `apps/mobile/src/bilan.ts`.
         if (bilansResult.erreur) showNotice(t.syncError, 4200)
         else setBilans(bilansResult.bilans)
       }

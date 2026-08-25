@@ -85,7 +85,7 @@ export const copy = {
     checkinTitle: 'Your week',
     checkinQuestion: 'How did it go?',
     checkinCalm: 'Calm',
-    checkinFull: 'Busy',
+    checkinFull: 'Full',
     checkinHard: 'Hard',
     checkinElsewhere: 'I was elsewhere',
     checkinUnsure: 'Not really sure',
@@ -96,7 +96,7 @@ export const copy = {
     checkinReminder: 'End-of-week check-in',
     checkinReminderOn: 'We will offer it on Saturday',
     checkinReminderOff: 'We will not offer it',
-    resumeTitle: 'You are back.',
+    resumeTitle: 'Good to see you.',
     resumeBody: 'Nothing moved in the meantime: your session is where you left it.',
   },
 } as const

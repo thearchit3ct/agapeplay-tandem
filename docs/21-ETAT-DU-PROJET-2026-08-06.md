@@ -105,6 +105,22 @@ temps : SELECT élargi seul ⇒ le déplacement reste refusé ; SELECT élargi *
 `with check (true)` ⇒ il passe. À retenir pour toute table own-only du dépôt :
 un `with check` d'UPDATE ne se teste pas seul.
 
+### ⚠️ L'ordre de déploiement — une régression, pas seulement un manque
+
+**La migration doit passer AVANT l'application.** Ce n'est pas la précaution
+d'usage : `toggleNotification` envoie l'objet de préférences entier
+(`upsert({ user_id, ...notificationPrefs })`), qui porte désormais
+`weekly_checkin`. Contre une base où la colonne n'existe pas encore, PostgREST
+rejette **tout l'upsert** — et ce sont les quatre réglages existants (séances,
+messages, église, absence) qui cessent d'être enregistrés, pas seulement le
+nouveau. La carte de bilan, elle, échouerait aussi sur une table absente, mais
+c'est le moindre des deux : elle n'existait pas hier.
+
+C'est le même piège que le correctif de l'issue #20 avait déjà rencontré dans
+l'autre sens (« une application déployée en premier écrirait réellement dans la
+table, sans qu'aucun verrou ne la relise »). La forme change, la règle est la
+même : migration d'abord, application ensuite.
+
 ### Écarts assumés de ce chantier
 
 - **Aucun rappel poussé, ni sur le web ni sur le mobile.** Le web n'a pas de
