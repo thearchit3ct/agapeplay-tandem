@@ -45,6 +45,13 @@ Ce qu'il faut retenir ici :
   `mentor_assignments`. Voir le doc 26, décision 6, avant d'en ajouter une pour
   l'issue #16.
 
+**Second piège, produit celui-là.** Le jeton d'invitation doit franchir une
+connexion : le cas courant est quelqu'un **sans compte**, et `signInWithOAuth`
+comme le lien magique reviennent sur l'origine **nue**, sans query string et
+avec un état React reparti de zéro. Il passe donc par le stockage local avant
+que l'URL ne soit nettoyée. Tout lien futur qui doit survivre à une connexion
+aura le même problème.
+
 **Piège mesuré, à ne pas redécouvrir.** `error: infinite recursion detected in
 policy for relation "church_groups"`, sur un simple `insert … returning` : la
 politique de lecture de `church_groups` interrogeait `group_members`, dont celle
