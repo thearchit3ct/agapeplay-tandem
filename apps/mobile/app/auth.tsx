@@ -9,12 +9,13 @@
  * après essai de l'APK.
  */
 import * as Linking from 'expo-linking'
-import { Link, router } from 'expo-router'
+import { router } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors, ondeClaire, presse, toucheMinimale, typography } from '@/theme'
 import { useChampAuDessusDuClavier } from '@/clavier'
+import { revenir } from '@/retour'
 import { toucherLeger } from '@/toucher'
 import { supabase } from '@/supabase'
 
@@ -54,11 +55,10 @@ export default function AuthScreen() {
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
     >
-      <Link href="/" asChild>
-        <Pressable style={[styles.backTouch, toucheMinimale]} android_ripple={{ color: 'rgba(17,17,17,0.10)' }}>
-          {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← Aujourd’hui</Text>}
-        </Pressable>
-      </Link>
+      {/* Dépiler, et non naviguer vers l'accueil : voir `src/retour.ts`. */}
+      <Pressable accessibilityRole="button" style={[styles.backTouch, toucheMinimale]} android_ripple={{ color: 'rgba(17,17,17,0.10)' }} onPress={revenir}>
+        {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← Aujourd’hui</Text>}
+      </Pressable>
       <Text style={styles.kicker}>AGAPEPLAY / COMPTE</Text>
       <Text style={styles.title}>Entrer dans ton espace.</Text>
       <Text style={styles.description}>Un lien magique suffit. Aucun mot de passe à retenir.</Text>

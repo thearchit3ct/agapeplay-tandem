@@ -15,15 +15,17 @@
  * - **l'émission de mesure n'attend rien** et vient après l'enregistrement : la
  *   séance est terminée pour la personne, quoi qu'il arrive à la mesure.
  */
-import { Link, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
 import { useCallback, useRef, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-parcours'
 import { trancheDuree } from '@agapeplay/domain'
-import type { Journey, Locale } from '@agapeplay/domain'
+import type { Journey } from '@agapeplay/domain'
 import { colors, ondeClaire, toucheMinimale, typography } from '@/theme'
+import { useLangue } from '@/langue'
+import { revenir } from '@/retour'
 import { toucherAbouti } from '@/toucher'
 import { queueProgress } from '@/offlineQueue'
 import { emettre } from '@/mesure'
@@ -32,7 +34,7 @@ import { supabase } from '@/supabase'
 
 export default function SessionScreen() {
   const { jour } = useLocalSearchParams<{ jour?: string }>()
-  const [locale, setLocale] = useState<Locale>('fr')
+  const { langue: locale, basculer } = useLangue()
   const [parcours, setParcours] = useState<Journey | null>(null)
   const [chargement, setChargement] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
@@ -89,16 +91,15 @@ export default function SessionScreen() {
   return <SafeAreaView style={styles.safe}>
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.topline}>
-        <Link href="/" asChild>
-          <Pressable style={[styles.backTouch, toucheMinimale]}>
-            {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
-          </Pressable>
-        </Link>
+        {/* Dépiler, et non naviguer vers l'accueil : voir `src/retour.ts`. */}
+        <Pressable accessibilityRole="button" style={[styles.backTouch, toucheMinimale]} onPress={revenir}>
+          {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t.language}
           style={[styles.localeTouch, toucheMinimale]}
-          onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+          onPress={basculer}
         >
           {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
         </Pressable>

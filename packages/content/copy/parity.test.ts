@@ -21,6 +21,7 @@ import { copy as mobileJournalCopy } from './mobile-journal'
 import { copy as mobileCompteCopy } from './mobile-compte'
 import { copy as mobileInviteCopy } from './mobile-invite'
 import { copy as mobileParcoursCopy } from './mobile-parcours'
+import { copy as mobileOngletsCopy } from './mobile-onglets'
 import { sharedLabels } from './shared'
 
 /**
@@ -40,6 +41,10 @@ const homographes: Record<string, ReadonlySet<string>> = {
   'mobile-compte.ts': new Set(['tandem']),
   'mobile-invite.ts': new Set(['tandem']),
   'mobile-parcours.ts': new Set(['tandem', 'minutes']),
+  // « Journal » et « Tandem » s'écrivent pareil dans les deux langues, et c'est
+  // précisément pour cela qu'ils sont ici plutôt que dans les titres d'écran :
+  // un onglet dit le mot le plus court qui reste juste.
+  'mobile-onglets.ts': new Set(['tandem', 'journal']),
   'shared.ts': new Set(['tandem']),
 }
 
@@ -51,6 +56,7 @@ const catalogues = {
   'mobile-compte.ts': mobileCompteCopy,
   'mobile-invite.ts': mobileInviteCopy,
   'mobile-parcours.ts': mobileParcoursCopy,
+  'mobile-onglets.ts': mobileOngletsCopy,
   'shared.ts': sharedLabels,
 } as const
 

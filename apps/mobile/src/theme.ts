@@ -54,3 +54,23 @@ export const ondeClaire = { color: 'rgba(255, 254, 249, 0.20)' }
  * réelle est donc préférée partout où la mise en page la supporte.
  */
 export const toucheMinimale = { minHeight: 44, justifyContent: 'center' as const }
+
+/**
+ * Les bords qu'un écran d'onglet tient lui-même : le haut et les côtés, jamais
+ * le bas.
+ *
+ * Le bas appartient à la barre d'onglets native, et les deux plateformes s'en
+ * chargent déjà, chacune à sa manière — mesuré dans `expo-router@57.0.16` :
+ *
+ * - **iOS** enveloppe chaque écran d'onglet dans son propre `SafeAreaProvider`.
+ *   Les marges qu'on y lit incluent donc la barre elle-même, et les vues
+ *   défilantes reçoivent en plus l'ajustement automatique de contenu d'UIKit.
+ * - **Android** enveloppe l'écran dans la `SafeAreaView` de
+ *   `react-native-screens`, bord bas activé : la marge est déjà posée.
+ *
+ * Une `SafeAreaView` à nous qui reprendrait le bas ajouterait donc une seconde
+ * marge par-dessus la première — le contenu décollerait de la barre d'un plein
+ * pouce sans raison visible. Les écrans hors onglets (séance, compte,
+ * invitation, connexion) gardent leurs quatre bords : aucune barre ne les tient.
+ */
+export const bordsDOnglet = ['top', 'left', 'right'] as const

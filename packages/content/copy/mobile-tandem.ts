@@ -24,6 +24,11 @@
  *   hors-ligne ; le mobile n'a pas de file pour les messages, alors il dit que
  *   le message n'est pas parti et laisse la saisie en place.
  *
+ * `loading` a disparu le 27/08/2026 : l'écran montre désormais la forme du fil
+ * pendant sa lecture (voir `src/squelette.tsx`) plutôt que d'annoncer qu'il
+ * cherche. `emptyThread`, `threadClosed` et `noTandem` restent : ce sont des
+ * réponses, pas des attentes, et la nuance est tout l'objet de ces trois-là.
+ *
  * Bloquer et signaler sont arrivés le 24/08/2026. Trois choses sur ces clés :
  *
  * - Les libellés des deux gestes et leurs deux réponses (`report`, `block`,
@@ -73,7 +78,6 @@ export const copy = {
     sendError: 'Ton message n’est pas parti. Réessaie dans un moment.',
     me: 'Toi',
     privacyNote: 'Les échanges restent privés entre vous.',
-    loading: 'On récupère ton tandem…',
     signInPrompt: 'Connecte-toi pour retrouver ton tandem.',
     noTandem: 'Tu n’as pas encore de tandem.',
     syncError: 'On n’a pas réussi à joindre le serveur. Réessaie dans un moment.',
@@ -133,7 +137,6 @@ export const copy = {
     sendError: 'Your message did not go through. Try again in a moment.',
     me: 'You',
     privacyNote: 'What you share stays between the two of you.',
-    loading: 'Fetching your tandem…',
     signInPrompt: 'Sign in to find your tandem again.',
     noTandem: 'You do not have a tandem yet.',
     syncError: 'We could not reach the server. Try again in a moment.',
