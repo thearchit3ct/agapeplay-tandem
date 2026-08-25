@@ -1935,3 +1935,219 @@ qui échoue **en silence**.
 - `npm test` et `npm run build` tiennent chacun en moins de trois secondes sur
   un clone vierge, une fois `npm ci` passé. Le coût de la CI, c'est la suite RLS
   et l'export Metro, pas les tests.
+## Amendement du 28/08/2026 — la soie : le mouvement qui sert
+
+La phase précédente a donné au mobile ses composants natifs — barre d'onglets,
+feuilles du système, squelettes. Celle-ci lui donne son mouvement. Le critère
+tenu d'un bout à l'autre : **une animation qui n'apprend rien à l'œil est une
+animation à retirer.** Aucun ressort, aucun rebond, aucune durée au-delà de
+220 ms, et pas une seule animation posée pour décorer une transition qui allait
+déjà bien.
+
+### Front 1 — la carte de séance s'ouvre au lieu d'être poussée
+
+`Link.AppleZoom`, porté par `expo-router@57.0.16`, est la transition à élément
+partagé d'UIKit : la surface touchée grandit jusqu'à devenir l'écran, le geste
+de retour la ramène à sa place, et tout cela est piloté au doigt, interruptible,
+calculé hors du fil JavaScript. Elle est posée à deux endroits, tous deux menant
+à `/session` : les rangées du Parcours, et le bouton « Commencer » de la carte du
+jour.
+
+**Elle est iOS 18 et au-delà, et rien d'autre — dit sans détour.** Sur Android,
+sur iOS 17 et sur le web, `Link.AppleZoom` se replie sur un `Slot` : il rend son
+enfant tel quel et la pile garde la transition de sa plateforme (le glissement
+latéral d'Android reste ce qu'Android attend). **Aucune imitation en JavaScript
+n'a été écrite pour combler l'écart**, et c'est une décision, pas une paresse :
+une fausse transition à élément partagé, calculée hors du fil natif, décroche du
+doigt dès que la liste est longue — c'est exactement le genre de faux natif que
+cette phase corrige.
+
+**Un arbitrage à connaître.** Sur le Parcours, la rangée entière est déjà le
+lien : la surface qui grandit est celle qu'on a touchée, il n'y a rien à
+restructurer. Sur l'accueil, non — la carte du jour n'est pas un lien, seul son
+bouton l'est, et c'est donc le bouton qui grandit. La rendre entièrement
+touchable pour que la transition parte d'elle changerait ce qu'un appui fait,
+c'est-à-dire du produit. La décision est renvoyée à la recette : si l'effet
+paraît petit au doigt, le geste suivant est de faire de la carte le lien.
+
+### Front 2 — ce qui arrive et ce qui part
+
+`react-native-reanimated@4.5.1` entre dans l'arbre (`npx expo install`, version
+alignée sur le SDK 57). La dépendance est payée pour **une** chose que
+l'`Animated` de React Native ne sait pas faire : une *sortie*. Au moment où l'on
+voudrait animer la disparition d'une entrée de journal, React l'a déjà retirée de
+l'arbre ; la retenir soi-même reviendrait à tenir un second état de liste à côté
+du vrai — le genre de doublon qui finit par afficher une entrée que la base n'a
+plus. Les entrées, elles, auraient pu se faire à la main ; elles passent par le
+même outil pour n'avoir qu'une grammaire.
+
+Ce qui bouge, et rien d'autre : une bulle qui arrive dans la conversation, une
+page de journal qu'on vient d'écrire ou qu'on retire, la demande de confirmation
+de suppression, et l'échange question → réponse de la carte du bilan. Fondu plus
+translation de dix points, 220 ms à l'entrée, 150 ms à la sortie — on regarde ce
+qui arrive, on ne regarde pas ce qui part.
+
+**Trois précautions valent d'être retenues.**
+
+1. **La cascade du premier rendu.** Poser `entering` sur chaque élément d'un
+   `map` fait entrer *toute* la liste à l'ouverture de l'écran : cinquante bulles
+   qui montent ensemble, c'est de la décoration, et une décoration qui retarde la
+   lecture de ce qui vient d'être dit. `useNouveauxVenus` (`src/presence.tsx`)
+   mémorise la première fournée en bloc et ne laisse entrer que ce qui arrive
+   ensuite. Le repère de fournée est **la fin du chargement**, pas le montage :
+   le fil arrive une fraction de seconde après l'écran, et prendre le montage
+   pour repère aurait mémorisé une liste vide.
+2. **Aucun worklet écrit ici.** Les quatre constantes de `presence.tsx` sont des
+   *descriptions* fournies par la bibliothèque ; le code qui tourne sur le fil
+   d'interface est celui de Reanimated, déjà compilé. C'est volontaire : le
+   greffon Babel des worklets ne se prouve pas sans appareil (voir plus bas), et
+   moins on lui en demande, moins il y a de choses à découvrir sur un build de
+   production.
+3. **Le mouvement réduit est déjà tenu par la bibliothèque.** Les constructeurs
+   de Reanimated portent `ReduceMotion.System` par défaut : ils lisent le même
+   drapeau système que nous et n'animent pas quand il est levé.
+4. **L'entrée est décidée au montage, jamais reprise ensuite.**
+   `useNouveauxVenus` répond « oui, celui-ci est neuf » au rendu où l'élément
+   apparaît, puis « non » à tous les suivants. Passer cette réponse directement
+   à `entering` reviendrait à *retirer* la prop pendant que l'animation est en
+   vol, et selon la façon dont la bibliothèque relit ses props à la mise à jour,
+   cela va du clignotement à une bulle qui reste à opacité zéro — un message
+   envoyé qui n'apparaît pas est une avarie, pas un défaut d'esthétique. Le
+   composant `Venue` gèle donc la décision avec `useState` : lue au premier
+   rendu de *cet* élément, elle ne change plus. Rien à vérifier sur appareil, le
+   cas est rendu impossible.
+5. **Une entrée qui remplace une sortie attend que la place soit libre.**
+   Reanimated garde une vue sortante dans la hiérarchie jusqu'à la fin de son
+   animation : sur la carte du bilan, la confirmation se serait installée
+   *pendant* que les cinq boutons s'effacent, et la carte aurait grandi puis
+   rétréci d'un coup. `ENTREE_APRES_SORTIE` porte les 160 ms de retard qui
+   l'évitent.
+
+### Front 3 — la main
+
+**La micro-échelle.** `src/appui.tsx` porte `Appui`, le `Pressable` de
+l'application : 0,975 en 100 ms sous le doigt, en plus de l'assombrissement déjà
+en place. Un assombrissement se lit comme un changement de *couleur* ; une
+surface qui recule se lit comme un *déplacement*, et c'est ce geste physique qui
+manquait au reproche « ça se comporte comme une web app ».
+
+Deux points de conception qui ne se devinent pas :
+
+- **`Appui` *est* le pressable, pas un emballage autour.** `<Link asChild>` clone
+  ses props sur son unique enfant ; une `Animated.View` qui envelopperait un
+  `Pressable` recevrait donc le `onPress`, et le doigt tomberait dans le vide.
+- **Le prix de cette forme.** `Animated.createAnimatedComponent` aplatit le
+  style et n'accepte plus la forme fonction — `style={({ pressed }) => …}` — dont
+  neuf écrans se servent. `Appui` la résout donc lui-même, avec l'état d'appui
+  qu'il tient déjà pour l'échelle. Les appelants n'ont rien changé.
+
+Quand le système demande moins de mouvement, l'échelle est coupée mais
+l'opacité reste : un retour d'appui qui disparaîtrait avec les animations serait
+une régression d'accessibilité déguisée en respect de l'accessibilité.
+
+**La grammaire haptique, désormais écrite dans `src/toucher.ts`.** Elle se lit en
+deux questions. *Quelque chose s'est-il passé, ou quelque chose a-t-il échoué ?*
+— cela choisit entre les impacts et les notifications. *Est-ce ordinaire ou
+est-ce grave ?* — cela choisit l'intensité.
+
+| Nuance | Famille système | Ce qu'elle dit | Où |
+|---|---|---|---|
+| `toucherLeger` | impact léger | quelque chose est **parti** | message envoyé, entrée écrite, partage posé ou retiré, rappel basculé |
+| `toucherAbouti` | notification succès | quelque chose s'est **achevé** | séance terminée, bilan posé |
+| `toucherRefus` | notification avertissement | quelque chose a été **refusé** | blocage/déblocage sans effet, envoi qui n'aboutit pas, écriture repoussée |
+| `toucherGrave` | impact lourd | un geste de **protection** | bloquer, débloquer, signaler, supprimer |
+
+Deux corrections de cohérence sont venues avec :
+
+- **L'échec était muet.** C'est pourtant le moment où le retour physique sert le
+  plus : quelqu'un qui appuie sur « Bloquer » et dont l'écriture est refusée en
+  silence par la politique reçoit une phrase — mais il a déjà rangé son
+  téléphone. `toucherRefus` le rattrape. Elle ne remplace jamais la phrase : elle
+  la précède. `Warning` et non `Error` : le système n'est pas en panne, il a dit
+  non.
+- **Le blocage vibrait, le déblocage non** — la même relation, deux poids.
+  Rouvrir une conversation qu'on avait fermée est le même ordre de geste que la
+  fermer, et souvent le plus difficile des deux.
+- **Le refus de mesure était muet** alors que les deux rappels voisins, sur la
+  même grille de l'accueil, vibraient. Trois interrupteurs dont un seul silencieux,
+  c'est la grammaire qui se contredit à trois lignes d'intervalle. Il n'a pas
+  reçu de `toucherRefus` en face pour autant : `basculerMesure` rend l'état
+  effectif et n'a pas de chemin d'échec à annoncer.
+
+**Aucune haptique sur la navigation**, et la règle est maintenant écrite dans le
+module pour que les futurs écrans la suivent : ouvrir un écran, changer
+d'onglet, changer de langue, ouvrir une feuille, annuler — rien. Toutes les
+nuances sont appelées **après** la réponse du serveur, jamais sur l'appui : ce
+que la main doit sentir, c'est que la chose est faite, pas qu'on l'a demandée.
+
+### Ce que le chantier a trouvé sans le chercher
+
+**La position de lecture au rafraîchissement de la conversation ne saute pas —
+et pour une raison qu'il ne faut pas casser.** `load()` (`app/(onglets)/tandem.tsx`)
+pose `setLoading(false)` et ne repose **jamais** `setLoading(true)`. Passé la
+première lecture, `loading` reste donc faux à jamais, l'effet qui appelle
+`auDernierMessage()` ne se redéclenche plus, et un tirer-pour-rafraîchir ne
+défile pas. C'est une propriété acquise par accident : quiconque « corrigerait »
+ce `setLoading(true)` manquant réintroduirait le saut de liste, et ferait de plus
+réapparaître les bulles fantômes à chaque geste de rafraîchissement.
+
+L'écart réel est l'inverse, et il est laissé tel quel : un message arrivé au
+rafraîchissement **n'est pas annoncé** si l'on n'était pas déjà en bas du fil.
+L'entrée douce ne se voit que si la bulle est à l'écran. Le remède serait un
+repère « nouveaux messages » — c'est du produit, pas du mouvement.
+
+### Écarts assumés de ce chantier
+
+1. **« Un encouragement reçu » n'a pas de surface mobile.** Le brief le citait
+   parmi les présences à animer ; il n'existe que côté web
+   (`packages/content/copy/web.ts`, espace mentor). Rien n'a été construit pour
+   lui : bâtir un écran afin d'avoir quelque chose à animer serait l'inverse de
+   l'ordre des choses.
+2. **La carte du bilan ne se retire pas après la réponse, et elle ne devait
+   pas.** Le brief demandait qu'elle « se retire » ; la condition d'affichage
+   garde la carte à l'écran depuis l'issue #18, et « c'est noté » suivi du mot
+   choisi est une réponse, pas un accusé qu'on escamote. Ce qui a été animé est
+   donc l'échange à l'intérieur de la carte — la question s'efface, la
+   confirmation prend sa place — et non la durée de vie de la carte. Un chantier
+   de mouvement ne décide pas quand un contenu disparaît.
+3. **Le greffon Babel des worklets n'est pas prouvé hors appareil.** Il n'y a
+   pas de `babel.config.js` dans `apps/mobile`, et il n'en faut pas :
+   `babel-preset-expo` enregistre `react-native-worklets/plugin` de lui-même dès
+   que le paquet est présent (`node_modules/babel-preset-expo/build/configs/expo.js`,
+   « Automatically add worklets or reanimated plugin when package is installed »).
+   Le chemin se résout (`require.resolve('react-native-worklets/plugin')`). Mais
+   **`mobile:export` ne prouve rien à ce sujet** : il empaquette, il n'exécute
+   pas. Un greffon mal câblé se voit à l'exécution sur un build natif, et la
+   recette du fondateur est la première preuve réelle.
+4. **`react-native-reanimated` touche le `package-lock.json` de la racine**,
+   c'est-à-dire un fichier partagé avec les chantiers `.github/` et `apps/web/`
+   en cours. Inévitable dès lors qu'une dépendance est ajoutée ; nommé ici pour
+   que la collision soit visible plutôt que surprenante.
+
+### Vérifié
+
+- `npm test` — 238 tests (23 fichiers), verts. Aucun test nouveau : ce chantier
+  n'a ajouté aucune règle, et un test de durée d'animation testerait la
+  bibliothèque.
+- `npm run mobile:typecheck` et `npm run mobile:export` : verts après chaque
+  front, y compris sur une ligne de base sans code d'animation — la chaîne
+  d'outils a été prouvée avant les fonctionnalités.
+- `apps/mobile/app.json` et `apps/mobile/package.json` : 0.2.3, en verrou comme
+  au 27/08.
+
+**`versionCode` passe de 1 à 2, et il le fallait.** `eas.json` déclare
+`appVersionSource: "local"` et **aucun profil ne porte `autoIncrement`** : le
+numéro de build est celui écrit dans `app.json`, tel quel. Or la v0.2.2 est déjà
+sur la piste interne du Play Store, posée avec `versionCode: 1` — la valeur
+n'avait plus bougé depuis la PR #56. Un second envoi au même numéro est refusé
+par Google (« version code 1 has already been used »), et la recette de cette PR
+n'aurait jamais pu commencer. `buildNumber` d'iOS suit, par symétrie ; aucun
+profil de soumission iOS n'existe encore.
+
+À décider un jour : poser `"autoIncrement": true` sur le profil `internal`
+plutôt que de compter à la main. Ce n'est pas fait ici — c'est une décision de
+chaîne de publication, pas de finition mobile.
+- **Rien n'est prouvé sur un appareil.** Le zoom d'Apple demande un iPhone sous
+  iOS 18, l'haptique demande un moteur, la micro-échelle et le greffon des
+  worklets demandent un build natif. La checklist de recette au doigt est dans
+  la PR.

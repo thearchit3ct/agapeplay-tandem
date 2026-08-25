@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-parcours'
 import type { Journey } from '@agapeplay/domain'
 import { bordsDOnglet, colors, ondeEncre, toucheMinimale, typography } from '@/theme'
+import { Appui } from '@/appui'
 import { useLangue } from '@/langue'
 import { Squelette, SqueletteDeParagraphe } from '@/squelette'
 import { chargerParcours } from '@/parcours'
@@ -77,16 +78,36 @@ export default function JourneyScreen() {
         </View>
       ))}
 
+      {/* La rangée s'OUVRE vers la séance, elle ne la pousse pas depuis le bord.
+          `Link.AppleZoom` est la transition à élément partagé d'Apple, portée par
+          expo-router 57 : la rangée touchée grandit jusqu'à devenir l'écran, et
+          le geste de retour la ramène à sa place — interruptible, piloté au
+          doigt, rendu par UIKit.
+
+          **iOS 18 et au-delà, et nulle part ailleurs.** Sur Android, sur iOS 17
+          et sur le web, `Link.AppleZoom` se replie sur un `Slot` : il rend son
+          enfant tel quel, et la pile garde sa transition de plateforme — le
+          glissement latéral d'Android reste ce qu'Android attend. Aucune
+          imitation en JavaScript n'a été écrite pour combler l'écart : une
+          fausse transition à élément partagé, calculée hors du fil natif,
+          décroche du doigt dès que la liste est longue, et c'est précisément le
+          genre de faux natif que cette phase corrige.
+
+          C'est ici que la transition tombe le plus juste : la rangée entière est
+          déjà le lien, il n'y a donc rien à restructurer pour que la surface qui
+          grandit soit celle qu'on a touchée. */}
       {(parcours?.sessions ?? []).map((seance) => (
         <Link key={seance.id} href={{ pathname: '/session', params: { jour: String(seance.day) } }} asChild>
-          <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} android_ripple={ondeEncre}>
-            <View style={styles.badge}><Text style={styles.badgeText}>{String(seance.day).padStart(2, '0')}</Text></View>
-            <View style={styles.rowCopy}>
-              <Text style={styles.rowKicker}>{t.sessionLabel} {seance.day} · {seance.duration} {t.minutes}</Text>
-              <Text style={styles.rowTitle}>{seance.title}</Text>
-            </View>
-            <Text style={styles.rowArrow}>↗</Text>
-          </Pressable>
+          <Link.AppleZoom>
+            <Appui style={({ pressed }) => [styles.row, pressed && styles.pressed]} android_ripple={ondeEncre}>
+              <View style={styles.badge}><Text style={styles.badgeText}>{String(seance.day).padStart(2, '0')}</Text></View>
+              <View style={styles.rowCopy}>
+                <Text style={styles.rowKicker}>{t.sessionLabel} {seance.day} · {seance.duration} {t.minutes}</Text>
+                <Text style={styles.rowTitle}>{seance.title}</Text>
+              </View>
+              <Text style={styles.rowArrow}>↗</Text>
+            </Appui>
+          </Link.AppleZoom>
         </Link>
       ))}
     </ScrollView>

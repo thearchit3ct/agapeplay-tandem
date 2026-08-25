@@ -17,6 +17,7 @@
  */
 import { router } from 'expo-router'
 import { Pressable, Text } from 'react-native'
+import { Appui } from '@/appui'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
 import { ondeClaire, toucheMinimale } from '@/theme'
 import { CoquilleDeFeuille, traitsDeFeuille as traits } from '@/coquille'
@@ -35,9 +36,9 @@ export default function FeuilleDeBlocage() {
   return <CoquilleDeFeuille nom="blocage" titre={t.blockTitle.toUpperCase()}>
     <Text style={traits.texte}>{t.blockDescription}</Text>
     <Text style={traits.texte}>{t.blockReversible}</Text>
-    <Pressable accessibilityRole="button" android_ripple={ondeClaire} style={({ pressed }) => [traits.action, pressed && traits.presse]} onPress={confirmer}>
+    <Appui accessibilityRole="button" android_ripple={ondeClaire} style={({ pressed }) => [traits.action, pressed && traits.presse]} onPress={confirmer}>
       <Text style={traits.actionTexte}>{t.blockConfirm}  →</Text>
-    </Pressable>
+    </Appui>
     {/* Le glissement vers le bas referme aussi la feuille : ce lien est là pour
         qui ne connaît pas le geste, et parce que le panneau l'avait. */}
     <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => router.back()}>

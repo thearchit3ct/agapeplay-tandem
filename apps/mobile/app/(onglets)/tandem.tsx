@@ -73,12 +73,14 @@ import { copy } from '@agapeplay/content/copy/mobile-tandem'
 import { accesConversation, gestesDeProtection, initialeDe, unblockAffordance } from '@agapeplay/domain'
 import type { RemoteMessage, TandemStatus } from '@agapeplay/domain'
 import { bordsDOnglet, colors, ondeClaire, toucheMinimale, typography } from '@/theme'
+import { Appui } from '@/appui'
+import { Venue, useNouveauxVenus } from '@/presence'
 import { useHauteurDuClavier } from '@/clavier'
 import { useGesteDeFeuille } from '@/feuilles'
 import type { ChargesDeFeuille } from '@/feuilles'
 import { useLangue } from '@/langue'
 import { Squelette, SqueletteDeParagraphe } from '@/squelette'
-import { toucherGrave, toucherLeger } from '@/toucher'
+import { toucherGrave, toucherLeger, toucherRefus } from '@/toucher'
 import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 
@@ -223,9 +225,27 @@ export default function TandemScreen() {
     requestAnimationFrame(() => refDefilement.current?.scrollToEnd({ animated: true }))
   }, [refDefilement])
 
-  // Une conversation s'ouvre sur ce qui vient d'être dit, pas sur son début.
-  // Déclenché sur la fin du chargement et non sur `messages` : à chaque envoi,
-  // `envoyer` s'en charge déjà, et réagir aux deux ferait deux défilements.
+  /**
+   * Une conversation s'ouvre sur ce qui vient d'être dit, pas sur son début.
+   * Déclenché sur la fin du chargement et non sur `messages` : à chaque envoi,
+   * `envoyer` s'en charge déjà, et réagir aux deux ferait deux défilements.
+   *
+   * **Constat du 28/08/2026 — la position de lecture au rafraîchissement.**
+   * On cherchait ici le défaut « un message reçu au tirer-pour-rafraîchir fait
+   * sauter la liste ». Il n'existe pas, et pour une raison qui ne se voit qu'en
+   * relisant `load` : cette fonction pose `setLoading(false)` et ne repose
+   * **jamais** `setLoading(true)`. Passé la première lecture, `loading` reste
+   * donc faux à jamais, l'effet ci-dessous ne se redéclenche plus, et un
+   * rafraîchissement ne défile pas — la position de lecture est conservée par
+   * construction.
+   *
+   * L'écart réel est l'inverse, et il est laissé tel quel : un message arrivé
+   * au rafraîchissement **n'est pas annoncé** si l'on n'était pas déjà en bas du
+   * fil. L'entrée douce posée sur les bulles neuves ne se voit que si elles sont
+   * à l'écran. Le remède serait un repère « nouveaux messages » — c'est du
+   * produit, pas du mouvement, et cela ne se décide pas dans un chantier de
+   * finition.
+   */
   useEffect(() => {
     if (!loading && messages.length > 0) auDernierMessage()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,6 +259,16 @@ export default function TandemScreen() {
     const timer = setTimeout(() => setNotice(''), 4200)
     return () => clearTimeout(timer)
   }, [notice])
+
+  /**
+   * Qui vient d'arriver dans le fil, et qui était déjà là.
+   *
+   * `!loading` marque la fin de la première lecture : c'est elle qui arrête la
+   * première fournée, et non le montage — le fil arrive une fraction de seconde
+   * après l'écran, et mémoriser une liste vide comme « la première fournée »
+   * ferait entrer toute la conversation en cascade.
+   */
+  const estNouveau = useNouveauxVenus(messages.map((message) => message.id), !loading)
 
   const vue = { status: tandem?.status ?? null, blockedBy: tandem?.blockedBy ?? null, currentUserId: session?.user.id }
   const affordance = unblockAffordance(vue)
@@ -262,6 +292,10 @@ export default function TandemScreen() {
     if (error || !data) {
       // La saisie reste en place : sans file hors-ligne, la vider perdrait le
       // message pour de bon. C'est l'écart assumé avec le web.
+      //
+      // L'avertissement précède la phrase : un envoi qui ne part pas dans le
+      // métro se découvrait jusqu'ici en relisant l'écran, souvent bien après.
+      toucherRefus()
       setNotice(t.sendError)
       return
     }
@@ -291,7 +325,9 @@ export default function TandemScreen() {
     // produit si l'autre a bloqué pendant qu'on était sur l'écran. Annoncer
     // « c'est bloqué » ici serait un mensonge, et le pire des mensonges — celui
     // qui fait croire qu'on est protégé.
-    if (!data) { setNotice(t.blockRefused); return }
+    // Un refus vibre en avertissement : c'est le moment où le retour physique
+    // sert le plus — on croit s'être protégé, et on ne l'est pas.
+    if (!data) { toucherRefus(); setNotice(t.blockRefused); return }
     // L'état vient de la ligne rendue : c'est le serveur qui dit où en est la
     // relation, et l'écran se remet à jour sans re-scan. `accesConversation`
     // referme alors le composeur, `unblockAffordance` ouvre la porte de retour,
@@ -342,7 +378,7 @@ export default function TandemScreen() {
     // Un insert refusé par un `with check` lève, contrairement à l'UPDATE — mais
     // on lit quand même la ligne rendue : sans elle, on annoncerait « transmis »
     // sur la foi d'une absence d'erreur.
-    if (error || !data) { setNotice(t.syncError); return false }
+    if (error || !data) { toucherRefus(); setNotice(t.syncError); return false }
     toucherGrave()
     // Le doc 08 autorise `category` et `channel_type` sur cet événement, et
     // rien de plus. Le mot libre reste ici : c'est la phrase de la personne.
@@ -365,7 +401,11 @@ export default function TandemScreen() {
     if (error) { setNotice(t.syncError); return }
     // Même silence que pour le blocage, et même remède : sans ligne rendue,
     // rien n'a bougé côté serveur et l'écran doit le dire.
-    if (!data) { setNotice(t.unblockRefused); return }
+    if (!data) { toucherRefus(); setNotice(t.unblockRefused); return }
+    // Le déblocage vibre depuis le 28/08/2026, du même poids que le blocage :
+    // la même relation ne peut pas se fermer avec du poids et se rouvrir sans
+    // rien. Rouvrir est souvent le plus difficile des deux gestes.
+    toucherGrave()
     setTandem({ id: data.id, status: data.status, blockedBy: data.blocked_by })
     setNotice(t.unblockedNotice)
   }
@@ -453,11 +493,20 @@ export default function TandemScreen() {
               ? <Text style={styles.threadNote}>{t.emptyThread}</Text>
               : messages.map((message) => {
                 const deMoi = message.senderId === session?.user.id
-                return <View key={message.id} style={[styles.bubble, deMoi ? styles.bubbleMine : styles.bubbleTheirs]}>
+                // Seule une bulle **arrivée après** l'affichage du fil monte
+                // depuis le bas : sans cette garde, ouvrir une conversation de
+                // cinquante messages les ferait tous entrer en cascade, ce qui
+                // est de la décoration — et une décoration qui retarde la
+                // lecture de ce qui vient d'être dit. Voir `useNouveauxVenus`.
+                return <Venue
+                  key={message.id}
+                  nouveau={estNouveau(message.id)}
+                  style={[styles.bubble, deMoi ? styles.bubbleMine : styles.bubbleTheirs]}
+                >
                   <Text style={[styles.author, deMoi && styles.authorMine]}>{deMoi ? t.me : partnerName ?? t.tandem}</Text>
                   <Text style={[styles.body, deMoi && styles.bodyMine]}>{message.body}</Text>
                   <Text style={[styles.time, deMoi && styles.timeMine]}>{new Date(message.createdAt).toLocaleString()}</Text>
-                </View>
+                </Venue>
               })}
         </View>}
 
@@ -468,7 +517,7 @@ export default function TandemScreen() {
             {/* Le bouton n'ouvre plus un encadré dans la page : il présente la
                 feuille du système. Ce qui suit — les phrases, l'ordre, le geste
                 — est identique ; c'est le contenant qui a changé. */}
-            <Pressable accessibilityRole="button" style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => router.push('/feuilles/deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
+            <Appui accessibilityRole="button" style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => router.push('/feuilles/deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Appui>
           </>}
           {/* Aucun bouton dans les deux cas suivants : la politique le refuserait
               pour l'un, personne ne peut rien pour l'autre. La phrase tient lieu
@@ -518,7 +567,7 @@ export default function TandemScreen() {
           // conversation qu'on est justement en train de poursuivre.
           onFocus={auDernierMessage}
         />
-        <Pressable
+        <Appui
           accessibilityRole="button"
           disabled={!acces.peutEcrire || sending || !draft.trim()}
           android_ripple={ondeClaire}
@@ -526,7 +575,7 @@ export default function TandemScreen() {
           onPress={() => void envoyer()}
         >
           <Text style={styles.sendButtonText}>{sending ? t.sending : `${t.send}  →`}</Text>
-        </Pressable>
+        </Appui>
       </View>}
     </View>
   </SafeAreaView>

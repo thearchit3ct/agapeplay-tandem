@@ -22,6 +22,7 @@
 import { router } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, Text, TextInput, View } from 'react-native'
+import { Appui } from '@/appui'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
 import { CATEGORIES_PROPOSEES, urgenceDe } from '@agapeplay/domain'
 import type { CategorieSignalement } from '@agapeplay/domain'
@@ -70,7 +71,7 @@ export default function FeuilleDeSignalement() {
 
     <View style={traits.choixListe}>
       {CATEGORIES_PROPOSEES.map((valeur) => (
-        <Pressable
+        <Appui
           key={valeur}
           accessibilityRole="radio"
           accessibilityState={{ selected: categorie === valeur }}
@@ -79,7 +80,7 @@ export default function FeuilleDeSignalement() {
           onPress={() => setCategorie(valeur)}
         >
           <Text style={[traits.choixTexte, categorie === valeur && traits.choixTexteRetenu]}>{libelleCategorie(valeur, t)}</Text>
-        </Pressable>
+        </Appui>
       ))}
     </View>
 
@@ -104,13 +105,13 @@ export default function FeuilleDeSignalement() {
 
     {/* Sans catégorie il n'y a rien à envoyer : `category` est `not null` et
         sans défaut, la base refuserait l'insert. */}
-    <Pressable
+    <Appui
       accessibilityRole="button"
       disabled={!categorie || enVol}
       android_ripple={ondeClaire}
       style={({ pressed }) => [traits.action, (!categorie || enVol) && traits.actionOff, pressed && traits.presse]}
       onPress={() => void confirmer()}
-    ><Text style={traits.actionTexte}>{enVol ? t.reporting : t.reportConfirm}  →</Text></Pressable>
+    ><Text style={traits.actionTexte}>{enVol ? t.reporting : t.reportConfirm}  →</Text></Appui>
     <Pressable accessibilityRole="button" style={toucheMinimale} disabled={enVol} onPress={() => router.back()}>
       {({ pressed }) => <Text style={[traits.annuler, pressed && traits.presse]}>{t.reportCancel}</Text>}
     </Pressable>

@@ -12,6 +12,7 @@
  */
 import { router } from 'expo-router'
 import { Pressable, Text } from 'react-native'
+import { Appui } from '@/appui'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
 import { ondeClaire, toucheMinimale } from '@/theme'
 import { CoquilleDeFeuille, traitsDeFeuille as traits } from '@/coquille'
@@ -30,9 +31,9 @@ export default function FeuilleDeDeblocage() {
   return <CoquilleDeFeuille nom="deblocage" titre={t.unblockTitle.toUpperCase()}>
     <Text style={traits.texte}>{t.unblockDescription}</Text>
     <Text style={traits.texte}>{t.unblockReversible}</Text>
-    <Pressable accessibilityRole="button" android_ripple={ondeClaire} style={({ pressed }) => [traits.action, pressed && traits.presse]} onPress={confirmer}>
+    <Appui accessibilityRole="button" android_ripple={ondeClaire} style={({ pressed }) => [traits.action, pressed && traits.presse]} onPress={confirmer}>
       <Text style={traits.actionTexte}>{t.unblockConfirm}  →</Text>
-    </Pressable>
+    </Appui>
     <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => router.back()}>
       {({ pressed }) => <Text style={[traits.annuler, pressed && traits.presse]}>{t.unblockCancel}</Text>}
     </Pressable>
