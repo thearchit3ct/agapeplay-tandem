@@ -41,6 +41,7 @@ import type {
 } from '@agapeplay/domain'
 import type { Copy } from '@agapeplay/content/copy/web'
 import type { MotRecu } from '../mentor'
+import { naviguerDansLeGroupe } from './dialogue'
 
 /**
  * Les tables `Record<union, keyof Copy>` sont le motif du dépôt : `tsc -b`
@@ -313,11 +314,18 @@ function MonAccompagnementCarte({
       <strong>{t.askHelpTitle}</strong>
       <p>{t.askHelpIntro}</p>
       <div role="radiogroup" aria-label={t.askHelpTitle}>
-        {CATEGORIES_AIDE.map((valeur) => (
+        {/* Même motif que les catégories de signalement : un arrêt de
+            tabulation pour le groupe, les flèches pour choisir. Les deux
+            groupes bougent ensemble ou pas du tout — voir `dialogue.ts`. */}
+        {CATEGORIES_AIDE.map((valeur, rang) => (
           <button
             key={valeur} type="button" className="outline-button"
             role="radio" aria-checked={categorie === valeur}
+            tabIndex={categorie === null ? (rang === 0 ? 0 : -1) : (categorie === valeur ? 0 : -1)}
             onClick={() => setCategorie(valeur)}
+            onKeyDown={(event) => naviguerDansLeGroupe(
+              event, rang, CATEGORIES_AIDE.length, (cible) => setCategorie(CATEGORIES_AIDE[cible]),
+            )}
           >{t[LIBELLE_CATEGORIE[valeur]]}</button>
         ))}
       </div>
