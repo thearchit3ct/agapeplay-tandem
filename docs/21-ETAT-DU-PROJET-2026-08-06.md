@@ -2133,7 +2133,20 @@ repère « nouveaux messages » — c'est du produit, pas du mouvement.
   front, y compris sur une ligne de base sans code d'animation — la chaîne
   d'outils a été prouvée avant les fonctionnalités.
 - `apps/mobile/app.json` et `apps/mobile/package.json` : 0.2.3, en verrou comme
-  au 27/08. `buildNumber` et `versionCode` inchangés.
+  au 27/08.
+
+**`versionCode` passe de 1 à 2, et il le fallait.** `eas.json` déclare
+`appVersionSource: "local"` et **aucun profil ne porte `autoIncrement`** : le
+numéro de build est celui écrit dans `app.json`, tel quel. Or la v0.2.2 est déjà
+sur la piste interne du Play Store, posée avec `versionCode: 1` — la valeur
+n'avait plus bougé depuis la PR #56. Un second envoi au même numéro est refusé
+par Google (« version code 1 has already been used »), et la recette de cette PR
+n'aurait jamais pu commencer. `buildNumber` d'iOS suit, par symétrie ; aucun
+profil de soumission iOS n'existe encore.
+
+À décider un jour : poser `"autoIncrement": true` sur le profil `internal`
+plutôt que de compter à la main. Ce n'est pas fait ici — c'est une décision de
+chaîne de publication, pas de finition mobile.
 - **Rien n'est prouvé sur un appareil.** Le zoom d'Apple demande un iPhone sous
   iOS 18, l'haptique demande un moteur, la micro-échelle et le greffon des
   worklets demandent un build natif. La checklist de recette au doigt est dans
