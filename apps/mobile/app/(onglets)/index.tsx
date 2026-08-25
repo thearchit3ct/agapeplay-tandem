@@ -2,15 +2,17 @@ import { Link, useFocusEffect } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import Animated from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-home'
 import type { EtatDeSemaine, Journey } from '@agapeplay/domain'
 import { ETATS_DE_SEMAINE, invitationDouce, prochaineSeance, semaineDuBilan } from '@agapeplay/domain'
 import { bordsDOnglet, colors, ondeClaire, ondeEncre, toucheMinimale, typography } from '@/theme'
 import { Appui } from '@/appui'
+import { ENTREE_SIMPLE, SORTIE_SIMPLE } from '@/presence'
 import { useLangue } from '@/langue'
 import { Squelette, SqueletteDeParagraphe } from '@/squelette'
-import { toucherAbouti, toucherLeger } from '@/toucher'
+import { toucherAbouti, toucherLeger, toucherRefus } from '@/toucher'
 import { flushProgressQueue } from '@/offlineQueue'
 import { supabase } from '@/supabase'
 import { synchroniserRappels } from '@/notifications'
@@ -208,6 +210,7 @@ export default function HomeScreen() {
     setBilanEnCours(false)
     // L'écriture lit sa réponse avant que l'écran ne dise « c'est noté ».
     if (!pose) {
+      toucherRefus()
       setNotice(t.checkinFailed)
       return
     }
@@ -242,7 +245,7 @@ export default function HomeScreen() {
     if (!compteId || !etatBilan) return
     const avant = clef === 'sessions' ? etatBilan.rappelSeance : etatBilan.rappelBilan
     const pose = await basculerRappel(compteId, clef, !avant)
-    if (!pose) { setNotice(t.checkinFailed); return }
+    if (!pose) { toucherRefus(); setNotice(t.checkinFailed); return }
     // Un interrupteur qui bascule pour de bon — après lecture de ce que la
     // base a retenu, jamais sur l'appui.
     toucherLeger()
@@ -329,19 +332,27 @@ export default function HomeScreen() {
         <Text style={styles.kickerDark}>{t.resumeTitle}</Text>
         <Text style={styles.gentleBody}>{t.resumeBody}</Text>
       </View>}
+      {/* La carte du bilan : la question s'efface, la réponse prend sa place.
+          **Ce qui est animé est l'échange, pas la carte.** La carte reste à
+          l'écran après la réponse — c'est ce que la condition ci-dessus décide
+          depuis l'issue #18, et c'est du produit : « c'est noté » et le mot
+          choisi sont une réponse, pas un accusé qu'on retire. Un chantier de
+          mouvement n'a pas à décider quand un contenu disparaît. Ce qui manquait
+          était l'inverse : cinq boutons remplacés d'un claquement par une ligne
+          de texte, sans qu'on voie lequel des deux blocs a bougé. */}
       {(invitation.forme === 'bilan' || bilanRepondu) && <View style={styles.gentleCard}>
         <Text style={styles.kickerDark}>{t.checkinTitle}</Text>
         {bilanRepondu
-          ? <Text style={styles.gentleBody}>{t.checkinSaved}  {t[LIBELLE_ETAT[bilanRepondu]]}</Text>
-          : <>
+          ? <Animated.Text entering={ENTREE_SIMPLE} style={styles.gentleBody}>{t.checkinSaved}  {t[LIBELLE_ETAT[bilanRepondu]]}</Animated.Text>
+          : <Animated.View exiting={SORTIE_SIMPLE}>
               <Text style={styles.gentleBody}>{t.checkinQuestion}</Text>
               <View style={styles.checkinChoices}>{ETATS_DE_SEMAINE.map((etat) => (
-                <Pressable key={etat} style={({ pressed }) => [styles.checkinChoice, pressed && styles.pressed]} android_ripple={ondeEncre} disabled={bilanEnCours} onPress={() => void repondre(etat)}>
+                <Appui key={etat} style={({ pressed }) => [styles.checkinChoice, pressed && styles.pressed]} android_ripple={ondeEncre} disabled={bilanEnCours} onPress={() => void repondre(etat)}>
                   <Text style={styles.checkinChoiceText}>{t[LIBELLE_ETAT[etat]]}</Text>
-                </Pressable>
+                </Appui>
               ))}</View>
               <Text style={styles.checkinPrivate}>{t.checkinPrivate}</Text>
-            </>}
+            </Animated.View>}
       </View>}
       {/* Sans compte, rien ne s'enregistrerait : on le dit plutôt que d'offrir
           un bouton qui ne tiendrait pas. Même règle que le journal côté web. */}
@@ -355,26 +366,26 @@ export default function HomeScreen() {
           qui n'est pas un lieu où l'on habite, et les réglages, que le mobile
           n'a nulle part ailleurs. La numérotation reprend donc à 01. */}
       <View style={styles.navGrid}>
-        <Link href="/compte" asChild><Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre}><Text style={styles.navIndex}>01</Text><Text style={styles.navTitle}>{t.account}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
+        <Link href="/compte" asChild><Appui style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre}><Text style={styles.navIndex}>01</Text><Text style={styles.navTitle}>{t.account}</Text><Text style={styles.navArrow}>↗</Text></Appui></Link>
         {/* Le rappel de séance écrit `notification_preferences.sessions`, sur
             le compte — comme le bilan juste en dessous, et pour la même
             raison : un interrupteur local serait un second endroit qui dit la
             même chose, et le rappel coupé depuis le navigateur reviendrait
             ici. Sans compte, il n'y a rien où l'écrire, et la carte ne
             s'affiche pas plutôt que de promettre un réglage sans mémoire. */}
-        {session && etatBilan && <Pressable style={({ pressed }) => [styles.reminderCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelSeance }} onPress={() => void basculerLeRappel('sessions')}><Text style={styles.navIndex}>02</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.reminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelSeance ? t.reminderOn : t.reminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelSeance ? '●' : '○'}</Text></Pressable>}
+        {session && etatBilan && <Appui style={({ pressed }) => [styles.reminderCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelSeance }} onPress={() => void basculerLeRappel('sessions')}><Text style={styles.navIndex}>02</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.reminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelSeance ? t.reminderOn : t.reminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelSeance ? '●' : '○'}</Text></Appui>}
         {/* Le réglage de mesure vit ici, avec le rappel, parce que le mobile n'a
             pas d'écran de réglages — et qu'un choix qu'on ne trouve pas n'est
             pas un choix. La description tient sur deux lignes : ce qu'on compte,
             ce qu'on ne lit pas. */}
-        <Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: mesure }} onPress={() => void basculerLaMesure()}><Text style={styles.navIndex}>03</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.measurement}</Text><Text style={styles.reminderStatus}>{mesure ? t.measurementOn : t.measurementOff}</Text></View><Text style={styles.navArrow}>{mesure ? '●' : '○'}</Text></Pressable>
+        <Appui style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: mesure }} onPress={() => void basculerLaMesure()}><Text style={styles.navIndex}>03</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.measurement}</Text><Text style={styles.reminderStatus}>{mesure ? t.measurementOn : t.measurementOff}</Text></View><Text style={styles.navArrow}>{mesure ? '●' : '○'}</Text></Appui>
         {/* Le rappel du bilan se règle ici, avec la mesure, et pour la même
             raison : le mobile n'a pas d'écran de réglages, et un choix qu'on ne
             trouve pas n'est pas un choix. Il écrit dans
             `notification_preferences`, sur le compte — un interrupteur local
             serait un second endroit qui dit la même chose, et le rappel coupé
             depuis le navigateur reviendrait ici. */}
-        {session && etatBilan && <Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelBilan }} onPress={() => void basculerLeRappel('weekly_checkin')}><Text style={styles.navIndex}>04</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.checkinReminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelBilan ? t.checkinReminderOn : t.checkinReminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelBilan ? '●' : '○'}</Text></Pressable>}
+        {session && etatBilan && <Appui style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelBilan }} onPress={() => void basculerLeRappel('weekly_checkin')}><Text style={styles.navIndex}>04</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.checkinReminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelBilan ? t.checkinReminderOn : t.checkinReminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelBilan ? '●' : '○'}</Text></Appui>}
       </View>
       {/* Dit seulement quand un rappel est demandé et que l'appareil n'a pas
           pu le poser : le réglage reste vrai sur le compte, c'est la

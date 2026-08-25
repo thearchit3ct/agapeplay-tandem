@@ -2,7 +2,7 @@
   "expo": {
     "name": "AgapePlay Tandem",
     "slug": "agapeplay-tandem",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "orientation": "portrait",
     "scheme": "agapeplay",
     "userInterfaceStyle": "light",

@@ -31,14 +31,17 @@ import { useFocusEffect } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import Animated from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-journal'
 import { partageDuJournal } from '@agapeplay/domain'
 import { bordsDOnglet, colors, ondeClaire, toucheMinimale, typography } from '@/theme'
 import { useLangue } from '@/langue'
 import { Squelette, SqueletteDeParagraphe } from '@/squelette'
+import { Appui } from '@/appui'
+import { ENTREE_DEPUIS_LE_BAS, ENTREE_SIMPLE, SORTIE_SIMPLE, useNouveauxVenus } from '@/presence'
 import { useChampAuDessusDuClavier } from '@/clavier'
-import { toucherGrave, toucherLeger } from '@/toucher'
+import { toucherGrave, toucherLeger, toucherRefus } from '@/toucher'
 import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 import {
@@ -134,6 +137,13 @@ export default function JournalScreen() {
     return () => clearTimeout(minuterie)
   }, [notice])
 
+  /**
+   * Quelle page vient d'être écrite, et lesquelles étaient déjà là. Même garde
+   * que dans la conversation : sans elle, ouvrir un journal de cent entrées les
+   * ferait toutes monter en cascade. `!loading` arrête la première fournée.
+   */
+  const estNouvelle = useNouveauxVenus(entrees.map((entree) => entree.id), !loading)
+
   const partage = partageDuJournal({
     status: tandem?.status ?? null,
     blockedBy: null,
@@ -149,7 +159,10 @@ export default function JournalScreen() {
     setEcriture(false)
     // L'écriture lit sa réponse : sans la ligne rendue, on afficherait une
     // entrée portant l'heure du téléphone et un identifiant qui n'existe pas.
-    if (!entree) { setNotice(t.saveFailed); return }
+    // Un texte qu'on croit enregistré et qui ne l'est pas est le pire échec de
+    // cet écran : l'avertissement le dit à la main avant que la phrase ne soit
+    // lue. La saisie, elle, reste en place — il n'y a pas de file.
+    if (!entree) { toucherRefus(); setNotice(t.saveFailed); return }
     // Vibré sur la ligne rendue, jamais sur l'appui : ce que la main doit
     // sentir, c'est que l'entrée est écrite.
     toucherLeger()
@@ -167,9 +180,11 @@ export default function JournalScreen() {
     if (partages.has(entree.id)) {
       const { retirees, erreur } = await retirerPartage(entree.id)
       setEnCours(null)
-      if (erreur) { setNotice(t.shareEntryFailed); return }
-      // Zéro ligne retirée sans erreur : la politique a filtré en silence.
-      if (retirees === 0) { setNotice(t.unshareEntryRefused); return }
+      if (erreur) { toucherRefus(); setNotice(t.shareEntryFailed); return }
+      // Zéro ligne retirée sans erreur : la politique a filtré en silence. Le
+      // silence est justement ce qu'on corrige — croire avoir refermé une page
+      // de son journal qui reste ouverte est un refus qui doit se sentir.
+      if (retirees === 0) { toucherRefus(); setNotice(t.unshareEntryRefused); return }
       toucherLeger()
       setPartages((precedents) => { const suite = new Set(precedents); suite.delete(entree.id); return suite })
       setNotice(t.unshareEntryDone)
@@ -177,7 +192,7 @@ export default function JournalScreen() {
     }
     const pose = await poserPartage({ entreeId: entree.id, tandemId: tandem.id, auteurId: compteId })
     setEnCours(null)
-    if (!pose) { setNotice(t.shareEntryFailed); return }
+    if (!pose) { toucherRefus(); setNotice(t.shareEntryFailed); return }
     // Ouvrir une page de son journal à quelqu'un est le geste le plus engageant
     // de cet écran : il mérite sa vibration.
     toucherLeger()
@@ -197,8 +212,8 @@ export default function JournalScreen() {
     setEnCours(entreeId)
     const { supprimees, erreur } = await supprimerEntree(entreeId)
     setEnCours(null)
-    if (erreur) { setNotice(t.deleteEntryRefused); return }
-    if (supprimees === 0) { setNotice(t.deleteEntryRefused); return }
+    if (erreur) { toucherRefus(); setNotice(t.deleteEntryRefused); return }
+    if (supprimees === 0) { toucherRefus(); setNotice(t.deleteEntryRefused); return }
     // Plus lourd que les autres : une entrée retirée ne revient pas.
     toucherGrave()
     setEntrees((precedentes) => precedentes.filter((entree) => entree.id !== entreeId))
@@ -252,13 +267,13 @@ export default function JournalScreen() {
           placeholderTextColor={colors.muted}
           accessibilityLabel={t.placeholder}
         />
-        <Pressable
+        <Appui
           accessibilityRole="button"
           disabled={ecriture || !brouillon.trim()}
           android_ripple={ondeClaire}
           style={({ pressed }) => [styles.primary, (ecriture || !brouillon.trim()) && styles.primaryOff, pressed && styles.pressed]}
           onPress={() => void ecrire()}
-        ><Text style={styles.primaryText}>{ecriture ? t.saving : `${t.save}  →`}</Text></Pressable>
+        ><Text style={styles.primaryText}>{ecriture ? t.saving : `${t.save}  →`}</Text></Appui>
         <Text style={styles.footnote}>{t.offlineNote}</Text>
       </View>}
 
@@ -285,7 +300,19 @@ export default function JournalScreen() {
 
       {entrees.map((entree) => {
         const ouverte = partages.has(entree.id)
-        return <View key={entree.id} style={styles.entry}>
+        // Une page qu'on vient d'écrire arrive par le bas ; une page qu'on
+        // retire s'efface. La sortie est plus courte que l'entrée (150 contre
+        // 220 ms) : on regarde ce qui arrive, pas ce qui part — et un journal
+        // ne doit surtout pas donner l'impression de reprendre ce qu'on lui
+        // retire. `exiting` est la raison d'être de Reanimated ici : au moment
+        // où l'on voudrait animer la sortie à la main, React a déjà démonté
+        // l'entrée.
+        return <Animated.View
+          key={entree.id}
+          entering={estNouvelle(entree.id) ? ENTREE_DEPUIS_LE_BAS : undefined}
+          exiting={SORTIE_SIMPLE}
+          style={styles.entry}
+        >
           <View style={styles.entryHead}>
             <Text style={styles.entryDate}>{new Date(entree.ecritLe).toLocaleDateString()}</Text>
             {/* L'humeur affichée est traduite, la colonne ne l'est pas : le
@@ -309,12 +336,15 @@ export default function JournalScreen() {
           {/* Dit sous l'entrée ouverte, et nulle part ailleurs : c'est là que
               la phrase répond à un geste possible. */}
           {ouverte && <Text style={styles.footnote}>{t.unshareEntryReminder}</Text>}
-          {aSupprimer === entree.id && <View style={styles.panel}>
+          {/* La demande de confirmation apparaît et disparaît en fondu : elle
+              s'insère au milieu de la liste, et un encadré qui surgit d'un coup
+              sous le doigt fait perdre la ligne qu'on lisait. */}
+          {aSupprimer === entree.id && <Animated.View entering={ENTREE_SIMPLE} exiting={SORTIE_SIMPLE} style={styles.panel}>
             <Text style={styles.panelText}>{t.deleteEntryWarning}</Text>
-            <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void supprimer(entree.id)}><Text style={styles.panelActionText}>{t.deleteEntryConfirm}  →</Text></Pressable>
+            <Appui style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void supprimer(entree.id)}><Text style={styles.panelActionText}>{t.deleteEntryConfirm}  →</Text></Appui>
             <Pressable style={toucheMinimale} onPress={() => setASupprimer(null)}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.deleteEntryCancel}</Text>}</Pressable>
-          </View>}
-        </View>
+          </Animated.View>}
+        </Animated.View>
       })}
 
       {session && <View style={styles.received}>

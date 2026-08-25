@@ -24,6 +24,7 @@ import { copy } from '@agapeplay/content/copy/mobile-parcours'
 import { trancheDuree } from '@agapeplay/domain'
 import type { Journey } from '@agapeplay/domain'
 import { colors, ondeClaire, toucheMinimale, typography } from '@/theme'
+import { Appui } from '@/appui'
 import { useLangue } from '@/langue'
 import { revenir } from '@/retour'
 import { toucherAbouti } from '@/toucher'
@@ -118,9 +119,9 @@ export default function SessionScreen() {
             <View style={styles.rule} />
             <Text style={styles.body}>{seance.prompt}</Text>
             <Text style={styles.body}>{seance.action}</Text>
-            <Pressable accessibilityRole="button" android_ripple={ondeClaire} style={({ pressed }) => [styles.primary, pressed && styles.pressed]} onPress={() => void terminer()}>
+            <Appui accessibilityRole="button" android_ripple={ondeClaire} style={({ pressed }) => [styles.primary, pressed && styles.pressed]} onPress={() => void terminer()}>
               <Text style={styles.primaryText}>{termine ? t.finished : `${t.finish} →`}</Text>
-            </Pressable>
+            </Appui>
             {/* Dit après coup, et seulement à qui a un compte : sans session,
                 rien n'est mis en file — la file porte un identifiant de compte
                 — et promettre un envoi serait faux. */}

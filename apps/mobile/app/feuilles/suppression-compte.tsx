@@ -20,6 +20,7 @@
  */
 import { router } from 'expo-router'
 import { Pressable, Text } from 'react-native'
+import { Appui } from '@/appui'
 import { copy } from '@agapeplay/content/copy/mobile-compte'
 import { ondeClaire, toucheMinimale } from '@/theme'
 import { CoquilleDeFeuille, traitsDeFeuille as traits } from '@/coquille'
@@ -42,9 +43,9 @@ export default function FeuilleDeSuppression() {
     <Text style={traits.texte}>{t.deleteConfirmBlocked}</Text>
     <Text style={traits.texte}>{t.deleteConfirmSession}</Text>
     <Text style={traits.note}>{t.deleteConfirmExportFirst}</Text>
-    <Pressable accessibilityRole="button" android_ripple={ondeClaire} style={({ pressed }) => [traits.action, pressed && traits.presse]} onPress={confirmer}>
+    <Appui accessibilityRole="button" android_ripple={ondeClaire} style={({ pressed }) => [traits.action, pressed && traits.presse]} onPress={confirmer}>
       <Text style={traits.actionTexte}>{t.deleteConfirm}  →</Text>
-    </Pressable>
+    </Appui>
     <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => router.back()}>
       {({ pressed }) => <Text style={[traits.annuler, pressed && traits.presse]}>{t.deleteCancel}</Text>}
     </Pressable>
