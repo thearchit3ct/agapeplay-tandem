@@ -17,6 +17,8 @@ import type { CategorieSignalement, DossierModeration, StatutSignalement } from 
 import { changerStatut, chargerDossiers, chargerJournal, estModerateur } from './moderation'
 import type { LigneJournal } from './moderation'
 import { chargerInvitations, revoquerInvitation } from './invitations'
+import { appliquerConsentementDuCompte, emettre, mesureAcceptee, oublierIdentifiantDeMesure, poserConsentementLocal, premiereFois } from './mesure'
+import { trancheDuree } from '@agapeplay/domain'
 import { chargerPartagesEmis, chargerPartagesRecus, poserPartage, retirerPartage, supprimerEntree } from './partageJournal'
 import type { EntreePartagee, PartageEmis } from './partageJournal'
 import type { InvitationEmise } from './invitations'
@@ -35,6 +37,10 @@ function App() {
   const [messageDraft, setMessageDraft] = useState('')
   const [notice, setNotice] = useState('')
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
+  // L'instant d'ouverture de la séance, pour n'en garder qu'une tranche de
+  // durée (doc 08). Rien de plus fin ne quitte l'appareil : deux durées à la
+  // seconde près suffisent souvent à reconnaître quelqu'un.
+  const [seanceOuverteA, setSeanceOuverteA] = useState<number | null>(null)
   const [sessionStep, setSessionStep] = useState<SessionStep>('read')
   const [sessionReflection, setSessionReflection] = useState('')
   const [authSession, setAuthSession] = useState<Session | null>(null)
@@ -119,6 +125,10 @@ function App() {
   // au rendu ferait qu'une invitation change d'état au milieu d'un clic — et
   // rendrait la vue impossible à éprouver.
   const [instantLecture, setInstantLecture] = useState(() => new Date())
+  // Le réglage de mesure, tel que cet appareil le connaît au démarrage. Un refus
+  // posé sur le compte depuis un autre appareil arrive plus tard, avec
+  // `loadRemoteState`, et referme la case.
+  const [mesureConsentie, setMesureConsentie] = useState(() => mesureAcceptee())
 
   const t = copy[state.locale]
   const fallbackJourney = useMemo(() => getJourney(state.locale), [state.locale])
@@ -364,6 +374,17 @@ function App() {
         setState((previous) => ({ ...previous, notificationPrefs: { ...previous.notificationPrefs, ...preferencesResult.data } }))
       }
 
+      // Le refus de mesure suit le compte, pas l'appareil. Sans cette lecture,
+      // quelqu'un qui a dit non depuis son navigateur serait remesuré sur son
+      // téléphone — et le critère « un refus doit être respecté partout »
+      // resterait une phrase. Ligne absente = accord par défaut, qui est aussi
+      // ce que dit `mesure_preferences.mesure`.
+      const mesureResult = await client.from('mesure_preferences').select('mesure').eq('user_id', authSession.user.id).maybeSingle()
+      if (!mesureResult.error && !cancelled) {
+        appliquerConsentementDuCompte(mesureResult.data?.mesure ?? true)
+        setMesureConsentie(mesureAcceptee())
+      }
+
       const [mentorResult, membershipResult] = await Promise.all([
         client.from('mentor_profiles').select('verification_status, training_status').eq('user_id', authSession.user.id).maybeSingle(),
         client.from('church_members').select('church_id, role').eq('user_id', authSession.user.id).eq('status', 'active').limit(1),
@@ -412,7 +433,14 @@ function App() {
       if (invitationToken) {
         const invitationResult = await client.rpc('accept_tandem_invitation', { p_token: invitationToken })
         window.history.replaceState({}, '', window.location.pathname)
-        if (!cancelled) showNotice(invitationResult.error ? t.inviteAcceptError : t.inviteAccepted, 4200)
+        if (!cancelled) {
+          // Étape 6 du funnel, et l'émission est ici parce que c'est ici que
+          // l'acceptation a réellement lieu — l'écran ne fait que l'annoncer.
+          // Sous la garde `cancelled`, comme tout ce qui suit un aller-retour
+          // dans cet effet.
+          if (!invitationResult.error) void emettre(client, 'partner_accepted', { locale: state.locale })
+          showNotice(invitationResult.error ? t.inviteAcceptError : t.inviteAccepted, 4200)
+        }
       }
     }
 
@@ -458,6 +486,18 @@ function App() {
           }
         })
       }
+      // La séance est terminée : on mesure le fait, la position dans le
+      // parcours et une tranche de durée. Jamais la réflexion écrite, qui est
+      // du journal — la garde vit dans `packages/domain/src/mesure.ts` et la
+      // contrainte SQL la double.
+      void emettre(supabase, 'session_completed', {
+        locale: state.locale,
+        journeyId: journey.id,
+        proprietes: {
+          day: journey.sessions.find((seance) => seance.id === sessionId)?.day,
+          duration_bucket: seanceOuverteA ? trancheDuree(Date.now() - seanceOuverteA) : undefined,
+        },
+      })
       showNotice(t.completed)
     }
   }
@@ -466,6 +506,14 @@ function App() {
     setOpenSessionId(sessionId)
     setSessionStep('read')
     setSessionReflection('')
+    setSeanceOuverteA(Date.now())
+    // « Parcours commencé », étape 3 du funnel du doc 08. Le produit ne propose
+    // qu'un parcours et n'a aucun écran de choix : le geste le plus proche est
+    // la première séance ouverte, et `premiereFois` empêche d'en compter une
+    // par clic.
+    if (premiereFois(`parcours:${journey.id}`)) {
+      void emettre(supabase, 'journey_started', { locale: state.locale, journeyId: journey.id, proprietes: { source: 'seance' } })
+    }
   }
 
   const leaveSession = () => {
@@ -577,6 +625,10 @@ function App() {
       ...precedents.filter((ligne) => ligne.entreeId !== entryId),
       { entreeId: entryId, tandemId: remoteTandemId, poseLe: poseLe ?? new Date().toISOString() },
     ])
+    // `share_type` seulement : ce qui a été partagé est une entrée de journal,
+    // et c'est tout ce que la mesure a le droit de savoir. Ni l'identifiant de
+    // l'entrée, ni celui du tandem — les deux permettraient de recouper.
+    void emettre(supabase, 'share_created', { locale: state.locale, journeyId: journey.id, proprietes: { share_type: 'journal_entry' } })
     showNotice(t.shareEntryDone, 4200)
   }
 
@@ -767,6 +819,11 @@ function App() {
       showNotice(t.syncError, 4200)
       return
     }
+    // Le doc 08 autorise explicitement `category` et `channel_type` sur cet
+    // événement : savoir quelles situations sont signalées, et depuis où, est
+    // ce qui permet de voir monter un problème. Le mot libre, lui, ne sort pas
+    // d'ici — c'est du texte de la personne.
+    void emettre(supabase, 'report_created', { locale: state.locale, proprietes: { category: reportCategorie, channel_type: 'conversation' } })
     setReportCategorie(null)
     setReportNote('')
     showNotice(t.reportSent, 4200)
@@ -816,7 +873,13 @@ function App() {
     showNotice(t.moderationUpdated)
   }
 
-  const resetDemo = () => update(initialState)
+  const resetDemo = () => {
+    // La remise à zéro efface aussi l'identifiant de mesure. C'est le seul
+    // geste par lequel quelqu'un peut redevenir un appareil inconnu, et il doit
+    // faire ce qu'il dit.
+    oublierIdentifiantDeMesure()
+    update(initialState)
+  }
 
   const signOut = () => {
     if (supabase) void supabase.auth.signOut()
@@ -843,6 +906,11 @@ function App() {
       showNotice(t.syncError, 4200)
       return
     }
+    // « Compte créé » — ici, et pas à la première session Supabase. Un compte
+    // n'existe pour ce produit qu'une fois l'âge confirmé et les deux
+    // consentements posés : c'est ce que cet écran vient d'écrire, une seule
+    // fois par compte, et c'est la première étape du funnel du doc 08.
+    void emettre(supabase, 'account_created', { locale: state.locale })
     setTrustOpen(false)
   }
 
@@ -918,6 +986,10 @@ function App() {
 
     clearState()
     clearSyncQueue()
+    // Côté mesure, c'est toute la procédure de suppression : rien en base ne
+    // désigne ce compte, et l'identifiant d'appareil est le seul fil qui reliait
+    // ses événements entre eux. Voir `docs/23`.
+    oublierIdentifiantDeMesure()
     setState(initialState)
     setPendingSync(0)
     setRemoteTandemId(null)
@@ -954,6 +1026,33 @@ function App() {
     }
   }
 
+  /**
+   * Le réglage de mesure. Deux écritures, dans cet ordre : l'appareil d'abord,
+   * parce qu'elle est immédiate et ne peut pas échouer, puis le compte, pour
+   * que le refus vaille aussi ailleurs.
+   *
+   * L'écriture distante lit sa réponse — c'est un réglage, pas un événement, et
+   * l'exception documentée dans `mesure.ts` ne la couvre pas. Une case qui
+   * reste cochée après un refus non enregistré serait le mensonge le plus
+   * coûteux de cet écran.
+   */
+  const basculerMesure = async (accepte: boolean) => {
+    poserConsentementLocal(accepte)
+    setMesureConsentie(accepte)
+    if (!supabase || !authSession) return
+    const { data, error } = await supabase
+      .from('mesure_preferences')
+      .upsert({ user_id: authSession.user.id, mesure: accepte, updated_at: new Date().toISOString() })
+      .select('mesure')
+      .maybeSingle()
+    if (error || !data) {
+      showNotice(t.syncError, 4200)
+      return
+    }
+    appliquerConsentementDuCompte(data.mesure)
+    setMesureConsentie(mesureAcceptee())
+  }
+
   const createInvitation = async () => {
     if (!supabase || !authSession) {
       showNotice(t.inviteRequiresAuth, 4200)
@@ -971,6 +1070,10 @@ function App() {
     // pousser la ligne à la main. Le serveur seul connaît `expires_at`, et
     // c'est lui qui décide de l'état affiché.
     setRelectureInvitations((tour) => tour + 1)
+    // `invitation_type` dit par quel chemin l'invitation part, jamais à qui :
+    // l'adresse saisie est la donnée d'un tiers, et elle n'a rien à faire dans
+    // une table de mesure.
+    void emettre(supabase, 'partner_invited', { locale: state.locale, journeyId: journey.id, proprietes: { invitation_type: 'email' } })
     showNotice(t.inviteCreated, 4200)
   }
 
@@ -1061,7 +1164,7 @@ function App() {
 
         {authOpen && <AuthDialog t={t} loading={authLoading} onClose={() => setAuthOpen(false)} />}
         {trustOpen && <TrustDialog t={t} ageConfirmed={ageConfirmed} setAgeConfirmed={setAgeConfirmed} privacyAccepted={privacyAccepted} setPrivacyAccepted={setPrivacyAccepted} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted} onSave={() => void saveTrust()} />}
-        {settingsOpen && <SettingsDialog t={t} prefs={state.notificationPrefs} onToggle={(key, value) => void toggleNotification(key, value)} onClose={() => setSettingsOpen(false)} onExport={() => void exporterMesDonnees()} onSignOutEverywhere={() => void deconnexionPartout()} onDelete={() => setDeleteOpen(true)} busy={compteEnCours} />}
+        {settingsOpen && <SettingsDialog t={t} prefs={state.notificationPrefs} onToggle={(key, value) => void toggleNotification(key, value)} onClose={() => setSettingsOpen(false)} onExport={() => void exporterMesDonnees()} onSignOutEverywhere={() => void deconnexionPartout()} onDelete={() => setDeleteOpen(true)} busy={compteEnCours} mesure={mesureConsentie} onToggleMesure={(valeur) => void basculerMesure(valeur)} />}
         {deleteOpen && <DeleteAccountDialog t={t} onConfirm={() => void supprimerMonCompte()} onExport={() => void exporterMesDonnees()} onClose={() => setDeleteOpen(false)} busy={compteEnCours} />}
         {inviteOpen && <InviteDialog t={t} email={inviteEmail} setEmail={setInviteEmail} link={inviteLink} onCreate={() => void createInvitation()} onClose={() => { setInviteOpen(false); setInviteLink('') }} />}
         {unblockOpen && <UnblockDialog t={t} onConfirm={() => void unblockTandem()} onClose={() => setUnblockOpen(false)} />}

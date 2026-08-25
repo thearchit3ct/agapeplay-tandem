@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors, typography } from '@/theme'
+import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 
 export default function InviteScreen() {
@@ -15,6 +16,9 @@ export default function InviteScreen() {
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session) { if (active) setMessage('Connecte-toi pour accepter ton invitation.'); return }
       const { error } = await supabase.rpc('accept_tandem_invitation', { p_token: token })
+      // Étape 6 du funnel du doc 08. Sous la garde `active`, comme l'affichage :
+      // un écran démonté pendant l'aller-retour ne doit rien déclencher.
+      if (active && !error) void emettre('partner_accepted', { locale: 'fr' })
       if (active) setMessage(error ? 'Cette invitation est invalide ou expirée.' : 'Invitation acceptée. Ton tandem est actif.')
     }
     void accept()

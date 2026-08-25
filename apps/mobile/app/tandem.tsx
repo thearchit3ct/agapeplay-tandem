@@ -53,6 +53,7 @@ import { copy } from '@agapeplay/content/copy/mobile-tandem'
 import { CATEGORIES_PROPOSEES, accesConversation, gestesDeProtection, initialeDe, unblockAffordance, urgenceDe } from '@agapeplay/domain'
 import type { CategorieSignalement, Locale, RemoteMessage, TandemStatus } from '@agapeplay/domain'
 import { colors, typography } from '@/theme'
+import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 
 type RemoteTandem = { id: string; status: TandemStatus; blockedBy: string | null }
@@ -254,6 +255,9 @@ export default function TandemScreen() {
     // on lit quand même la ligne rendue : sans elle, on annoncerait « transmis »
     // sur la foi d'une absence d'erreur.
     if (error || !data) { setNotice(t.syncError); return }
+    // Le doc 08 autorise `category` et `channel_type` sur cet événement, et
+    // rien de plus. Le mot libre reste ici : c'est la phrase de la personne.
+    void emettre('report_created', { locale, proprietes: { category: categorie, channel_type: 'conversation' } })
     setPanneau('aucun')
     setCategorie(null)
     setMotLibre('')

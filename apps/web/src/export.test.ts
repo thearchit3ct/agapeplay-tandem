@@ -9,7 +9,7 @@
  * risque rien.
  */
 import { describe, expect, it } from 'vitest'
-import { SECTIONS, nomDuFichierExport, rassemblerExport, type Reponse, type SectionExport } from './export'
+import { A_PROPOS_DE_LA_MESURE, SECTIONS, nomDuFichierExport, rassemblerExport, type Reponse, type SectionExport } from './export'
 
 const COMPTE = { id: 'compte-a', email: 'anne@test.local' }
 const LE_JOUR = new Date('2026-08-24T10:00:00.000Z')
@@ -48,6 +48,23 @@ describe('assemblage de l’export', () => {
 
     const resultat = await rassemblerExport(lire, COMPTE, LE_JOUR)
     expect(resultat.donnees.tandems).toEqual([{ id: 't1' }, { id: 't2' }])
+  })
+
+  it('dit dans le fichier pourquoi les événements de mesure n’y sont pas', async () => {
+    // L'absence est structurelle — aucune ligne d'`analytics_events` ne désigne
+    // un compte — mais une absence non expliquée se lit comme un oubli, et sur
+    // un export de données personnelles c'est le genre d'oubli qu'on suppose de
+    // mauvaise foi. La phrase part avec le fichier.
+    const { lire } = lecteur()
+    const resultat = await rassemblerExport(lire, COMPTE, LE_JOUR)
+    expect(resultat.a_propos_de_la_mesure).toBe(A_PROPOS_DE_LA_MESURE)
+  })
+
+  it('exporte le choix de participer à la mesure, sous le nom du compte', async () => {
+    // Le consentement, lui, est bien nominatif : c'est une décision de la
+    // personne, et elle a le droit de la relire.
+    const section = SECTIONS.find((s) => s.clef === 'preference_de_mesure')
+    expect({ table: section?.table, colonne: section?.colonne }).toEqual({ table: 'mesure_preferences', colonne: 'user_id' })
   })
 
   it('n’exporte que les messages envoyés, jamais la conversation entière', async () => {

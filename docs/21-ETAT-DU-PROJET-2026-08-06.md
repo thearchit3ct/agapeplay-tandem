@@ -67,6 +67,68 @@ d'installation termine sur l'écran de session, sans conserver la destination
 d'origine. Un lien précis fonctionne donc pour qui a déjà l'application, et se
 dissout pour tous les autres — c'est-à-dire pour ceux à qui Tandem le propose.
 Le lien retenu pointe vers la racine, et la séance ne promet rien de plus.
+## Amendement du 25 août 2026 — la mesure respectueuse (issue #20)
+
+*Ajouté sans rien retirer de ce qui précède. Le détail vit dans
+[`23-MESURE-ET-VIE-PRIVEE.md`](./23-MESURE-ET-VIE-PRIVEE.md) ; on ne garde ici
+que les décisions et les écarts.*
+
+`analytics_events` existait depuis la migration `…_000007` et n'avait **jamais
+reçu une ligne** : rien n'émettait. Le doc 08 décrivait un catalogue et un
+funnel que personne ne pouvait lire. Voici ce qui a été tranché.
+
+**`anonymous_id` naît sur l'appareil, et n'est relié à personne.** Un tirage
+aléatoire dans le stockage local, jamais l'`auth.uid()` ni une dérivation. Un
+trigger refuse le cas littéral en base ; le domaine partagé refuse la forme plus
+tôt. Il se renouvelle au bout de treize mois — un plafond qui ne coûte rien au
+funnel, dont l'horizon le plus long est de 42 jours, et qui empêche la mesure de
+devenir un suivi durable. **Le funnel compte donc des appareils, pas des
+personnes**, et la vue SQL le dit dans son propre commentaire.
+
+**Le consentement : information claire et interrupteur, pas de bannière.** Il
+n'y a aucun tiers à faire accepter — le produit n'appelle aucun service
+extérieur — et une bannière apprendrait seulement à cliquer « J'accepte » sans
+lire, ce qui est le contraire du service à rendre à quelqu'un de seize ans. Le
+réglage vit sur l'appareil **et** sur le compte
+(`public.mesure_preferences`) : chaque appareil lit la préférence du compte à
+l'ouverture de session, et **le refus l'emporte toujours** sur l'accord local.
+Un refus efface l'identifiant sur-le-champ. Web et mobile, tous les deux.
+
+**Le funnel se lit sans back-office.** `public.mesure_funnel_binome`, sept
+étapes, **aucun `grant`** — même raisonnement que `tandem_moderators` : l'absence
+de droit est la protection. Une vue ordinaire s'exécute avec les droits de son
+propriétaire, si bien qu'un `select` accordé un jour ouvrirait la table entière
+à travers elle. Les requêtes datées, que la vue ne peut pas porter, sont écrites
+dans le doc 23.
+
+**L'insertion n'est plus ouverte à `anon`.** `…_000007` l'autorisait avec
+`with check (true)` : sur un site statique dont la clé publiable est dans le
+paquet, c'était un point d'écriture anonyme sans limitation de débit sur la seule
+mesure du produit. Contrepartie assumée : les gestes faits en mode démonstration
+ne sont plus mesurés.
+
+**La suppression des données de mesure tient en une phrase : il n'y a rien à
+supprimer qui pointe vers quelqu'un.** Aucune colonne d'`analytics_events` ne
+désigne un compte, donc aucun prédicat ne peut sélectionner « les événements de
+cette personne ». Ce qui se supprime réellement est l'identifiant d'appareil, et
+les deux applications l'effacent. `supprimer_mon_compte()` emporte en plus la
+ligne de consentement. L'export ne contient pas les événements et **le dit
+lui-même**, dans un champ du fichier.
+
+**L'émission ne casse jamais un geste produit** — l'exception assumée à « toute
+écriture lit sa réponse » : on lit la réponse pour la jeter. Aucune file
+hors-ligne : la perte est assumée, un événement n'appartient à personne.
+
+*Écarts nommés, tous dans le doc 23 :* `weekly_checkin_completed` n'a aucun geste
+(issue #18), donc la North Star « semaines accompagnées » rend **zéro par
+construction** — l'API est posée pour qu'il n'ait qu'à s'y brancher ;
+`account_created` n'est pas émis sur mobile, faute d'écran de confiance ; aucune
+durée de conservation n'est fixée ; la relecture juridique reste à faire.
+
+*Preuves par mutation :* contrainte `analytics_events_metadata_sobre` retirée sur
+base vivante → les trois tests de contenu rougissent seuls, restaurée → verts ;
+insertion rouverte à `anon` → le test du visiteur non connecté rougit seul,
+refermée → vert.
 
 ---
 
