@@ -23,17 +23,36 @@ export const copy = {
     greeting: 'Un petit pas, aujourd’hui.',
     subtitle: 'Un temps simple pour revenir à l’essentiel.',
     dailySession: 'Rituel du jour',
-    theme: 'Présence',
-    sessionTitle: 'Repartir avec Jésus',
-    verse: '« Venez à moi, vous tous qui êtes fatigués… »',
-    prompt: 'Qu’est-ce que tu peux déposer maintenant ?',
     start: 'Commencer',
+    sessionLoading: 'Chargement de ta séance…',
+    sessionNotDownloaded: 'Ta séance n’a pas encore été téléchargée sur ce téléphone. Reconnecte-toi une fois, et elle restera lisible ensuite.',
+    minutes: 'MIN',
     journal: 'Journal privé',
+    account: 'Mon compte',
+    // Une invitation reçue par lien et pas encore jouée. Sans cette ligne, un
+    // jeton retenu n'existerait nulle part dans l'application : personne ne
+    // saurait qu'il attend, et personne ne pourrait le reprendre.
+    pendingInvite: 'Une invitation t’attend.',
     privacyNote: 'Ton espace reste privé.',
     offline: 'Hors ligne · tes actions seront synchronisées.',
     reminder: 'Rappel quotidien',
     reminderOn: 'Rappel activé à 08:00',
     reminderOff: 'Activer le rappel quotidien',
+    // Trois phrases pour trois situations, parce qu'une seule mentait : sur une
+    // installation neuve, les réglages valent « oui » par défaut et personne
+    // n'a encore vu de demande système. Dire « ce téléphone ne peut pas » y
+    // serait faux — il peut, on ne lui a rien demandé. Le réglage, lui, reste
+    // enregistré sur le compte dans les trois cas.
+    reminderUnavailable: 'Les rappels s’activeront sur l’application installée : ce téléphone ne peut pas les poser pour l’instant.',
+    reminderNeedsPermission: 'Touche la carte du rappel pour autoriser les notifications : il sera posé juste après.',
+    reminderDenied: 'Les notifications sont refusées pour cette application. Ça se rouvre dans les réglages de ton téléphone.',
+    // Les textes des notifications elles-mêmes. Ils ne disent ni série, ni
+    // retard, ni « tu n’as pas… » : une notification est une proposition, et la
+    // seule chose qu’elle a le droit d’annoncer est ce qui attend.
+    reminderSessionNotifTitle: 'Ton pas du jour',
+    reminderSessionNotifBody: 'Ta séance est prête quand tu l’es.',
+    reminderCheckinNotifTitle: 'Ta semaine',
+    reminderCheckinNotifBody: 'Un mot sur ta semaine, si tu veux en poser un.',
     // Le mobile n'a pas d'écran de réglages : le texte doit donc tenir sous une
     // carte d'accueil. Deux phrases, la même promesse que le web en plus court
     // (voir `measurementDescription` dans web.ts).
@@ -67,17 +86,25 @@ export const copy = {
     greeting: 'One small step, today.',
     subtitle: 'A simple moment to return to what matters.',
     dailySession: 'Daily ritual',
-    theme: 'Presence',
-    sessionTitle: 'Starting again with Jesus',
-    verse: '“Come to me, all you who are weary…”',
-    prompt: 'What can you lay down right now?',
     start: 'Begin',
+    sessionLoading: 'Loading your session…',
+    sessionNotDownloaded: 'Your session has not been downloaded on this phone yet. Connect once, and it will stay readable afterwards.',
+    minutes: 'MIN',
     journal: 'Private journal',
+    account: 'My account',
+    pendingInvite: 'An invitation is waiting for you.',
     privacyNote: 'Your space stays private.',
     offline: 'Offline · your actions will sync later.',
     reminder: 'Daily reminder',
     reminderOn: 'Reminder set for 08:00',
     reminderOff: 'Turn on daily reminder',
+    reminderUnavailable: 'Reminders will start on the installed app: this phone cannot schedule them right now.',
+    reminderNeedsPermission: 'Tap the reminder card to allow notifications: it will be scheduled right after.',
+    reminderDenied: 'Notifications are turned off for this app. You can turn them back on in your phone settings.',
+    reminderSessionNotifTitle: 'Your step for today',
+    reminderSessionNotifBody: 'Your session is ready whenever you are.',
+    reminderCheckinNotifTitle: 'Your week',
+    reminderCheckinNotifBody: 'A word about your week, if you want to leave one.',
     measurement: 'Product measurement',
     measurementOn: 'You take part in measurement',
     measurementOff: 'You are not taking part',

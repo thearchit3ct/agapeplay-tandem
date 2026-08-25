@@ -1,7 +1,8 @@
+import { CLEFS } from './clefs'
 import { stockage } from './storage'
 import { supabase } from './supabase'
 
-const queueKey = 'agapeplay:tandem:sync-queue'
+const queueKey = CLEFS.fileProgression
 type ProgressOperation = { id: string; userId: string; sessionId: string; journeyId: string }
 
 export async function queueProgress(operation: ProgressOperation) {

@@ -17,6 +17,10 @@ import { describe, expect, it } from 'vitest'
 import { copy as webCopy } from './web'
 import { copy as mobileCopy } from './mobile-home'
 import { copy as mobileTandemCopy } from './mobile-tandem'
+import { copy as mobileJournalCopy } from './mobile-journal'
+import { copy as mobileCompteCopy } from './mobile-compte'
+import { copy as mobileInviteCopy } from './mobile-invite'
+import { copy as mobileParcoursCopy } from './mobile-parcours'
 import { sharedLabels } from './shared'
 
 /**
@@ -28,8 +32,14 @@ import { sharedLabels } from './shared'
  */
 const homographes: Record<string, ReadonlySet<string>> = {
   'web.ts': new Set(['tandem', 'journal', 'notifications', 'participant', 'mentor', 'mentorRole']),
-  'mobile-home.ts': new Set(['tandem', 'eyebrow']),
+  // `MIN` est la même abréviation dans les deux langues — un vrai
+  // homographe, comme `AGAPEPLAY / TANDEM`.
+  'mobile-home.ts': new Set(['tandem', 'eyebrow', 'minutes']),
   'mobile-tandem.ts': new Set(['tandem']),
+  'mobile-journal.ts': new Set(['tandem']),
+  'mobile-compte.ts': new Set(['tandem']),
+  'mobile-invite.ts': new Set(['tandem']),
+  'mobile-parcours.ts': new Set(['tandem', 'minutes']),
   'shared.ts': new Set(['tandem']),
 }
 
@@ -37,6 +47,10 @@ const catalogues = {
   'web.ts': webCopy,
   'mobile-home.ts': mobileCopy,
   'mobile-tandem.ts': mobileTandemCopy,
+  'mobile-journal.ts': mobileJournalCopy,
+  'mobile-compte.ts': mobileCompteCopy,
+  'mobile-invite.ts': mobileInviteCopy,
+  'mobile-parcours.ts': mobileParcoursCopy,
   'shared.ts': sharedLabels,
 } as const
 
@@ -69,11 +83,19 @@ describe('textes réellement partagés', () => {
     // `shared.ts` n'a de raison d'être que si les deux applications le
     // diffusent sans le réécrire. Si l'une des deux redéfinit une de ces clés
     // avec un autre texte, la mise en commun est rompue en silence.
+    //
+    // La boucle parcourt `catalogues` plutôt que trois noms écrits à la main :
+    // un catalogue ajouté sans être vérifié ici (c'est arrivé le 26/08/2026,
+    // avec le journal et le compte du mobile) pourrait redéfinir `today` en
+    // silence, et la garantie de `shared.ts` tomberait sans qu'aucun test ne
+    // rougisse.
     for (const locale of ['fr', 'en'] as const) {
       for (const [key, value] of Object.entries(sharedLabels[locale])) {
-        expect({ [key]: (webCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
-        expect({ [key]: (mobileCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
-        expect({ [key]: (mobileTandemCopy[locale] as Record<string, string>)[key] }).toEqual({ [key]: value })
+        for (const [nom, catalogue] of Object.entries(catalogues)) {
+          if (nom === 'shared.ts') continue
+          expect({ [nom]: { [key]: (catalogue[locale] as Record<string, string>)[key] } })
+            .toEqual({ [nom]: { [key]: value } })
+        }
       }
     }
   })

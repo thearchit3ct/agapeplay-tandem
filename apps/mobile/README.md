@@ -12,13 +12,20 @@ npm run start
 
 Copier `.env.example` vers `.env` et renseigner les variables Supabase avant d’activer l’authentification.
 
-## Périmètre du premier socle
+## Périmètre
 
-- écran d’accueil mobile et rituel du jour ;
-- navigation vers parcours, séance et tandem ;
-- conversation du tandem : lecture du fil et envoi de messages (depuis le 24/08/2026) ;
+- écran d’accueil : la séance publiée du jour, le bilan de fin de semaine, les réglages de rappel et de mesure ;
+- parcours et séance : **contenu publié**, gardé en cache sur le téléphone et lisible hors ligne (depuis le 26/08/2026) ;
+- conversation du tandem : lecture du fil, envoi, blocage et signalement (depuis le 24/08/2026) ;
+- journal privé : écrire, relire, supprimer, partager une entrée à son binôme et la retirer (depuis le 26/08/2026) ;
+- « Mon compte » : emporter ses données, se déconnecter partout, supprimer son compte (depuis le 26/08/2026) ;
+- invitations par lien — tandem et communauté — retenues jusqu’à la connexion ;
+- rappels locaux, séance et bilan, pilotés par `notification_preferences` ;
 - bilingue français/anglais ;
-- thème AgapePlay partagé dans l’esprit de l’application web ;
-- point d’entrée Supabase prêt pour l’authentification et la synchronisation.
+- thème AgapePlay partagé dans l’esprit de l’application web.
 
-Les espaces mentor et église restent volontairement sur le web dans cette première itération.
+Les espaces mentor et responsable de communauté restent volontairement sur le web.
+
+## Construire l’application
+
+Voir [`docs/29-BUILD-MOBILE.md`](../../docs/29-BUILD-MOBILE.md) : les trois profils EAS, les commandes exactes, et ce qui attend un compte humain.

@@ -26,11 +26,12 @@
  */
 import { PROPRIETES_AUTORISEES, identifiantPerime, preparerEvenement } from '@agapeplay/domain'
 import type { Locale, NomEvenement, ValeurMesure } from '@agapeplay/domain'
+import { CLEFS } from './clefs'
 import { stockage } from './storage'
 import { supabase } from './supabase'
 
-const CLEF_IDENTIFIANT = 'agapeplay:tandem:mesure-id'
-const CLEF_CONSENTEMENT = 'agapeplay:tandem:mesure-consentement'
+const CLEF_IDENTIFIANT = CLEFS.mesureIdentifiant
+const CLEF_CONSENTEMENT = CLEFS.mesureConsentement
 
 type IdentifiantStocke = { id: string; creeLe: string }
 

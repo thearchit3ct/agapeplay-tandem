@@ -1347,3 +1347,142 @@ par l'application. C'est l'état, et il vaut mieux l'écrire.
 - `npm run test:rls` — 267 tests, inchangé. La migration s'applique sur la pile
   locale sans erreur.
 - Les soixante-deux citations, contrôlées aux sources comme décrit plus haut.
+
+---
+
+## Amendement du 26 août 2026 — le shell mobile est complet (issue #13)
+
+*Cinq fronts, une règle commune : le mobile cesse d'être une maquette qui
+ressemble à l'application, et devient l'application.*
+
+### 1. Le dépôt est prêt à construire, aucune build n'a été lancée
+
+`apps/mobile/eas.json` (profils `development`, `preview`, `internal`) et un
+`app.json` complété — `versionCode`, `buildNumber`, liens d'application. Le
+détail, les commandes exactes et **la liste honnête de ce qui attend un humain**
+(compte Expo, Apple Developer 99 $/an, Play Console, icône de marque,
+`assetlinks.json`) vivent dans le **doc 29**, écrit pour la personne qui lancera
+la première build.
+
+Deux constats de ce chantier valent d'être ici :
+
+- **`newArchEnabled` faisait échouer le contrôle de configuration.** La
+  propriété n'existe plus dans le schéma du SDK 57. Retirée.
+- **`react` est installé en double** (19.2.3 côté mobile, 19.2.8 côté web).
+  Une build native ne doit embarquer qu'une version d'un module natif : c'est
+  le seul point d'`expo-doctor` qui pourrait mordre au premier `eas build`. Le
+  remède touche `apps/web` et n'a donc pas été appliqué ici.
+
+### 2. Les rappels vivent sur le compte, pas sur le téléphone
+
+Le rappel de séance était gardé par une clé locale d'AsyncStorage — un second
+endroit qui disait la même chose que `notification_preferences.sessions`. Un
+rappel coupé depuis le navigateur revenait donc sur le téléphone. C'est le bug
+que la mesure (#20) et le bilan (#18) avaient déjà corrigé chacun de leur côté,
+avec le même commentaire ; il restait celui-là.
+
+La règle « que faut-il planifier » est pure et testée
+(`packages/domain/src/notifications.ts`) ; l'appareil annule tout et repose la
+liste complète, jamais un delta — lui seul sait ce qui traîne réellement dans sa
+file. Le samedi du rappel de bilan est **relié par un test** à la fenêtre de
+`semaineDuBilan` : deux définitions du même jour auraient dérivé.
+
+Piège noté : le déclencheur hebdomadaire d'`expo-notifications` compte les jours
+à la façon d'Apple (dimanche = 1), là où le domaine parle en jours ISO
+(samedi = 6). Un rappel posé sur le jour ISO brut tomberait le vendredi.
+
+**Aucun push serveur, et ce n'est pas un provisoire** : il n'existe aucun
+composant serveur qui pourrait décider d'écrire à quelqu'un. Même écart que les
+relances de mentor et la purge — il se soldera avec un ordonnanceur, ou pas.
+
+### 3. On peut désormais partir, et emporter ses données
+
+L'écran « Mon compte » porte les trois gestes que le web avait depuis la PR #44
+et que le mobile n'avait pas : l'export, la déconnexion partout, la suppression
+de compte. **Cela lève un blocage de publication nommé au doc 28** : la règle
+5.1.1(v) de l'App Store exige la suppression depuis l'application.
+
+L'assemblage de l'export a **déménagé dans `packages/domain`**. Deux listes de
+sections auraient divergé à la première table ajoutée, et le fichier téléchargé
+depuis un téléphone serait devenu plus court que celui du navigateur sans que
+rien ne le dise — exactement le mode d'échec que ce module refuse. Le web garde
+la seule chose qui lui est propre : la remise du fichier par un `Blob`. Le
+mobile passe par la feuille de partage native.
+
+La suppression vide aussi le téléphone. La liste des clés locales est
+**exhaustive par construction** (`apps/mobile/src/clefs.ts`) : les modules ne
+déclarent plus leur clé chez eux, ils la lisent là. Une clé ajoutée ailleurs et
+oubliée dans une liste de purge est un manque silencieux, et c'était le seul
+remède qui ne repose pas sur la vigilance.
+
+Le journal mobile arrive avec les mêmes gestes que le web (#45), y compris le
+partage et son retrait, avec la garde qui compte : **une suppression lit les
+lignes réellement touchées**, parce qu'un DELETE refusé par une politique ne
+lève rien.
+
+### 4. Le lien d'invitation va jusqu'au bout
+
+Le mobile savait accepter un jeton passé en paramètre de route — c'est-à-dire
+seulement si on tapait l'URL à la main. Le lien réellement envoyé aux gens est
+celui du web, et rien ne le reliait à l'application.
+
+Les quatre formes d'URL (web, `agapeplay://`, Expo Go) sont lues par une règle
+pure et testée (`packages/domain/src/liens.ts`), qui ne touche **pas** au
+fragment — c'est là que voyagent les jetons d'authentification, et son test le
+vérifie. Le jeton est retenu jusqu'à la connexion, puis consommé **avant** de
+connaître le résultat : les deux issues sont terminales.
+
+Le lien de communauté (#17) est traité aussi. Le mobile n'a pas d'espace de
+communauté : rejoindre y aboutit, et l'écran dit que la suite se vit sur le
+site plutôt que de promettre une page qui n'existe pas.
+
+### 5. La séance hors ligne était une illusion, elle est réelle
+
+Le critère de l'issue est « séance déjà téléchargée lisible hors ligne ». Les
+écrans `journey` et `session` affichaient un contenu **écrit en dur** — trois
+titres inventés, un verset — et enregistraient toujours la même séance quel que
+soit le jour ouvert. Hors ligne, ils étaient « lisibles » au sens où ils ne
+dépendaient de rien ; ils ne disaient simplement pas la vérité.
+
+Le contenu vient maintenant de `loadPublishedJourney`, comme sur le web, avec le
+cache de ce téléphone. **Le module ne pouvait pas être appelé tel quel** :
+l'écriture du cache était un `localStorage.setItem` nu, sur le chemin heureux et
+hors de tout `try` — sous Hermes, une `ReferenceError` au moment précis où la
+lecture réseau venait de réussir. Son propre en-tête l'annonçait depuis le
+05/08 : « le jour où le mobile chargera le contenu publié, ce stockage devra
+être injecté ». Il l'est, avec le navigateur pour défaut, si bien que le web n'a
+rien à changer.
+
+### Écarts assumés, inchangés ou nommés ici
+
+- **La file hors-ligne des messages** n'existe toujours pas : l'écran garde la
+  saisie et le dit. Idem pour le journal — écrire demande la connexion.
+- **Le mobile n'a ni espace mentor ni espace de communauté.** Rejoindre une
+  communauté par lien y aboutit ; tout le reste est sur le web.
+- **La langue n'est pas persistée.** `locale` est un état d'écran. Conséquence
+  assumée et écrite : changer de langue **replanifie** les rappels, pour qu'une
+  notification française n'arrive pas sur une application passée à l'anglais.
+- **Aucune icône de marque.** `app.json` n'en déclare pas, et aucune n'a été
+  inventée : le logo existe côté studio. Bloquant pour une soumission, pas pour
+  un test interne.
+- **`journey_started` n'est toujours pas émis par le mobile.** Le web le pose au
+  démarrage d'un parcours ; le mobile n'a pas ce moment — il ouvre une séance,
+  il ne « commence » rien. Le funnel du doc 08 le verra donc comme une étape
+  manquante côté mobile, au même titre qu'`account_created` (doc 25).
+  `share_created`, lui, est désormais émis des deux côtés — sans `journey_id`
+  sur mobile, l'écran du journal ne chargeant pas le parcours.
+- **`expo-dev-client` fait viser un build de développement à `expo start`.**
+  Presser `s` revient à Expo Go. Noté au doc 29, parce que c'est la première
+  surprise d'un matin après un `git pull`.
+
+### Vérifié
+
+- `npm test` — 235 tests (23 fichiers), dont les nouveaux du domaine :
+  planification des rappels, lecture des liens, cache de parcours injecté.
+- `npm run mobile:export` — le bundle Metro passe, après chaque front.
+- `npm run mobile:typecheck` et `tsc -b` côté web : passent.
+- `npx expo config --type public` : propre. `npx expo-doctor` : 19/21, les deux
+  échecs restants sont antérieurs et documentés au doc 29.
+- **Rien n'a été prouvé sur un appareil** : aucune build n'a été lancée, aucun
+  compte n'est connecté. La liste de ce qu'il faudra vérifier après la première
+  build est en fin de doc 29.
