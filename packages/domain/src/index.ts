@@ -28,6 +28,12 @@ export type { StatutInvitation, EtatInvitation, Invitation, RevocationInvitation
 
 export { prochaineSeance } from './parcours'
 
+export {
+  LONGUEUR_MAX_VALEUR, MESURE_DUREE_MAX_JOURS, NOMS_EVENEMENTS, PROPRIETES_AUTORISEES,
+  identifiantPerime, preparerEvenement, trancheDuree,
+} from './mesure'
+export type { EvenementMesure, NomEvenement, ValeurMesure } from './mesure'
+
 export { assemblerDossiers, transitionsPossibles, urgenceDe, CATEGORIES_PROPOSEES } from './moderation'
 export type {
   StatutSignalement, CategorieSignalement, UrgenceSignalement,

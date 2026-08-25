@@ -119,6 +119,13 @@ export const copy = {
     trustRequired: 'Confirme les trois points pour continuer.',
     settingsTitle: 'Réglages du compte',
     accountStatus: 'Statut du compte',
+    // Trois phrases, écrites pour quelqu'un de seize ans : ce qu'on compte, ce
+    // qu'on ne lit pas, et le fait que rien ne remonte à lui. Le détail complet
+    // — identifiant d'appareil, durée de treize mois, absence de tiers — est
+    // dans `docs/23` ; le dire ici ferait un pavé que personne ne lirait.
+    measurement: 'Mesure du produit',
+    measurementDescription: 'On compte des gestes — une séance terminée, une invitation envoyée — pour savoir si l’application aide vraiment. Jamais ce que tu écris : ni ton journal, ni tes messages. Ces chiffres ne remontent à personne, et aucun autre service ne les reçoit.',
+    measurementToggle: 'Participer à la mesure',
     exportData: 'Télécharger mes données',
     exportDescription: 'Un fichier avec ton profil, ta progression, ton journal, les partages que tu as posés, les messages que tu as envoyés et tes invitations.',
     exportReady: 'Fichier téléchargé.',
@@ -415,6 +422,9 @@ export const copy = {
     trustRequired: 'Confirm all three points to continue.',
     settingsTitle: 'Account settings',
     accountStatus: 'Account status',
+    measurement: 'Product measurement',
+    measurementDescription: 'We count actions — a session finished, an invitation sent — to know whether the app really helps. Never what you write: not your journal, not your messages. These numbers lead back to no one, and no other service receives them.',
+    measurementToggle: 'Take part in measurement',
     exportData: 'Download my data',
     exportDescription: 'One file with your profile, your progress, your journal, the shares you granted, the messages you sent and your invitations.',
     exportReady: 'File downloaded.',

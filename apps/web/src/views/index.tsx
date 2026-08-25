@@ -95,7 +95,7 @@ export function TrustDialog({ t, ageConfirmed, setAgeConfirmed, privacyAccepted,
   </div>
 }
 
-export function SettingsDialog({ t, prefs, onToggle, onClose, onExport, onSignOutEverywhere, onDelete, busy }: { t: Copy; prefs: AppState['notificationPrefs']; onToggle: (key: keyof AppState['notificationPrefs'], value: boolean) => void; onClose: () => void; onExport: () => void; onSignOutEverywhere: () => void; onDelete: () => void; busy: boolean }) {
+export function SettingsDialog({ t, prefs, onToggle, onClose, onExport, onSignOutEverywhere, onDelete, busy, mesure, onToggleMesure }: { t: Copy; prefs: AppState['notificationPrefs']; onToggle: (key: keyof AppState['notificationPrefs'], value: boolean) => void; onClose: () => void; onExport: () => void; onSignOutEverywhere: () => void; onDelete: () => void; busy: boolean; mesure: boolean; onToggleMesure: (value: boolean) => void }) {
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
     <section className="auth-dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
@@ -108,6 +108,15 @@ export function SettingsDialog({ t, prefs, onToggle, onClose, onExport, onSignOu
         <label><input type="checkbox" checked={prefs.messages} onChange={(event) => onToggle('messages', event.target.checked)} /> <span>{t.messageNotifications}</span></label>
         <label><input type="checkbox" checked={prefs.church} onChange={(event) => onToggle('church', event.target.checked)} /> <span>{t.churchNotifications}</span></label>
         <label><input type="checkbox" checked={prefs.absence} onChange={(event) => onToggle('absence', event.target.checked)} /> <span>{t.absenceNotifications}</span></label>
+      </div>
+      {/* La mesure est décrite avant d'être réglable : la case seule ne dirait
+          pas ce qu'on mesure, et un interrupteur qu'on ne comprend pas n'est
+          pas un choix. Le texte tient en trois phrases parce qu'il s'adresse à
+          quelqu'un de seize ans. */}
+      <div className="settings-block">
+        <strong>{t.measurement}</strong>
+        <p>{t.measurementDescription}</p>
+        <label><input type="checkbox" checked={mesure} onChange={(event) => onToggleMesure(event.target.checked)} /> <span>{t.measurementToggle}</span></label>
       </div>
       {/* L'export vient avant la suppression, et ce n'est pas un hasard
           d'ordre : c'est le seul moment où quelqu'un qui s'apprête à partir

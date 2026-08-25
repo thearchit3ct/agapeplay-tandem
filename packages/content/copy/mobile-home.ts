@@ -34,6 +34,13 @@ export const copy = {
     reminder: 'Rappel quotidien',
     reminderOn: 'Rappel activé à 08:00',
     reminderOff: 'Activer le rappel quotidien',
+    // Le mobile n'a pas d'écran de réglages : le texte doit donc tenir sous une
+    // carte d'accueil. Deux phrases, la même promesse que le web en plus court
+    // (voir `measurementDescription` dans web.ts).
+    measurement: 'Mesure du produit',
+    measurementOn: 'Tu participes à la mesure',
+    measurementOff: 'Tu ne participes pas',
+    measurementDescription: 'On compte des gestes — une séance terminée, une invitation acceptée — pour savoir si l’application aide vraiment. Jamais ce que tu écris, et ces chiffres ne remontent à personne.',
   },
   en: {
     ...sharedLabels.en,
@@ -52,5 +59,9 @@ export const copy = {
     reminder: 'Daily reminder',
     reminderOn: 'Reminder set for 08:00',
     reminderOff: 'Turn on daily reminder',
+    measurement: 'Product measurement',
+    measurementOn: 'You take part in measurement',
+    measurementOff: 'You are not taking part',
+    measurementDescription: 'We count actions — a session finished, an invitation accepted — to know whether the app really helps. Never what you write, and these numbers lead back to no one.',
   },
 } as const

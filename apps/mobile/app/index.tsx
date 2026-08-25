@@ -9,17 +9,28 @@ import { colors, typography } from '@/theme'
 import { flushProgressQueue } from '@/offlineQueue'
 import { supabase } from '@/supabase'
 import { readReminderPreference, setDailyReminder } from '@/notifications'
+import { basculerMesure, lireConsentementDuCompte, mesureAcceptee } from '@/mesure'
 
 export default function HomeScreen() {
   const [locale, setLocale] = useState<Locale>('fr')
   const [offline, setOffline] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
   const [reminderEnabled, setReminderEnabled] = useState(false)
+  const [mesure, setMesure] = useState(true)
   const t = useMemo(() => copy[locale], [locale])
 
   useFocusEffect(useCallback(() => {
     let active = true
-    void supabase?.auth.getSession().then(({ data }) => { if (active) setSession(data.session) })
+    void supabase?.auth.getSession().then(({ data }) => {
+      if (!active) return
+      setSession(data.session)
+      // Le refus de mesure suit le compte, pas l'appareil : sans cette lecture,
+      // quelqu'un qui a dit non depuis son navigateur serait remesuré ici. Sans
+      // session, seul le réglage local décide — il n'y a personne à qui
+      // demander.
+      const lecture = data.session ? lireConsentementDuCompte(data.session.user.id) : mesureAcceptee()
+      void lecture.then((effectif) => { if (active) setMesure(effectif) })
+    })
     // La session peut naître PENDANT que l'écran est monté — c'est exactement
     // ce que fait le lien magique ramassé par useAuthDeepLink. Sans cet
     // abonnement, l'en-tête resterait « Se connecter » jusqu'à une navigation.
@@ -29,6 +40,10 @@ export default function HomeScreen() {
   }, []))
 
   useEffect(() => { void readReminderPreference().then(setReminderEnabled) }, [])
+
+  const basculerLaMesure = async () => {
+    setMesure(await basculerMesure(!mesure, session?.user.id ?? null))
+  }
 
   const toggleReminder = async () => {
     const next = await setDailyReminder(!reminderEnabled)
@@ -57,7 +72,13 @@ export default function HomeScreen() {
         <Link href="/tandem" asChild><Pressable style={styles.navCard}><Text style={styles.navIndex}>02</Text><Text style={styles.navTitle}>{t.tandem}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
         <Pressable style={styles.navCard} onPress={() => setOffline(!offline)}><Text style={styles.navIndex}>03</Text><Text style={styles.navTitle}>{t.journal}</Text><Text style={styles.navArrow}>⌁</Text></Pressable>
         <Pressable style={styles.reminderCard} onPress={() => void toggleReminder()}><Text style={styles.navIndex}>04</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.reminder}</Text><Text style={styles.reminderStatus}>{reminderEnabled ? t.reminderOn : t.reminderOff}</Text></View><Text style={styles.navArrow}>{reminderEnabled ? '●' : '○'}</Text></Pressable>
+        {/* Le réglage de mesure vit ici, avec le rappel, parce que le mobile n'a
+            pas d'écran de réglages — et qu'un choix qu'on ne trouve pas n'est
+            pas un choix. La description tient sur deux lignes : ce qu'on compte,
+            ce qu'on ne lit pas. */}
+        <Pressable style={styles.navCard} accessibilityRole="switch" accessibilityState={{ checked: mesure }} onPress={() => void basculerLaMesure()}><Text style={styles.navIndex}>05</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.measurement}</Text><Text style={styles.reminderStatus}>{mesure ? t.measurementOn : t.measurementOff}</Text></View><Text style={styles.navArrow}>{mesure ? '●' : '○'}</Text></Pressable>
       </View>
+      <Text style={styles.measurementNote}>{t.measurementDescription}</Text>
     </ScrollView>
   </SafeAreaView>
 }
@@ -94,4 +115,5 @@ const styles = StyleSheet.create({
   reminderCard: { borderWidth: 1, borderColor: colors.copper, padding: 17, minHeight: 76, flexDirection: 'row', alignItems: 'center' },
   reminderCopy: { flex: 1 },
   reminderStatus: { color: colors.muted, fontFamily: typography.mono, fontSize: 9, marginTop: 5 },
+  measurementNote: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 14 },
 })

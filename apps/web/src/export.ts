@@ -59,6 +59,11 @@ export type SectionExport = {
 export const SECTIONS: readonly SectionExport[] = [
   { clef: 'profil', table: 'profiles', colonnes: 'id, display_name, locale, account_status, created_at, updated_at, age_confirmed_at, privacy_consent_at, terms_consent_at, deletion_requested_at', colonne: 'id', cible: 'compte' },
   { clef: 'preferences_de_notification', table: 'notification_preferences', colonnes: 'sessions, messages, church, absence, updated_at', colonne: 'user_id', cible: 'compte' },
+  // Le consentement à la mesure y figure depuis le 25/08/2026 : c'est un choix
+  // de la personne, et le seul endroit où ce choix est écrit sous son nom. Les
+  // ÉVÉNEMENTS de mesure, eux, n'y sont pas et ne peuvent pas y être — voir
+  // `A_PROPOS_DE_LA_MESURE` plus bas.
+  { clef: 'preference_de_mesure', table: 'mesure_preferences', colonnes: 'mesure, updated_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'progression', table: 'session_progress', colonnes: 'journey_id, session_id, completed_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'journal', table: 'journal_entries', colonnes: 'id, text, mood, created_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'partages_du_journal', table: 'journal_shares', colonnes: 'entry_id, tandem_id, created_at', colonne: 'shared_by', cible: 'compte' },
@@ -80,9 +85,27 @@ export type Lecteur = (section: SectionExport) => Promise<Reponse>
 export type ExportPersonnel = {
   genere_le: string
   compte: { id: string; email: string | null }
+  a_propos_de_la_mesure: string
   limites: string[]
   donnees: Record<string, Ligne[]>
 }
+
+/**
+ * Pourquoi les événements de mesure ne sont pas dans ce fichier.
+ *
+ * La question se pose, et la réponse n'est pas « on a oublié » : c'est la
+ * conséquence directe du dispositif. `analytics_events` ne porte aucune colonne
+ * qui désigne un compte — l'identifiant qu'elle contient naît sur l'appareil et
+ * n'est relié à personne. Il n'existe donc **aucun prédicat** capable de
+ * sélectionner « les événements de cette personne », ni pour les exporter, ni
+ * pour les supprimer, ni pour quiconque les chercherait.
+ *
+ * C'est écrit dans l'export lui-même plutôt que dans la seule documentation :
+ * quelqu'un qui télécharge ses données une fois, au moment de partir, doit
+ * pouvoir constater sur pièce que l'absence est un choix, pas un trou.
+ */
+export const A_PROPOS_DE_LA_MESURE =
+  'Les événements de mesure du produit ne figurent pas dans ce fichier : ils ne sont reliés à aucun compte, pas même au tien. Rien ne permet de retrouver les tiens — c’est ce qui rend la mesure anonyme. Ton choix de participer ou non, lui, est dans « preference_de_mesure ».'
 
 /**
  * Deux tandems m'appartiennent : celui où je suis A et celui où je suis B. La
@@ -127,6 +150,7 @@ export const rassemblerExport = async (
   return {
     genere_le: maintenant.toISOString(),
     compte,
+    a_propos_de_la_mesure: A_PROPOS_DE_LA_MESURE,
     limites: limitesConnues(donnees, compte.id),
     donnees,
   }
