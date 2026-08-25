@@ -37,7 +37,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FCF4DD"
+        "backgroundColor": "#1c3241"
       },
       "softwareKeyboardLayoutMode": "resize"
     },
