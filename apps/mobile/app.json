@@ -10,7 +10,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.agapeplay.tandem",
       "buildNumber": "1",
-      "associatedDomains": ["applinks:tandem.agapeplay.store"]
+      "associatedDomains": [
+        "applinks:tandem.agapeplay.store"
+      ]
     },
     "android": {
       "package": "com.agapeplay.tandem",
@@ -26,7 +28,10 @@
               "path": "/"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -37,6 +42,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e6d358e4-f5c1-4acd-987f-2baaed8678fc"
+      }
+    },
+    "owner": "nitch8190"
   }
 }
