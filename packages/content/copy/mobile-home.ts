@@ -8,6 +8,10 @@
  * `greeting`, le mobile non ; son `offline` est plus court parce que l'écran
  * l'est.
  *
+ * `journal` a quitté ce catalogue le 27/08/2026 avec la carte qui le portait :
+ * le journal est devenu un onglet, et son libellé — court, comme l'exige une
+ * barre — vit dans `mobile-onglets.ts`.
+ *
  * `saved` s'appelle ici `privacyNote` : sous ce nom commun, le web confirmait
  * un enregistrement (« Ajouté à ton journal ») quand le mobile rassurait
  * (« Votre espace reste privé »). Deux sens, deux noms. Le texte affiché n'a
@@ -24,10 +28,12 @@ export const copy = {
     subtitle: 'Un temps simple pour revenir à l’essentiel.',
     dailySession: 'Rituel du jour',
     start: 'Commencer',
-    sessionLoading: 'Chargement de ta séance…',
+    // `sessionLoading` a disparu le 27/08/2026 : la carte du jour montre
+    // désormais sa propre forme pendant la lecture (voir `src/squelette.tsx`)
+    // au lieu d'annoncer un chargement. `sessionNotDownloaded` reste : ce
+    // n'est pas une attente mais une réponse.
     sessionNotDownloaded: 'Ta séance n’a pas encore été téléchargée sur ce téléphone. Reconnecte-toi une fois, et elle restera lisible ensuite.',
     minutes: 'MIN',
-    journal: 'Journal privé',
     account: 'Mon compte',
     // Une invitation reçue par lien et pas encore jouée. Sans cette ligne, un
     // jeton retenu n'existerait nulle part dans l'application : personne ne
@@ -87,10 +93,8 @@ export const copy = {
     subtitle: 'A simple moment to return to what matters.',
     dailySession: 'Daily ritual',
     start: 'Begin',
-    sessionLoading: 'Loading your session…',
     sessionNotDownloaded: 'Your session has not been downloaded on this phone yet. Connect once, and it will stay readable afterwards.',
     minutes: 'MIN',
-    journal: 'Private journal',
     account: 'My account',
     pendingInvite: 'An invitation is waiting for you.',
     privacyNote: 'Your space stays private.',

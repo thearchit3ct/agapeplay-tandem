@@ -1663,3 +1663,80 @@ commander quatre icônes dans le trait imprimé de la marque.
 - **Rien n'est prouvé sur un appareil.** Le clavier, les vibrations et l'écran
   de démarrage ne se vérifient qu'après une build EAS : la checklist de recette
   au doigt est dans la PR.
+
+---
+
+## Amendement du 27/08/2026 — la barre d'onglets, faite
+
+La section « La barre d'onglets — refusée, et pourquoi » ci-dessus reste vraie
+telle qu'elle a été écrite : elle décrit l'état du 25/08/2026 et les raisons de
+ne pas la faire ce jour-là. Ses deux prérequis sont désormais soldés, et la
+barre existe. Ce qui suit amende cette section sans la réécrire.
+
+### Les quatre raisons, une à une
+
+1. **« Il n'y a pas d'icônes. »** Il y en avait, et elles étaient sous la main :
+   celles des systèmes. `NativeTabs.Trigger.Icon` prend un SF Symbol sur iOS
+   (`sf`) et un Material Symbol sur Android (`md`), chacun avec sa variante
+   pleine à la sélection. Le second est rendu depuis la fonte qu'`expo-symbols`
+   embarque — dépendance d'`expo-router`, déjà installée, aucun réseau. Aucune
+   icône n'a donc été dessinée ni commandée : celles du système suivent la
+   teinte, l'épaisseur et le poids de sélection de la plateforme, ce qu'un tracé
+   maison ne saurait pas faire.
+2. **« La langue est un état d'écran. »** Elle ne l'est plus :
+   `apps/mobile/src/langue.ts` la tient pour toute l'application et la retient
+   dans `stockage` (clé `CLEFS.langue`, donc purgée à la suppression de compte).
+   La verrue nommée ici — changer de langue sur un écran ne suivait pas sur le
+   suivant — est corrigée du même coup, et le choix survit au redémarrage.
+3. **« C'est une restructuration de routes. »** Elle a été faite : les quatre
+   écrans d'onglets vivent dans `app/(onglets)/`, le reste — séance, compte,
+   invitation, connexion — dans la pile racine. Le groupe est transparent dans
+   les URL : `agapeplay:///` mène toujours à l'accueil, `/invite?token=…` reste
+   `/invite`, et `useAuthDeepLink` comme `useLiensDInvitation` sont inchangés.
+   Le lien « ← Aujourd'hui » a bien disparu des quatre écrans d'onglets ; sur les
+   écrans poussés il a changé de nature (`src/retour.ts` : on dépile, on ne
+   navigue plus vers l'accueil, sans quoi la pile grandissait à chaque
+   aller-retour).
+4. **« Les deux changements qui répondent vraiment au reproche sont livrés. »**
+   Ils l'étaient. Ceux-ci répondent à la suite du même reproche.
+
+### Ce que la barre apporte, et qu'aucune barre en JavaScript n'aurait donné
+
+Liquid Glass sur iOS 26, réduction au défilement (`minimizeBehavior`), remontée
+au sommet quand on retouche l'onglet déjà ouvert, ondes de matériau et
+`BottomNavigationView` sur Android. Rien de tout cela n'est écrit dans le
+dépôt : c'est le propos.
+
+### Les deux autres fronts
+
+- **Les squelettes de chargement** (`src/squelette.tsx`) : une pulsation
+  d'opacité en `Animated`, aucune dépendance nouvelle, une seule valeur animée
+  partagée pour que les formes d'un écran battent ensemble, et le battement
+  coupé quand le système demande moins de mouvement. Trois textes d'attente ont
+  disparu des catalogues (`sessionLoading`, `loading` du tandem) ; **aucune
+  phrase de réponse n'a été touchée** — `sessionNotDownloaded`, `notDownloaded`,
+  `emptyThread`, `threadClosed` disent quelque chose, un squelette non.
+- **Les feuilles natives** (`app/feuilles/`) : blocage, déblocage, signalement
+  et suppression de compte sont des routes présentées en `formSheet`. La logique
+  produit n'a pas bougé d'un iota — elle est restée dans les écrans, et
+  `src/feuilles.ts` ne porte que la décision. Deux nuances voulues et héritées
+  des panneaux : blocage, déblocage et suppression referment la feuille **avant**
+  d'écrire ; le signalement la garde ouverte pendant l'envoi et ne la referme
+  que si l'insert a abouti, pour ne pas faire ressaisir une catégorie et une
+  phrase difficiles à écrire.
+
+### Ce qui est vérifié, et ce qui ne l'est pas
+
+- `npm test` — 238 tests (23 fichiers), verts. Trois de plus qu'au 25/08 : le
+  catalogue `mobile-onglets.ts` est entré dans le test de parité.
+- `npm run mobile:typecheck` et `npm run mobile:export` : verts après chaque
+  front. Attention : `.expo/types/router.d.ts` est ignoré par git et **n'est pas
+  régénéré par `expo export`** — un fichier périmé fait échouer le typage sur des
+  routes pourtant valides. Le régénérer, c'est démarrer le serveur de
+  développement une fois.
+- **Rien n'est prouvé sur un appareil.** Trois points ne se voient que là, et un
+  seul échoue en silence : le rendu des icônes Android passe par
+  `renderToImageAsync`, qui rend `null` avec un simple avertissement s'il manque
+  — l'onglet perdrait son icône sans que rien ne rougisse. Le repli documenté
+  serait alors `src={require(…)}` depuis un tracé maison. La checklist de
+  recette au doigt est dans la PR.

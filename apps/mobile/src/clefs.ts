@@ -28,6 +28,15 @@ export const CLEFS = {
   jetonEnAttente: 'agapeplay:tandem:jeton-en-attente',
   /** Le parcours publié, gardé pour être lisible hors ligne (`parcours.ts`). */
   parcours: 'agapeplay:tandem:parcours',
+  /**
+   * La langue choisie pour toute l'application (`langue.ts`).
+   *
+   * Elle est purgée avec le reste à la suppression du compte, bien qu'elle ne
+   * dise rien de personne : `TOUTES_LES_CLEFS` vaut par son exhaustivité, et une
+   * exception « celle-ci ne compte pas » est exactement le raisonnement qui
+   * laisse un jour une vraie donnée derrière.
+   */
+  langue: 'agapeplay:tandem:langue',
 } as const
 
 export const TOUTES_LES_CLEFS: readonly string[] = Object.values(CLEFS)

@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-home'
-import type { EtatDeSemaine, Journey, Locale } from '@agapeplay/domain'
+import type { EtatDeSemaine, Journey } from '@agapeplay/domain'
 import { ETATS_DE_SEMAINE, invitationDouce, prochaineSeance, semaineDuBilan } from '@agapeplay/domain'
-import { colors, ondeClaire, ondeEncre, toucheMinimale, typography } from '@/theme'
+import { bordsDOnglet, colors, ondeClaire, ondeEncre, toucheMinimale, typography } from '@/theme'
+import { useLangue } from '@/langue'
+import { Squelette, SqueletteDeParagraphe } from '@/squelette'
 import { toucherAbouti, toucherLeger } from '@/toucher'
 import { flushProgressQueue } from '@/offlineQueue'
 import { supabase } from '@/supabase'
@@ -32,7 +34,7 @@ const LIBELLE_ETAT: Record<EtatDeSemaine, 'checkinCalm' | 'checkinFull' | 'check
 }
 
 export default function HomeScreen() {
-  const [locale, setLocale] = useState<Locale>('fr')
+  const { langue: locale, basculer: basculerLaLangue } = useLangue()
   const [offline, setOffline] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
   // « Posée » tant qu'on n'a pas constaté le contraire : aucune phrase sur les
@@ -255,7 +257,7 @@ export default function HomeScreen() {
     setMesure(await basculerMesure(!mesure, session?.user.id ?? null))
   }
 
-  return <SafeAreaView style={styles.safe}>
+  return <SafeAreaView style={styles.safe} edges={bordsDOnglet}>
     <ScrollView
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl
@@ -265,7 +267,7 @@ export default function HomeScreen() {
         tintColor={colors.copper}
       />}
     >
-      <View style={styles.topline}><Text style={styles.eyebrow}>{t.eyebrow}</Text><View style={styles.topActions}><Pressable accessibilityRole="button" accessibilityLabel={t.language} style={toucheMinimale} onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}>{({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}</Pressable><Link href="/auth" asChild><Pressable style={toucheMinimale}>{({ pressed }) => <Text style={[styles.authLink, pressed && styles.pressed]}>{session ? t.signedIn : t.signIn}</Text>}</Pressable></Link></View></View>
+      <View style={styles.topline}><Text style={styles.eyebrow}>{t.eyebrow}</Text><View style={styles.topActions}><Pressable accessibilityRole="button" accessibilityLabel={t.language} style={toucheMinimale} onPress={basculerLaLangue}>{({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}</Pressable><Link href="/auth" asChild><Pressable style={toucheMinimale}>{({ pressed }) => <Text style={[styles.authLink, pressed && styles.pressed]}>{session ? t.signedIn : t.signIn}</Text>}</Pressable></Link></View></View>
       {offline && <Pressable style={({ pressed }) => [styles.offline, pressed && styles.pressed]} android_ripple={ondeEncre} onPress={() => setOffline(false)}><Text style={styles.offlineText}>{t.offline}</Text></Pressable>}
       {invitationEnAttente && <Link href="/invite" asChild><Pressable style={({ pressed }) => [styles.offline, pressed && styles.pressed]} android_ripple={ondeEncre}><Text style={styles.offlineText}>{t.pendingInvite}  →</Text></Pressable></Link>}
       <Text style={styles.greeting}>{t.greeting}</Text>
@@ -276,16 +278,29 @@ export default function HomeScreen() {
           qui n'étaient ni le parcours publié ni ce que le web affiche. */}
       <View style={styles.heroCard}>
         <View style={styles.cardHeader}><Text style={styles.kicker}>{t.dailySession}</Text>{seance && <Text style={styles.duration}>{seance.duration} {t.minutes}</Text>}</View>
-        {seance
+        {/* Trois états, et un seul est une attente. Tant que le parcours n'a pas
+            été lu, la carte montre sa propre forme — le numéro, le thème, le
+            titre, le verset, le bouton — plutôt que d'annoncer un chargement :
+            rien ne bouge de place quand la séance arrive. Une fois la lecture
+            faite, ce sont des réponses, et elles gardent leurs mots. */}
+        {!parcoursLu
           ? <>
-              <View style={styles.number}><Text style={styles.numberText}>{String(seance.day).padStart(2, '0')}</Text></View>
-              <Text style={styles.theme}>{seance.theme}</Text>
-              <Text style={styles.title}>{seance.title}</Text>
-              <Text style={styles.verse}>{seance.verse}</Text>
-              <Text style={styles.prompt}>{seance.prompt}</Text>
-              <Link href={{ pathname: '/session', params: { jour: String(seance.day) } }} asChild><Pressable style={({ pressed }) => [styles.primary, pressed && styles.pressed]} android_ripple={ondeClaire}><Text style={styles.primaryText}>{t.start}  →</Text></Pressable></Link>
+              <View style={styles.number}><Squelette hauteur={54} largeur={54} sombre /></View>
+              <View style={styles.themeFantome}><Squelette hauteur={11} largeur="38%" sombre /></View>
+              <View style={styles.titreFantome}><Squelette hauteur={26} largeur="88%" sombre /><Squelette hauteur={26} largeur="56%" sombre /></View>
+              <View style={styles.versetFantome}><SqueletteDeParagraphe lignes={3} sombre /></View>
+              <View style={styles.boutonFantome}><Squelette hauteur={42} largeur={150} sombre /></View>
             </>
-          : <Text style={styles.verse}>{parcoursLu ? t.sessionNotDownloaded : t.sessionLoading}</Text>}
+          : seance
+            ? <>
+                <View style={styles.number}><Text style={styles.numberText}>{String(seance.day).padStart(2, '0')}</Text></View>
+                <Text style={styles.theme}>{seance.theme}</Text>
+                <Text style={styles.title}>{seance.title}</Text>
+                <Text style={styles.verse}>{seance.verse}</Text>
+                <Text style={styles.prompt}>{seance.prompt}</Text>
+                <Link href={{ pathname: '/session', params: { jour: String(seance.day) } }} asChild><Pressable style={({ pressed }) => [styles.primary, pressed && styles.pressed]} android_ripple={ondeClaire}><Text style={styles.primaryText}>{t.start}  →</Text></Pressable></Link>
+              </>
+            : <Text style={styles.verse}>{t.sessionNotDownloaded}</Text>}
       </View>
 
       {/* Une invitation douce au plus — la précédence est tranchée dans
@@ -315,30 +330,33 @@ export default function HomeScreen() {
       {!session && <Text style={styles.measurementNote}>{t.checkinSignedOut}</Text>}
       {notice !== '' && <Pressable onPress={() => setNotice('')}><Text style={styles.notice}>{notice}</Text></Pressable>}
 
+      {/* Parcours, Tandem et Journal ont quitté cette grille le 27/08/2026 :
+          ils sont devenus des onglets, et une carte qui mène là où la barre mène
+          déjà est une seconde porte sur la même pièce — celle qu'on prend par
+          habitude, jusqu'à ne plus voir la barre. Restent ici « Mon compte »,
+          qui n'est pas un lieu où l'on habite, et les réglages, que le mobile
+          n'a nulle part ailleurs. La numérotation reprend donc à 01. */}
       <View style={styles.navGrid}>
-        <Link href="/journey" asChild><Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre}><Text style={styles.navIndex}>01</Text><Text style={styles.navTitle}>{t.journey}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
-        <Link href="/tandem" asChild><Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre}><Text style={styles.navIndex}>02</Text><Text style={styles.navTitle}>{t.tandem}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
-        <Link href="/journal" asChild><Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre}><Text style={styles.navIndex}>03</Text><Text style={styles.navTitle}>{t.journal}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
-        <Link href="/compte" asChild><Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre}><Text style={styles.navIndex}>04</Text><Text style={styles.navTitle}>{t.account}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
+        <Link href="/compte" asChild><Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre}><Text style={styles.navIndex}>01</Text><Text style={styles.navTitle}>{t.account}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
         {/* Le rappel de séance écrit `notification_preferences.sessions`, sur
             le compte — comme le bilan juste en dessous, et pour la même
             raison : un interrupteur local serait un second endroit qui dit la
             même chose, et le rappel coupé depuis le navigateur reviendrait
             ici. Sans compte, il n'y a rien où l'écrire, et la carte ne
             s'affiche pas plutôt que de promettre un réglage sans mémoire. */}
-        {session && etatBilan && <Pressable style={({ pressed }) => [styles.reminderCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelSeance }} onPress={() => void basculerLeRappel('sessions')}><Text style={styles.navIndex}>05</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.reminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelSeance ? t.reminderOn : t.reminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelSeance ? '●' : '○'}</Text></Pressable>}
+        {session && etatBilan && <Pressable style={({ pressed }) => [styles.reminderCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelSeance }} onPress={() => void basculerLeRappel('sessions')}><Text style={styles.navIndex}>02</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.reminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelSeance ? t.reminderOn : t.reminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelSeance ? '●' : '○'}</Text></Pressable>}
         {/* Le réglage de mesure vit ici, avec le rappel, parce que le mobile n'a
             pas d'écran de réglages — et qu'un choix qu'on ne trouve pas n'est
             pas un choix. La description tient sur deux lignes : ce qu'on compte,
             ce qu'on ne lit pas. */}
-        <Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: mesure }} onPress={() => void basculerLaMesure()}><Text style={styles.navIndex}>06</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.measurement}</Text><Text style={styles.reminderStatus}>{mesure ? t.measurementOn : t.measurementOff}</Text></View><Text style={styles.navArrow}>{mesure ? '●' : '○'}</Text></Pressable>
+        <Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: mesure }} onPress={() => void basculerLaMesure()}><Text style={styles.navIndex}>03</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.measurement}</Text><Text style={styles.reminderStatus}>{mesure ? t.measurementOn : t.measurementOff}</Text></View><Text style={styles.navArrow}>{mesure ? '●' : '○'}</Text></Pressable>
         {/* Le rappel du bilan se règle ici, avec la mesure, et pour la même
             raison : le mobile n'a pas d'écran de réglages, et un choix qu'on ne
             trouve pas n'est pas un choix. Il écrit dans
             `notification_preferences`, sur le compte — un interrupteur local
             serait un second endroit qui dit la même chose, et le rappel coupé
             depuis le navigateur reviendrait ici. */}
-        {session && etatBilan && <Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelBilan }} onPress={() => void basculerLeRappel('weekly_checkin')}><Text style={styles.navIndex}>07</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.checkinReminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelBilan ? t.checkinReminderOn : t.checkinReminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelBilan ? '●' : '○'}</Text></Pressable>}
+        {session && etatBilan && <Pressable style={({ pressed }) => [styles.navCard, pressed && styles.pressed]} android_ripple={ondeEncre} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelBilan }} onPress={() => void basculerLeRappel('weekly_checkin')}><Text style={styles.navIndex}>04</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.checkinReminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelBilan ? t.checkinReminderOn : t.checkinReminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelBilan ? '●' : '○'}</Text></Pressable>}
       </View>
       {/* Dit seulement quand un rappel est demandé et que l'appareil n'a pas
           pu le poser : le réglage reste vrai sur le compte, c'est la
@@ -394,5 +412,11 @@ const styles = StyleSheet.create({
   checkinChoiceText: { color: colors.ink, fontFamily: typography.mono, fontSize: 11 },
   checkinPrivate: { color: colors.muted, fontFamily: typography.mono, fontSize: 9, marginTop: 12 },
   notice: { color: colors.copper, fontFamily: typography.mono, fontSize: 11, marginTop: 12 },
+  // Les fantômes de la carte du jour, aux mesures de ce qu'ils annoncent : les
+  // marges reprennent celles de `theme`, `title`, `verse` et `primary`.
+  themeFantome: { marginTop: 26 },
+  titreFantome: { marginTop: 12, gap: 8 },
+  versetFantome: { marginTop: 22 },
+  boutonFantome: { marginTop: 25 },
   pressed: { opacity: 0.55 },
 })

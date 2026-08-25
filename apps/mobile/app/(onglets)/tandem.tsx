@@ -40,9 +40,14 @@
  *   Les trois champs du geste sont `status`, `blocked_by`, `ended_at`, comme sur
  *   le web.
  *
- * Les confirmations sont des panneaux dans la page, pas des `Alert` :
- * `Alert.alert` ne rend rien d'utilisable sous `react-native-web`, et
- * `mobile:export` — la seule porte qui exerce vraiment Metro — passe par là.
+ * - **Les confirmations sont des feuilles natives depuis le 27/08/2026.**
+ *   C'étaient des panneaux poussés dans la page — jamais des `Alert.alert`, qui
+ *   ne rendent rien d'utilisable sous `react-native-web` et que `mobile:export`
+ *   attraperait. Elles sont maintenant des routes présentées en `formSheet`
+ *   (`app/feuilles/`), c'est-à-dire la feuille de bas d'écran du système. **Rien
+ *   de la logique n'a bougé** : les gardes, les écritures, les lectures de
+ *   réponse, les phrases et les vibrations sont restées ici, et les feuilles ne
+ *   font que demander — le fil entre les deux est `src/feuilles.ts`.
  *
  * - **Le composeur est sorti du `ScrollView` le 25/08/2026.** C'est la seule
  *   modification de structure de la finition mobile, et elle était nécessaire :
@@ -53,49 +58,34 @@
  *   clavier : le fil se rétrécit, le composeur reste au ras du clavier. Aucune
  *   règle n'a changé — `accesConversation` gouverne toujours ce que le
  *   composeur autorise, et il reste affiché fermé plutôt que retiré.
- * - Le composeur s'efface pendant qu'un panneau est ouvert : épinglé en bas, il
- *   recouvrirait le bouton de confirmation du panneau, et il proposerait
- *   d'écrire à quelqu'un à qui on est en train de dire qu'on le bloque.
+ * - Le composeur n'a plus à s'effacer pendant une confirmation : la feuille du
+ *   système passe **par-dessus** l'écran et l'assombrit, là où un panneau dans
+ *   la page laissait le composeur épinglé devant le bouton de confirmation —
+ *   proposant d'écrire à quelqu'un à qui l'on était en train de dire qu'on le
+ *   bloquait. Un état de moins, et il a disparu parce que le contenant a changé.
  */
-import { Link, useFocusEffect } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-tandem'
-import { CATEGORIES_PROPOSEES, accesConversation, gestesDeProtection, initialeDe, unblockAffordance, urgenceDe } from '@agapeplay/domain'
-import type { CategorieSignalement, Locale, RemoteMessage, TandemStatus } from '@agapeplay/domain'
-import { colors, ondeClaire, ondeEncre, toucheMinimale, typography } from '@/theme'
-import { useChampAuDessusDuClavier } from '@/clavier'
+import { accesConversation, gestesDeProtection, initialeDe, unblockAffordance } from '@agapeplay/domain'
+import type { RemoteMessage, TandemStatus } from '@agapeplay/domain'
+import { bordsDOnglet, colors, ondeClaire, toucheMinimale, typography } from '@/theme'
+import { useHauteurDuClavier } from '@/clavier'
+import { useGesteDeFeuille } from '@/feuilles'
+import type { ChargesDeFeuille } from '@/feuilles'
+import { useLangue } from '@/langue'
+import { Squelette, SqueletteDeParagraphe } from '@/squelette'
 import { toucherGrave, toucherLeger } from '@/toucher'
 import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 
 type RemoteTandem = { id: string; status: TandemStatus; blockedBy: string | null }
 
-/**
- * Le libellé d'une catégorie proposée.
- *
- * Le type d'entrée est volontairement plus étroit que `CategorieSignalement` :
- * le mobile ne propose que les six catégories de `CATEGORIES_PROPOSEES`, et son
- * catalogue de textes ne connaît pas `non_precise` — qui ne nomme pas une
- * situation mais les signalements antérieurs aux catégories, et n'est affiché
- * que dans l'espace modérateur, côté web. Une catégorie ajoutée un jour sans
- * son libellé fera échouer `tsc`, pas l'écran.
- */
-type CategorieProposee = Exclude<CategorieSignalement, 'non_precise'>
-
-const libelleCategorie = (categorie: CategorieProposee, t: typeof copy.fr | typeof copy.en) => {
-  if (categorie === 'malaise') return t.categoryMalaise
-  if (categorie === 'insistance') return t.categoryInsistance
-  if (categorie === 'secret') return t.categorySecret
-  if (categorie === 'sexuel') return t.categorySexuel
-  if (categorie === 'danger') return t.categoryDanger
-  return t.categoryAutre
-}
-
 export default function TandemScreen() {
-  const [locale, setLocale] = useState<Locale>('fr')
+  const { langue: locale, basculer } = useLangue()
   const [session, setSession] = useState<Session | null>(null)
   const [tandem, setTandem] = useState<RemoteTandem | null>(null)
   // Via tandem_partenaire(), seul chemin de lecture du profil d'autrui. NULL
@@ -105,20 +95,45 @@ export default function TandemScreen() {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
-  // Un seul panneau à la fois, et c'est une machine plutôt que deux booléens :
-  // deux confirmations ouvertes ensemble poseraient deux questions contraires.
-  const [panneau, setPanneau] = useState<'aucun' | 'blocage' | 'deblocage' | 'signalement'>('aucun')
-  // `signalement` dit qu'un envoi est en vol, `panneau === 'signalement'` dit
-  // que le formulaire est ouvert. Les deux se ressemblent et ne se recouvrent
-  // pas : le panneau reste affiché pendant l'envoi, et c'est le bouton de
-  // confirmation qui se désarme.
-  const [signalement, setSignalement] = useState(false)
-  const [categorie, setCategorie] = useState<CategorieSignalement | null>(null)
-  const [motLibre, setMotLibre] = useState('')
   const [notice, setNotice] = useState('')
   const [rafraichissement, setRafraichissement] = useState(false)
-  const { espacement, refDefilement, remonter } = useChampAuDessusDuClavier()
+  const refDefilement = useRef<ScrollView>(null)
+  /**
+   * Qu'un envoi de signalement soit en vol.
+   *
+   * Une `ref` et non un état, pour une raison qui n'est pas de commodité : la
+   * fonction appelée depuis la feuille lit ce qu'elle a fermé au rendu où elle a
+   * été armée. Un état posé juste avant l'`await` ne serait donc **pas** vu par
+   * un second appel arrivé entre-temps — la garde ne garderait rien. Une `ref`
+   * est lue et écrite au même instant, par tous les appelants.
+   *
+   * La feuille désarme son bouton de son côté ; celle-ci est la garde de
+   * dernier ressort, du côté où l'écriture se fait.
+   */
+  const signalementEnVol = useRef(false)
   const t = copy[locale]
+
+  /**
+   * Ce que le composeur garde sous lui, et pourquoi les deux plateformes ne
+   * demandent pas la même chose.
+   *
+   * Le composeur est épinglé au bas de l'écran — il ne défile pas avec le fil —
+   * et il vit désormais **dans un onglet**. Or les deux implémentations de la
+   * barre native ne posent pas la marge basse au même endroit (voir
+   * `bordsDOnglet` dans `theme.ts`) :
+   *
+   * - **iOS** ne pose rien : c'est à nous de dégager la barre d'onglets, et les
+   *   marges lues ici l'incluent déjà. Clavier ouvert, la mesure part du bas de
+   *   l'écran et remplace la marge — le composeur se retrouve au ras des
+   *   touches, ce qu'on attend d'une messagerie.
+   * - **Android** l'a déjà posée, et la barre monte au-dessus du clavier
+   *   (`tabBarRespectsIMEInsets`, dans le layout d'onglets) : le contenu est
+   *   donc déjà au bon endroit dans les deux cas, et tout ajout ici serait une
+   *   seconde marge.
+   */
+  const hauteurClavier = useHauteurDuClavier()
+  const marges = useSafeAreaInsets()
+  const margeDuComposeur = Platform.OS === 'ios' ? (hauteurClavier > 0 ? hauteurClavier : marges.bottom) : 0
 
   /**
    * La garde de démontage, devenue une `ref` : `load` sert désormais deux
@@ -259,7 +274,6 @@ export default function TandemScreen() {
   }
 
   const bloquer = async () => {
-    setPanneau('aucun')
     if (!supabase || !session || !tandem) return
     // Les trois mêmes champs que le web, et pas un de plus : `blocked_by` n'est
     // pas décoratif — la politique refuse un passage à `blocked` qui ne nomme
@@ -290,9 +304,15 @@ export default function TandemScreen() {
     setNotice(t.blockedNotice)
   }
 
-  const signaler = async () => {
-    if (signalement || !categorie || !supabase || !session || !tandem) return
-    setSignalement(true)
+  /**
+   * Le signalement. La catégorie et le mot libre viennent de la feuille — c'est
+   * elle qui les recueille depuis le 27/08/2026 — et la valeur rendue lui dit si
+   * elle peut se refermer : `false` la laisse ouverte, saisie intacte, comme le
+   * panneau restait affiché quand l'insert échouait.
+   */
+  const signaler = async ({ categorie, motLibre }: ChargesDeFeuille['signalement']): Promise<boolean> => {
+    if (signalementEnVol.current || !categorie || !supabase || !session || !tandem) return false
+    signalementEnVol.current = true
     // Ce qui part est un **code** — `malaise`, `secret`, `danger`… — et non le
     // libellé affiché : la donnée que lit la modération ne doit pas dépendre de
     // la langue de l'écran. C'est ce que l'ancien littéral français protégeait
@@ -318,23 +338,20 @@ export default function TandemScreen() {
       })
       .select('id')
       .maybeSingle()
-    setSignalement(false)
+    signalementEnVol.current = false
     // Un insert refusé par un `with check` lève, contrairement à l'UPDATE — mais
     // on lit quand même la ligne rendue : sans elle, on annoncerait « transmis »
     // sur la foi d'une absence d'erreur.
-    if (error || !data) { setNotice(t.syncError); return }
+    if (error || !data) { setNotice(t.syncError); return false }
     toucherGrave()
     // Le doc 08 autorise `category` et `channel_type` sur cet événement, et
     // rien de plus. Le mot libre reste ici : c'est la phrase de la personne.
     void emettre('report_created', { locale, proprietes: { category: categorie, channel_type: 'conversation' } })
-    setPanneau('aucun')
-    setCategorie(null)
-    setMotLibre('')
     setNotice(t.reportSent)
+    return true
   }
 
   const unblock = async () => {
-    setPanneau('aucun')
     if (!supabase || !tandem) return
     // Les trois champs que le blocage avait posés, défaits ensemble : laisser
     // `blocked_by` en place interdirait à l'autre participant de bloquer
@@ -353,18 +370,27 @@ export default function TandemScreen() {
     setNotice(t.unblockedNotice)
   }
 
+  /**
+   * Les trois gestes que les feuilles confirment.
+   *
+   * Réarmés à chaque rendu par `useGesteDeFeuille` : une fonction enregistrée
+   * une seule fois figerait la session et le tandem du rendu où elle a été
+   * posée, et une feuille ouverte plus tard écrirait avec des valeurs périmées.
+   */
+  useGesteDeFeuille('blocage', bloquer)
+  useGesteDeFeuille('deblocage', unblock)
+  useGesteDeFeuille('signalement', signaler)
+
   const blocked = tandem?.status === 'blocked' || tandem?.status === 'ended'
 
-  // Le composeur ne s'affiche pas par-dessus un panneau ouvert : voir l'en-tête
-  // du fichier.
-  const composeurVisible = tandem !== null && panneau === 'aucun'
+  const composeurVisible = tandem !== null
 
-  return <SafeAreaView style={styles.safe}>
+  return <SafeAreaView style={styles.safe} edges={bordsDOnglet}>
     {/* C'est la colonne qui remonte au-dessus du clavier, et non chacun de ses
         deux enfants : le fil, en `flex: 1`, se rétrécit d'autant, et le
         composeur se retrouve au ras du clavier — le comportement d'une
         messagerie. */}
-    <View style={[styles.colonne, { paddingBottom: espacement }]}>
+    <View style={[styles.colonne, { paddingBottom: margeDuComposeur }]}>
       <ScrollView
         ref={refDefilement}
         style={styles.fil}
@@ -378,17 +404,13 @@ export default function TandemScreen() {
           tintColor={colors.copper}
         />}
       >
+        {/* Plus de lien « ← Aujourd'hui » : l'onglet est le chemin de retour. */}
         <View style={styles.topline}>
-          <Link href="/" asChild>
-            <Pressable style={[styles.backTouch, toucheMinimale]}>
-              {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
-            </Pressable>
-          </Link>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t.language}
             style={[styles.localeTouch, toucheMinimale]}
-            onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+            onPress={basculer}
           >
             {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
           </Pressable>
@@ -399,13 +421,29 @@ export default function TandemScreen() {
         {/* Le vrai nom, plus jamais celui de la maquette. Sans tandem ou sans
             nom posé, la ligne d'indice ci-dessous dit déjà la situation. */}
         <View style={styles.avatar}><Text style={styles.avatarText}>{initialeDe(partnerName)}</Text></View>
-        <Text style={styles.name}>{partnerName ?? (loading ? '…' : t.noTandem)}</Text>
-        <Text style={styles.status}>{loading ? t.loading : !tandem ? ' ' : blocked ? `— ${t.blockedStatus}` : `● ${t.online}`}</Text>
+        {loading
+          ? <View style={styles.nomFantome}><Squelette hauteur={22} largeur={168} /><Squelette hauteur={10} largeur={92} /></View>
+          : <>
+              <Text style={styles.name}>{partnerName ?? t.noTandem}</Text>
+              <Text style={styles.status}>{!tandem ? ' ' : blocked ? `— ${t.blockedStatus}` : `● ${t.online}`}</Text>
+            </>}
 
         {!loading && !session && <Text style={styles.hint}>{t.signInPrompt}</Text>}
         {!loading && session && !tandem && <Text style={styles.hint}>{t.noTandem}</Text>}
 
-        {tandem && <View style={styles.thread}>
+        {/* Le fil pendant sa première lecture : trois bulles fantômes, alternées
+            comme une conversation, et de largeurs inégales comme des phrases.
+            Elles ne remplacent aucune des trois réponses possibles — fil coupé,
+            fil vide, fil plein — qui gardent leurs mots. */}
+        {loading && messages.length === 0 && <View style={styles.thread}>
+          {[0, 1, 2].map((rang) => (
+            <View key={rang} style={[styles.bubble, rang % 2 === 0 ? styles.bubbleTheirs : styles.bubbleMine, styles.bulleFantome]}>
+              <SqueletteDeParagraphe lignes={rang === 1 ? 1 : 2} sombre={rang % 2 === 1} />
+            </View>
+          ))}
+        </View>}
+
+        {tandem && !loading && <View style={styles.thread}>
           {/* Trois cas, et le troisième est le seul qui se voit vraiment : une
               lecture coupée par la politique rend une liste vide, exactement
               comme une conversation qui n'a jamais commencé. */}
@@ -423,11 +461,14 @@ export default function TandemScreen() {
               })}
         </View>}
 
-        {affordance !== 'hidden' && panneau === 'aucun' && <View style={styles.panel}>
+        {affordance !== 'hidden' && <View style={styles.panel}>
           <Text style={styles.panelKicker}>{t.blockedStatus.toUpperCase()}</Text>
           {affordance === 'unblockable' && <>
             <Text style={styles.panelText}>{t.unblockOwnerNote}</Text>
-            <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => setPanneau('deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
+            {/* Le bouton n'ouvre plus un encadré dans la page : il présente la
+                feuille du système. Ce qui suit — les phrases, l'ordre, le geste
+                — est identique ; c'est le contenant qui a changé. */}
+            <Pressable accessibilityRole="button" style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => router.push('/feuilles/deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
           </>}
           {/* Aucun bouton dans les deux cas suivants : la politique le refuserait
               pour l'un, personne ne peut rien pour l'autre. La phrase tient lieu
@@ -436,98 +477,20 @@ export default function TandemScreen() {
           {affordance === 'frozen' && <Text style={styles.panelText}>{t.unblockFrozenNote}</Text>}
         </View>}
 
-        {panneau === 'deblocage' && <View style={styles.panel}>
-          <Text style={styles.panelKicker}>{t.unblockTitle}</Text>
-          <Text style={styles.panelText}>{t.unblockDescription}</Text>
-          <Text style={styles.panelText}>{t.unblockReversible}</Text>
-          <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void unblock()}><Text style={styles.panelActionText}>{t.unblockConfirm}  →</Text></Pressable>
-          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.unblockCancel}</Text>}</Pressable>
-        </View>}
-
-        {/* Le blocage se confirme, là où le web le pose sur un appui unique : sur
-            un téléphone, un bouton se touche par accident, et celui-ci ferme une
-            conversation. Le panneau dit ce qui change, puis ce qui reste
-            réversible — le même ordre que le déblocage juste au-dessus. */}
-        {panneau === 'blocage' && <View style={styles.panel}>
-          <Text style={styles.panelKicker}>{t.blockTitle}</Text>
-          <Text style={styles.panelText}>{t.blockDescription}</Text>
-          <Text style={styles.panelText}>{t.blockReversible}</Text>
-          <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void bloquer()}><Text style={styles.panelActionText}>{t.blockConfirm}  →</Text></Pressable>
-          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.blockCancel}</Text>}</Pressable>
-        </View>}
-
-
-        {/* Le signalement, devenu une question. Panneau dans la page et non
-            `Alert.alert` : celui-ci ne rend rien d'utilisable sous
-            react-native-web, et `mobile:export` est la seule garde Metro sans
-            appareil. C'est la même règle que la confirmation de blocage.
-
-            Le mot libre est facultatif et l'écran le dit : à ce moment-là,
-            raconter est difficile, choisir une ligne ne l'est pas — et un champ
-            qu'on croit obligatoire est un signalement abandonné. */}
-        {panneau === 'signalement' && <View style={styles.panel}>
-          <Text style={styles.panelKicker}>{t.report}</Text>
-          <Text style={styles.panelTitle}>{t.reportTitle}</Text>
-          <Text style={styles.panelText}>{t.reportDescription}</Text>
-
-          <View style={styles.categories}>
-            {CATEGORIES_PROPOSEES.map((valeur) => (
-              <Pressable
-                key={valeur}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: categorie === valeur }}
-                android_ripple={ondeEncre}
-                style={({ pressed }) => [styles.category, categorie === valeur && styles.categoryChosen, pressed && styles.pressed]}
-                onPress={() => setCategorie(valeur)}
-              >
-                <Text style={[styles.categoryText, categorie === valeur && styles.categoryTextChosen]}>{libelleCategorie(valeur, t)}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* Dit sur les deux seules catégories d'urgence immédiate, et nulle part
-              ailleurs : sous chacune il deviendrait invisible, absent il
-              laisserait croire qu'envoyer ce formulaire est un secours. */}
-          {categorie && urgenceDe(categorie) === 'immediate' && <>
-            <Text style={styles.panelAlert}>{t.reportHelplineNote}</Text>
-            <Text style={styles.panelText}>{t.reportUrgentNote}</Text>
-          </>}
-
-          <Text style={styles.panelLabel}>{t.reportNoteLabel}</Text>
-          <TextInput
-            style={styles.noteInput}
-            value={motLibre}
-            onChangeText={setMotLibre}
-            onFocus={remonter}
-            maxLength={1000}
-            multiline
-            placeholder={t.reportNotePlaceholder}
-            placeholderTextColor={colors.muted}
-          />
-
-          {/* Sans catégorie il n'y a rien à envoyer : `category` est `not null` et
-              sans défaut, la base refuserait l'insert. */}
-          <Pressable
-            accessibilityRole="button"
-            disabled={!categorie || signalement}
-            android_ripple={ondeClaire}
-            style={({ pressed }) => [styles.panelAction, (!categorie || signalement) && styles.panelActionOff, pressed && styles.pressed]}
-            onPress={() => void signaler()}
-          ><Text style={styles.panelActionText}>{signalement ? t.reporting : t.reportConfirm}  →</Text></Pressable>
-          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.reportCancel}</Text>}</Pressable>
-        </View>}
-
         {/* Les deux gestes, en bas de l'écran comme sur le web : ils ne sont pas
             la conversation, ils sont ce qu'on fait quand elle tourne mal. Le
             signalement reste offert sur une relation bloquée — c'est souvent là
             qu'il sert. Rien n'est affiché sans tandem : il n'y aurait rien à
             bloquer ni à signaler, et un bouton qui ne peut pas aboutir est une
             promesse trahie. */}
-        {(gestes.peutSignaler || gestes.peutBloquer) && panneau === 'aucun' && <View style={styles.safety}>
-          {gestes.peutSignaler && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => setPanneau('signalement')}>
+        {(gestes.peutSignaler || gestes.peutBloquer) && <View style={styles.safety}>
+          {gestes.peutSignaler && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => router.push('/feuilles/signalement')}>
             {({ pressed }) => <Text style={[styles.safetyDanger, pressed && styles.pressed]}>{t.report}</Text>}
           </Pressable>}
-          {gestes.peutBloquer && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => setPanneau('blocage')}>
+          {/* Le blocage se confirme, là où le web le pose sur un appui unique :
+              sur un téléphone, un bouton se touche par accident, et celui-ci
+              ferme une conversation. */}
+          {gestes.peutBloquer && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => router.push('/feuilles/blocage')}>
             {({ pressed }) => <Text style={[styles.safetyAction, pressed && styles.pressed]}>{t.block}</Text>}
           </Pressable>}
         </View>}
@@ -576,9 +539,7 @@ const styles = StyleSheet.create({
   // hauteur du fil qui doit céder quand le clavier prend sa place.
   fil: { flex: 1 },
   container: { padding: 24, paddingBottom: 32 },
-  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 },
-  backTouch: { alignSelf: 'flex-start' },
-  back: { color: colors.muted, fontFamily: typography.mono, fontSize: 11 },
+  topline: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 40 },
   localeTouch: { alignItems: 'flex-end', paddingLeft: 16 },
   locale: { color: colors.ink, fontFamily: typography.mono, fontSize: 11, borderBottomWidth: 1, borderBottomColor: colors.ink, paddingBottom: 3 },
   pressed: { opacity: 0.55 },
@@ -613,26 +574,15 @@ const styles = StyleSheet.create({
   panel: { borderWidth: 1, borderLeftWidth: 3, borderColor: colors.ink, padding: 18, marginTop: 28, maxWidth: 340 },
   panelKicker: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, letterSpacing: 1 },
   panelText: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 11 },
-  panelTitle: { color: colors.ink, fontFamily: typography.display, fontSize: 24, marginTop: 10 },
-  panelLabel: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, letterSpacing: 0.5, marginTop: 20 },
-  // L'avertissement des lignes d'urgence : encadré, pas coloré en rouge — la
-  // palette du produit n'a pas de rouge, et en inventer un ici ferait de cet
-  // écran une alarme là où il doit rester tenable à lire.
-  panelAlert: { color: colors.ink, fontSize: 14, lineHeight: 21, marginTop: 16, borderLeftWidth: 2, borderLeftColor: colors.copper, paddingLeft: 12 },
-  categories: { marginTop: 18, gap: 8 },
-  category: { borderWidth: 1, borderColor: colors.line, padding: 13 },
-  categoryChosen: { borderColor: colors.ink, backgroundColor: colors.white },
-  categoryText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  categoryTextChosen: { color: colors.ink },
-  noteInput: { borderWidth: 1, borderColor: colors.line, padding: 13, minHeight: 74, marginTop: 9, color: colors.ink, fontSize: 15, lineHeight: 22, textAlignVertical: 'top' },
-  panelActionOff: { backgroundColor: colors.line },
   panelAction: { alignSelf: 'flex-start', backgroundColor: colors.ink, paddingVertical: 13, paddingHorizontal: 17, marginTop: 18 },
   panelActionText: { color: colors.white, fontFamily: typography.mono, fontSize: 11 },
   safety: { flexDirection: 'row', gap: 22, marginTop: 24, flexWrap: 'wrap', alignItems: 'center' },
   safetyDanger: { color: colors.copper, fontFamily: typography.mono, fontSize: 11, textDecorationLine: 'underline' },
   safetyAction: { color: colors.muted, fontFamily: typography.mono, fontSize: 11, textDecorationLine: 'underline' },
-  safetyOff: { color: colors.line },
-  panelCancel: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, marginTop: 14, textDecorationLine: 'underline' },
   notice: { color: colors.copper, fontFamily: typography.mono, fontSize: 10, lineHeight: 16, marginTop: 22, maxWidth: 320 },
   private: { color: colors.muted, fontFamily: typography.mono, fontSize: 10, marginTop: 34 },
+  // Les fantômes reprennent les mesures de `name` et `status` d'un côté, la
+  // boîte d'une bulle de l'autre : rien ne saute quand le fil arrive.
+  nomFantome: { marginTop: 20, gap: 10 },
+  bulleFantome: { minWidth: 190 },
 })

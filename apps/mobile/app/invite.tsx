@@ -18,14 +18,16 @@
  *   sont terminales : une tentative qui échoue ne doit pas se rejouer à chaque
  *   rendu ni ressurgir au prochain démarrage.
  */
-import { Link, router, useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-invite'
-import type { FormeDeLien, Locale, RefusDAdhesion } from '@agapeplay/domain'
+import type { FormeDeLien, RefusDAdhesion } from '@agapeplay/domain'
 import { colors, ondeClaire, toucheMinimale, typography } from '@/theme'
+import { useLangue } from '@/langue'
+import { revenir } from '@/retour'
 import { emettre } from '@/mesure'
 import { supabase } from '@/supabase'
 import { accepterInvitationTandem, jetonRetenu, oublierJeton, rejoindreLaCommunaute, retenirJeton } from '@/invitations'
@@ -54,7 +56,7 @@ const LIBELLE_REFUS: Record<RefusDAdhesion, keyof Copie> = {
 
 export default function InviteScreen() {
   const { token } = useLocalSearchParams<{ token?: string }>()
-  const [locale, setLocale] = useState<Locale>('fr')
+  const { langue: locale, basculer } = useLangue()
   const [forme, setForme] = useState<FormeDeLien>('tandem')
   const [message, setMessage] = useState('')
   /**
@@ -128,16 +130,15 @@ export default function InviteScreen() {
   return <SafeAreaView style={styles.safe}>
     <View style={styles.container}>
       <View style={styles.topline}>
-        <Link href="/" asChild>
-          <Pressable style={[styles.backTouch, toucheMinimale]}>
-            {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
-          </Pressable>
-        </Link>
+        {/* Dépiler, et non naviguer vers l'accueil : voir `src/retour.ts`. */}
+        <Pressable accessibilityRole="button" style={[styles.backTouch, toucheMinimale]} onPress={revenir}>
+          {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t.language}
           style={[styles.localeTouch, toucheMinimale]}
-          onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+          onPress={basculer}
         >
           {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
         </Pressable>

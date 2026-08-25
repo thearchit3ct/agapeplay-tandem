@@ -27,15 +27,16 @@
  * même lecture. La garde de démontage a suivi : elle est devenue une `ref`,
  * parce qu'elle sert désormais deux appelants.
  */
-import { Link, useFocusEffect } from 'expo-router'
+import { useFocusEffect } from 'expo-router'
 import { Session } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-journal'
 import { partageDuJournal } from '@agapeplay/domain'
-import type { Locale } from '@agapeplay/domain'
-import { colors, ondeClaire, toucheMinimale, typography } from '@/theme'
+import { bordsDOnglet, colors, ondeClaire, toucheMinimale, typography } from '@/theme'
+import { useLangue } from '@/langue'
+import { Squelette, SqueletteDeParagraphe } from '@/squelette'
 import { useChampAuDessusDuClavier } from '@/clavier'
 import { toucherGrave, toucherLeger } from '@/toucher'
 import { emettre } from '@/mesure'
@@ -47,7 +48,7 @@ import {
 import type { EntreeDeJournal, EntreePartagee, TandemCourant } from '@/journal'
 
 export default function JournalScreen() {
-  const [locale, setLocale] = useState<Locale>('fr')
+  const { langue: locale, basculer } = useLangue()
   const [session, setSession] = useState<Session | null>(null)
   const [entrees, setEntrees] = useState<EntreeDeJournal[]>([])
   const [partages, setPartages] = useState<Set<string>>(new Set())
@@ -207,7 +208,7 @@ export default function JournalScreen() {
     setNotice(t.deleteEntryDone)
   }
 
-  return <SafeAreaView style={styles.safe}>
+  return <SafeAreaView style={styles.safe} edges={bordsDOnglet}>
     <ScrollView
       ref={refDefilement}
       contentContainerStyle={[styles.container, { paddingBottom: 48 + espacement }]}
@@ -220,17 +221,13 @@ export default function JournalScreen() {
         tintColor={colors.copper}
       />}
     >
+      {/* Plus de lien « ← Aujourd'hui » : l'onglet est le chemin de retour. */}
       <View style={styles.topline}>
-        <Link href="/" asChild>
-          <Pressable style={[styles.backTouch, toucheMinimale]}>
-            {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
-          </Pressable>
-        </Link>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t.language}
           style={[styles.localeTouch, toucheMinimale]}
-          onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+          onPress={basculer}
         >
           {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
         </Pressable>
@@ -274,6 +271,18 @@ export default function JournalScreen() {
 
       {session && entrees.length === 0 && !loading && <Text style={styles.hint}>{t.empty}</Text>}
 
+      {/* Pendant la lecture, deux entrées fantômes : la date, le texte, la
+          rangée d'actions. Elles ne s'affichent qu'en l'absence d'entrées —
+          un tirer-pour-rafraîchir sur un journal déjà rempli garde ses pages
+          sous les yeux, et c'est le sablier du geste qui dit qu'on relit. */}
+      {session && loading && entrees.length === 0 && [0, 1].map((rang) => (
+        <View key={rang} style={styles.entry}>
+          <View style={styles.entryHead}><Squelette hauteur={10} largeur={82} /><Squelette hauteur={10} largeur={56} /></View>
+          <View style={styles.texteFantome}><SqueletteDeParagraphe lignes={rang === 0 ? 3 : 2} /></View>
+          <View style={styles.actionsFantomes}><Squelette hauteur={11} largeur={96} /><Squelette hauteur={11} largeur={72} /></View>
+        </View>
+      ))}
+
       {entrees.map((entree) => {
         const ouverte = partages.has(entree.id)
         return <View key={entree.id} style={styles.entry}>
@@ -312,7 +321,12 @@ export default function JournalScreen() {
         <Text style={styles.sectionTitle}>{t.sharedWithMe}</Text>
         {/* Une liste vide ne dit pas la même chose selon la relation : sur un
             tandem fermé, la fonction cesse simplement de rendre les lignes. */}
-        {!partage.peutPartager && partage.raison !== 'aucun-tandem'
+        {loading && recus.length === 0
+          ? <View style={styles.entry}>
+              <View style={styles.entryHead}><Squelette hauteur={10} largeur={82} /><Squelette hauteur={10} largeur={48} /></View>
+              <View style={styles.texteFantome}><SqueletteDeParagraphe lignes={2} /></View>
+            </View>
+          : !partage.peutPartager && partage.raison !== 'aucun-tandem'
           ? <Text style={styles.hint}>{t.sharedWithMeClosed}</Text>
           : recus.length === 0
             ? <Text style={styles.hint}>{t.sharedWithMeEmpty}</Text>
@@ -334,9 +348,7 @@ export default function JournalScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
   container: { padding: 24, paddingBottom: 48 },
-  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 },
-  backTouch: { alignSelf: 'flex-start' },
-  back: { color: colors.muted, fontFamily: typography.mono, fontSize: 11 },
+  topline: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 40 },
   localeTouch: { alignItems: 'flex-end', paddingLeft: 16 },
   locale: { color: colors.ink, fontFamily: typography.mono, fontSize: 11, borderBottomWidth: 1, borderBottomColor: colors.ink, paddingBottom: 3 },
   pressed: { opacity: 0.55 },
@@ -367,4 +379,7 @@ const styles = StyleSheet.create({
   received: { marginTop: 44 },
   sectionTitle: { color: colors.ink, fontFamily: typography.display, fontSize: 24 },
   notice: { color: colors.copper, fontFamily: typography.mono, fontSize: 10, lineHeight: 16, marginTop: 26, maxWidth: 320 },
+  // Aux mesures d'`entryText` et d'`entryActions`, pour que rien ne saute.
+  texteFantome: { marginTop: 14 },
+  actionsFantomes: { flexDirection: 'row', gap: 20, marginTop: 14 },
 })

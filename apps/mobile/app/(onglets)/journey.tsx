@@ -14,12 +14,14 @@ import { useCallback, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-parcours'
-import type { Journey, Locale } from '@agapeplay/domain'
-import { colors, ondeEncre, toucheMinimale, typography } from '@/theme'
+import type { Journey } from '@agapeplay/domain'
+import { bordsDOnglet, colors, ondeEncre, toucheMinimale, typography } from '@/theme'
+import { useLangue } from '@/langue'
+import { Squelette, SqueletteDeParagraphe } from '@/squelette'
 import { chargerParcours } from '@/parcours'
 
 export default function JourneyScreen() {
-  const [locale, setLocale] = useState<Locale>('fr')
+  const { langue: locale, basculer } = useLangue()
   const [parcours, setParcours] = useState<Journey | null>(null)
   const [chargement, setChargement] = useState(true)
   const t = copy[locale]
@@ -38,28 +40,42 @@ export default function JourneyScreen() {
     return () => { actif = false }
   }, [locale]))
 
-  return <SafeAreaView style={styles.safe}>
+  return <SafeAreaView style={styles.safe} edges={bordsDOnglet}>
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Plus de lien « ← Aujourd'hui » : l'onglet est le chemin de retour, et
+          deux façons de revenir au même endroit en font une de trop. Reste la
+          bascule de langue, seule dans sa rangée. */}
       <View style={styles.topline}>
-        <Link href="/" asChild>
-          <Pressable style={[styles.backTouch, toucheMinimale]}>
-            {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
-          </Pressable>
-        </Link>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t.language}
           style={[styles.localeTouch, toucheMinimale]}
-          onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+          onPress={basculer}
         >
           {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
         </Pressable>
       </View>
 
       <Text style={styles.kicker}>{parcours?.eyebrow ?? t.kicker}</Text>
-      <Text style={styles.title}>{parcours?.title ?? (chargement ? t.loading : t.journey)}</Text>
+      {/* Pendant la lecture, la forme du titre plutôt que le mot « chargement » :
+          l'écran ne se réorganise pas quand le vrai titre arrive. Le parcours
+          absent, lui, garde sa phrase — c'est une réponse, pas une attente. */}
+      {chargement && !parcours
+        ? <View style={styles.titreFantome}><Squelette hauteur={34} largeur="86%" /><Squelette hauteur={34} largeur="54%" /></View>
+        : <Text style={styles.title}>{parcours?.title ?? t.journey}</Text>}
       {parcours && <Text style={styles.description}>{parcours.description}</Text>}
+      {chargement && !parcours && <View style={styles.descriptionFantome}><SqueletteDeParagraphe lignes={2} /></View>}
       {!chargement && !parcours && <Text style={styles.description}>{t.notDownloaded}</Text>}
+
+      {/* Trois rangées fantômes : la forme d'une liste de séances, avec son
+          numéro à gauche. Trois et pas dix — un squelette annonce, il ne
+          promet pas un compte. */}
+      {chargement && !parcours && [0, 1, 2].map((rang) => (
+        <View key={rang} style={styles.row}>
+          <View style={styles.badgeFantome}><Squelette hauteur={48} largeur={48} /></View>
+          <View style={styles.rowCopy}><Squelette hauteur={10} largeur="42%" /><View style={styles.rowTitreFantome}><Squelette hauteur={18} largeur="78%" /></View></View>
+        </View>
+      ))}
 
       {(parcours?.sessions ?? []).map((seance) => (
         <Link key={seance.id} href={{ pathname: '/session', params: { jour: String(seance.day) } }} asChild>
@@ -80,9 +96,7 @@ export default function JourneyScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.paper },
   container: { padding: 24, paddingBottom: 48 },
-  topline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 40 },
-  backTouch: { alignSelf: 'flex-start' },
-  back: { color: colors.muted, fontFamily: typography.mono, fontSize: 11 },
+  topline: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 40 },
   localeTouch: { alignItems: 'flex-end', paddingLeft: 16 },
   locale: { color: colors.ink, fontFamily: typography.mono, fontSize: 11, borderBottomWidth: 1, borderBottomColor: colors.ink, paddingBottom: 3 },
   pressed: { opacity: 0.55 },
@@ -96,4 +110,10 @@ const styles = StyleSheet.create({
   rowKicker: { color: colors.copper, fontFamily: typography.mono, fontSize: 9, letterSpacing: 0.7 },
   rowTitle: { color: colors.ink, fontFamily: typography.display, fontSize: 22, marginTop: 6 },
   rowArrow: { color: colors.ink, fontSize: 18 },
+  // Les mesures des fantômes suivent celles du vrai contenu : c'est ce qui fait
+  // qu'aucune ligne ne saute au moment où le parcours arrive.
+  titreFantome: { marginTop: 16, gap: 9 },
+  descriptionFantome: { marginTop: 16, marginBottom: 30 },
+  badgeFantome: { marginRight: 16 },
+  rowTitreFantome: { marginTop: 8 },
 })
