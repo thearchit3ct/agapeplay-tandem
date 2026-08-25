@@ -2,17 +2,18 @@
   "expo": {
     "name": "AgapePlay Tandem",
     "slug": "agapeplay-tandem",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "orientation": "portrait",
     "scheme": "agapeplay",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.agapeplay.tandem",
       "buildNumber": "1",
       "associatedDomains": [
         "applinks:tandem.agapeplay.store"
-      ]
+      ],
+      "icon": "./assets/icon.png"
     },
     "android": {
       "package": "com.agapeplay.tandem",
@@ -33,12 +34,26 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FCF4DD"
+      },
+      "softwareKeyboardLayoutMode": "resize"
     },
     "plugins": [
       "expo-router",
       "expo-notifications",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FCF4DD"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -49,6 +64,10 @@
         "projectId": "e6d358e4-f5c1-4acd-987f-2baaed8678fc"
       }
     },
-    "owner": "nitch8190"
+    "owner": "nitch8190",
+    "icon": "./assets/icon.png",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
   }
 }

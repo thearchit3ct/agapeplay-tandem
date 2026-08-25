@@ -28,8 +28,19 @@ export default function RootLayout() {
   // une URL. Les deux hooks ne se marchent pas dessus — l'un lit le fragment,
   // l'autre la requête (voir `jetonDuLien` et son test).
   useLiensDInvitation()
+  // `style="dark"` désigne des icônes sombres, pas un thème sombre : l'écran
+  // est crème, il lui faut une barre de statut à l'encre. C'est cohérent avec
+  // `userInterfaceStyle: "light"` dans `app.json`, qui disait `"dark"` jusqu'au
+  // 25/08/2026 alors que l'application n'a jamais eu de mode sombre.
   return <>
     <StatusBar style="dark" />
-    <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />
+    {/* `animation: 'fade'` était le second visage du « ça se comporte comme une
+        web app » : un fondu entre deux routes est exactement ce que fait un
+        site, là où un téléphone glisse l'écran suivant depuis le bord. `default`
+        rend l'animation de la plateforme — glissement latéral sur Android,
+        poussée iOS — et rétablit du même coup le geste de retour au bord de
+        l'écran, que le fondu rendait muet. Le bouton retour matériel d'Android
+        suit la même pile et n'a rien à régler ici. */}
+    <Stack screenOptions={{ headerShown: false, animation: 'default' }} />
   </>
 }
