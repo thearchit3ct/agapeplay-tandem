@@ -22,7 +22,7 @@
  * lien magique et rien d'autre. Émettre l'événement à la première session
  * mobile compterait un compte de plus à chaque appareil, et le funnel dirait
  * qu'il se crée plus de comptes qu'il n'y a de personnes. Écart nommé dans
- * `docs/23`.
+ * `docs/25`.
  */
 import { PROPRIETES_AUTORISEES, identifiantPerime, preparerEvenement } from '@agapeplay/domain'
 import type { Locale, NomEvenement, ValeurMesure } from '@agapeplay/domain'

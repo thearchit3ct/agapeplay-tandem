@@ -29,7 +29,7 @@
 -- Ce que ce fichier ne fait **pas**, et qui est le cœur du dispositif :
 -- `anonymous_id` n'est relié à aucun compte. Il naît sur l'appareil, il n'est
 -- pas dérivé d'`auth.uid()`, et aucune table ne les rapproche. C'est ce qui
--- rend la « procédure de suppression » honnête — voir `docs/23`.
+-- rend la « procédure de suppression » honnête — voir `docs/25`.
 
 -- ---------------------------------------------------------------------------
 -- 1. Ce qu'un événement peut contenir
@@ -133,7 +133,7 @@ alter table public.analytics_events
 
 -- Et le fond : `anonymous_id` ne doit jamais valoir `auth.uid()`. Le jour où il
 -- le vaudrait, la table cesserait d'être une mesure pour devenir un journal
--- d'activité nominatif, et la procédure de suppression du doc 23 deviendrait un
+-- d'activité nominatif, et la procédure de suppression du doc 25 deviendrait un
 -- mensonge — il y aurait quelque chose à supprimer, et personne ne le saurait.
 --
 -- Un trigger, parce qu'un CHECK doit être immutable et qu'`auth.uid()` ne l'est
@@ -233,7 +233,7 @@ comment on column public.analytics_events.anonymous_id is
 --
 -- La vue est volontairement sans fenêtre de temps : une vue ne prend pas de
 -- paramètre, et en figer une (« les 28 derniers jours ») obligerait à une
--- migration pour la changer. Les variantes datées sont écrites dans `docs/23`,
+-- migration pour la changer. Les variantes datées sont écrites dans `docs/25`,
 -- prêtes à copier.
 
 create or replace view public.mesure_funnel_binome as
@@ -381,7 +381,7 @@ begin
   -- Ajout du 25/08/2026 (issue #20) : le consentement à la mesure est une
   -- donnée de la personne, et il part avec elle. Les ÉVÉNEMENTS, eux, ne sont
   -- pas touchés — aucun prédicat ne pourrait les désigner, et c'est le résultat
-  -- recherché. Voir `docs/23`, section « supprimer ».
+  -- recherché. Voir `docs/25`, section « supprimer ».
   delete from public.mesure_preferences where user_id = v_uid;
 
   -- 2. Les invitations : toute ligne qui porte son identifiant ou son adresse.

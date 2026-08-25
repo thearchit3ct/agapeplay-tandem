@@ -994,7 +994,7 @@ function App() {
     clearSyncQueue()
     // Côté mesure, c'est toute la procédure de suppression : rien en base ne
     // désigne ce compte, et l'identifiant d'appareil est le seul fil qui reliait
-    // ses événements entre eux. Voir `docs/23`.
+    // ses événements entre eux. Voir `docs/25`.
     oublierIdentifiantDeMesure()
     setState(initialState)
     setPendingSync(0)

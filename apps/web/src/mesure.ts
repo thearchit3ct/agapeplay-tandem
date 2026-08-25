@@ -36,7 +36,7 @@
  * l'appareil, un rejeu à retardement qui fausse les horodatages du funnel, et
  * une file de plus à vider à la suppression de compte. Ce qu'on gagne en
  * échange — quelques pourcents de complétude sur un funnel de pilote — ne vaut
- * pas ce prix. Écart nommé dans `docs/23`.
+ * pas ce prix. Écart nommé dans `docs/25`.
  */
 import { PROPRIETES_AUTORISEES, identifiantPerime, preparerEvenement } from '@agapeplay/domain'
 import type { NomEvenement, ValeurMesure } from '@agapeplay/domain'
@@ -68,7 +68,7 @@ let refusDuCompte: boolean | null = null
  * un compte, aucun profilage, durée bornée — et une bannière de complaisance
  * sur un produit qui promet la discrétion serait du bruit, pas du respect. Le
  * raisonnement complet, ses conditions et sa dette juridique sont dans
- * `docs/23`.
+ * `docs/25`.
  */
 export const mesureAcceptee = (): boolean => {
   if (refusDuCompte === true) return false

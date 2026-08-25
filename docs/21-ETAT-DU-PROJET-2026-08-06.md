@@ -70,7 +70,7 @@ Le lien retenu pointe vers la racine, et la séance ne promet rien de plus.
 ## Amendement du 25 août 2026 — la mesure respectueuse (issue #20)
 
 *Ajouté sans rien retirer de ce qui précède. Le détail vit dans
-[`23-MESURE-ET-VIE-PRIVEE.md`](./23-MESURE-ET-VIE-PRIVEE.md) ; on ne garde ici
+[`25-MESURE-ET-VIE-PRIVEE.md`](./25-MESURE-ET-VIE-PRIVEE.md) ; on ne garde ici
 que les décisions et les écarts.*
 
 `analytics_events` existait depuis la migration `…_000007` et n'avait **jamais
