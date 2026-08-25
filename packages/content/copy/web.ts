@@ -73,6 +73,9 @@ export const copy = {
     magicLinkSent: 'Lien envoyé. Consulte ta boîte mail pour continuer.',
     authError: 'Impossible de se connecter pour le moment.',
     close: 'Fermer',
+    // Le lien d'évitement : il n'apparaît qu'à la tabulation, et il doit dire
+    // où il mène en trois mots, lus à haute voix par un lecteur d'écran.
+    skipToContent: 'Aller au contenu',
     syncError: 'La synchronisation a rencontré un problème. Tes données locales restent disponibles.',
     next: 'Prochaine étape',
     action: 'À mettre en pratique',
@@ -607,6 +610,7 @@ export const copy = {
     magicLinkSent: 'Link sent. Check your inbox to continue.',
     authError: 'Unable to sign in right now.',
     close: 'Close',
+    skipToContent: 'Skip to content',
     syncError: 'Sync ran into a problem. Your local data is still available.',
     next: 'Next step',
     action: 'Put it into practice',

@@ -1513,6 +1513,13 @@ function App() {
 
   return (
     <div className="app-shell">
+      {/* Le raccourci vers le contenu. Sous 620 px la barre latérale devient la
+          barre du bas mais reste première dans le DOM : la tabulation commence
+          par sept destinations avant d'atteindre l'écran qu'on regarde, sur
+          téléphone comme sur écran large. Il ne se montre qu'une fois
+          focalisé — jamais `display: none`, sans quoi il ne se focaliserait
+          pas (voir `.skip-link` dans `styles.css`). */}
+      <a className="skip-link" href="#contenu">{t.skipToContent}</a>
       <aside className="sidebar">
         <div className="brand-lockup">
           <div className="brand-mark" aria-hidden="true">A</div>
@@ -1544,13 +1551,16 @@ function App() {
               <strong>{ownName || t.participant}</strong>
               {ownName && <span>{t.participant}</span>}
             </div>
-            <span className="status-dot" aria-label={t.online} />
+            {/* Même raison que le sélecteur de langue : `aria-label` sur un
+                `<span>` nu ne s'annonce pas. `role="img"` lui donne le rôle
+                qu'il joue déjà — une pastille qui dit un état. */}
+            <span className="status-dot" role="img" aria-label={t.online} />
           </div>
           <button className="quiet-button" onClick={() => setSettingsOpen(true)}>{t.settings}</button>
         </div>
       </aside>
 
-      <main className="main-content">
+      <main className="main-content" id="contenu" tabIndex={-1}>
         <header className="topbar">
           <div>
             <p className="eyebrow">{t.mock}</p>
@@ -1558,11 +1568,18 @@ function App() {
             <p className="subtitle">{t.subtitle}</p>
           </div>
           <div className="topbar-actions">
-            <div className="locale-switcher" aria-label={t.language}>
+            {/* `role="group"` n'est pas décoratif : un `aria-label` posé sur un
+                `<div>` sans rôle n'est jamais annoncé, et les deux boutons FR
+                et EN arrivaient donc sans rien qui les rassemble. */}
+            <div className="locale-switcher" role="group" aria-label={t.language}>
               <button className={state.locale === 'fr' ? 'active' : ''} onClick={() => toggleLocale('fr')}>FR</button>
               <button className={state.locale === 'en' ? 'active' : ''} onClick={() => toggleLocale('en')}>EN</button>
             </div>
-            <div className="avatar avatar-large">C</div>
+            {/* Un reste de maquette : ce « C » n'est le nom de personne, et il
+                s'annonçait juste après le vrai nom du compte. Retiré de la
+                lecture, pas de l'écran — l'enlever pour de bon est une décision
+                de produit, pas d'accessibilité. */}
+            <div className="avatar avatar-large" aria-hidden="true">C</div>
           </div>
         </header>
 
@@ -1575,27 +1592,6 @@ function App() {
         {(!isOnline || pendingSync > 0) && <div className="offline-banner" role="status">{t.offline}{pendingSync > 0 ? ` · ${pendingSync}` : ''}</div>}
 
         {supabaseConfigured && <div className="auth-strip"><span>{authSession ? `${t.signedIn} · ${authSession.user.email ?? ''}` : t.signIn}</span>{authSession ? <button onClick={signOut}>{t.signOut}</button> : <button onClick={() => setAuthOpen(true)}>{t.signIn} →</button>}</div>}
-
-        {authOpen && <AuthDialog t={t} loading={authLoading} onClose={() => setAuthOpen(false)} />}
-        {trustOpen && <TrustDialog t={t} ageConfirmed={ageConfirmed} setAgeConfirmed={setAgeConfirmed} privacyAccepted={privacyAccepted} setPrivacyAccepted={setPrivacyAccepted} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted} onSave={() => void saveTrust()} />}
-        {settingsOpen && <SettingsDialog t={t} prefs={state.notificationPrefs} onToggle={(key, value) => void toggleNotification(key, value)} onClose={() => setSettingsOpen(false)} onExport={() => void exporterMesDonnees()} onSignOutEverywhere={() => void deconnexionPartout()} onDelete={() => setDeleteOpen(true)} busy={compteEnCours} mesure={mesureConsentie} onToggleMesure={(valeur) => void basculerMesure(valeur)} />}
-        {deleteOpen && <DeleteAccountDialog t={t} onConfirm={() => void supprimerMonCompte()} onExport={() => void exporterMesDonnees()} onClose={() => setDeleteOpen(false)} busy={compteEnCours} />}
-        {inviteOpen && <InviteDialog t={t} email={inviteEmail} setEmail={setInviteEmail} link={inviteLink} onCreate={() => void createInvitation()} onClose={() => { setInviteOpen(false); setInviteLink('') }} />}
-        {unblockOpen && <UnblockDialog t={t} onConfirm={() => void unblockTandem()} onClose={() => setUnblockOpen(false)} />}
-        {/* Fermer sans envoyer garde le choix en place : rouvrir après une
-            hésitation ne doit pas obliger à tout recommencer. Ce qui est effacé
-            l'est après un envoi réussi, et là seulement. */}
-        {reportOpen && <ReportDialog
-          t={t}
-          categorie={reportCategorie}
-          note={reportNote}
-          setCategorie={setReportCategorie}
-          setNote={setReportNote}
-          onConfirm={() => void reportTandem()}
-          onClose={() => setReportOpen(false)}
-        />}
-
-        {notice && <div className="toast" role="status">{notice}</div>}
 
         {openSessionId ? (
           <SessionFlow
@@ -1710,6 +1706,43 @@ function App() {
           </>
         )}
       </main>
+
+      {/* Les dialogues et le bandeau d'annonce vivent **hors** de `<main>`
+          depuis le 25/08/2026, et ce n'est pas un rangement.
+
+          `.main-content` porte `animation: scene-in … both` : un remplissage
+          `both` laisse la transformation appliquée après la fin de
+          l'animation, ce qui fait de l'élément un contexte d'empilement
+          permanent. Le `z-index: 20` du fond des dialogues n'y valait donc que
+          contre ses frères — et la barre latérale, à `z-index: 10` mais dans le
+          contexte du dessus, passait par-dessus tous les dialogues. Sous
+          620 px, où cette barre est fixée en bas de l'écran, elle recouvrait
+          les 110 derniers pixels de chaque dialogue : la case « j'ai compris »
+          et le bouton de suppression de compte étaient dessous.
+
+          Sortis d'ici, ils comparent leur `z-index` à celui de la barre dans le
+          même contexte, et gagnent. Rien d'autre n'a bougé : ni les états, ni
+          les gardes, ni l'ordre dans lequel ils s'ouvrent. */}
+      {authOpen && <AuthDialog t={t} loading={authLoading} onClose={() => setAuthOpen(false)} />}
+      {trustOpen && <TrustDialog t={t} ageConfirmed={ageConfirmed} setAgeConfirmed={setAgeConfirmed} privacyAccepted={privacyAccepted} setPrivacyAccepted={setPrivacyAccepted} termsAccepted={termsAccepted} setTermsAccepted={setTermsAccepted} onSave={() => void saveTrust()} />}
+      {settingsOpen && <SettingsDialog t={t} prefs={state.notificationPrefs} onToggle={(key, value) => void toggleNotification(key, value)} onClose={() => setSettingsOpen(false)} onExport={() => void exporterMesDonnees()} onSignOutEverywhere={() => void deconnexionPartout()} onDelete={() => setDeleteOpen(true)} busy={compteEnCours} mesure={mesureConsentie} onToggleMesure={(valeur) => void basculerMesure(valeur)} />}
+      {deleteOpen && <DeleteAccountDialog t={t} onConfirm={() => void supprimerMonCompte()} onExport={() => void exporterMesDonnees()} onClose={() => setDeleteOpen(false)} busy={compteEnCours} />}
+      {inviteOpen && <InviteDialog t={t} email={inviteEmail} setEmail={setInviteEmail} link={inviteLink} onCreate={() => void createInvitation()} onClose={() => { setInviteOpen(false); setInviteLink('') }} />}
+      {unblockOpen && <UnblockDialog t={t} onConfirm={() => void unblockTandem()} onClose={() => setUnblockOpen(false)} />}
+      {/* Fermer sans envoyer garde le choix en place : rouvrir après une
+          hésitation ne doit pas obliger à tout recommencer. Ce qui est effacé
+          l'est après un envoi réussi, et là seulement. */}
+      {reportOpen && <ReportDialog
+        t={t}
+        categorie={reportCategorie}
+        note={reportNote}
+        setCategorie={setReportCategorie}
+        setNote={setReportNote}
+        onConfirm={() => void reportTandem()}
+        onClose={() => setReportOpen(false)}
+      />}
+
+      {notice && <div className="toast" role="status">{notice}</div>}
     </div>
   )
 }

@@ -1740,3 +1740,123 @@ dépôt : c'est le propos.
   — l'onglet perdrait son icône sans que rien ne rougisse. Le repli documenté
   serait alors `src={require(…)}` depuis un tracé maison. La checklist de
   recette au doigt est dans la PR.
+
+---
+
+## Amendement du 25 août 2026 — le clavier et le responsive de l'app web (issue #14)
+
+*Ajouté sans rien retirer de ce qui précède. Les deux derniers critères de
+l'issue #14 — « navigation clavier complète » et « responsive testé desktop et
+mobile » — étaient les seuls encore ouverts au 24/08. Aucune règle produit n'a
+bougé : ni une garde, ni une écriture, ni une lecture de réponse, ni une phrase.
+C'est un chantier d'accessibilité et de mise en page, et rien d'autre.*
+
+### Ce qui était mesuré avant
+
+Le relevé vient d'un harnais Playwright jetable (trois largeurs, quatorze
+écrans, cinq dialogues), pas d'une relecture. Six constats, du plus grave au
+moins :
+
+1. **le focus ne se voyait nulle part.** `outline: auto 1px rgb(16, 16, 16)` —
+   l'anneau par défaut de Chromium, c'est-à-dire du noir sur `#111111`. Les six
+   onglets, les cinq réponses du bilan, les six catégories de signalement, tous
+   les boutons du produit : on avançait à l'aveugle. Le fichier `styles.css` ne
+   portait aucune règle `:focus-visible` ;
+2. **« Réglages » n'existait plus sous 820 px.** `.quiet-button` était masqué
+   par la bascule vers le rail, et `.sidebar-bottom` entier par la bascule vers
+   la barre du bas. Donc, sur téléphone : pas d'export, pas de déconnexion
+   partout, pas de réglage de mesure, **pas de suppression de compte**. Le
+   produit se dit « mobile first » ;
+3. **deux onglets étaient coupés par le bord de l'écran.** La barre du bas
+   valait `repeat(4, 1fr)` pour six onglets (sept avec la modération), dans une
+   hauteur fixée à 72 px : « Mentor » et « Église » passaient à la ligne, sous
+   le bord ;
+4. **la barre du bas passait par-dessus les dialogues.** `.main-content` porte
+   `animation … both`, ce qui en fait un contexte d'empilement permanent : le
+   `z-index: 20` du fond des dialogues n'y valait que contre ses frères, et la
+   barre latérale à `z-index: 10` — dans le contexte du dessus — la recouvrait.
+   Sous 620 px, la case « j'ai lu ce qui va se passer » et le bouton de
+   suppression de compte étaient dessous ;
+5. **le dialogue des réglages n'avait pas de fin.** `place-items: center` centre
+   tant que l'enfant tient ; plus haut que l'écran, il déborde des deux côtés et
+   le bas devient inatteignable — un débordement vers le début d'un axe ne crée
+   pas de barre de défilement. Le harnais n'a jamais pu cliquer « Supprimer mon
+   compte », à aucune largeur ;
+6. **cinq gestes de dialogue étaient écrits en clair sur du papier.**
+   `.text-button`, `.outline-button` et le lien vers la politique valent l'encre
+   du fond sombre, et les sept dialogues sont sur fond papier : « Télécharger
+   mes données », « Se déconnecter partout », « Supprimer mon compte »,
+   « Annuler », « Lire la politique de confidentialité » se lisaient en gris
+   très clair sur `#f0efe8`. On pouvait les atteindre au clavier ; on ne pouvait
+   pas les voir.
+
+Aucun débordement horizontal n'a été trouvé, ni avant ni après — la règle
+« jamais de scroll horizontal de page » tenait déjà, et tient toujours.
+
+### Ce qui a changé
+
+- **`:focus-visible`, deux encres.** `#eeeeea` partout, `#171716` sur les
+  surfaces claires (carte de séance, étape de séance, dialogues). Décalage de
+  2 px, sans quoi un bouton d'encre pleine avalerait son propre anneau.
+  `:focus-visible` et non `:focus` : personne ne demande un anneau au clic ;
+- **un lien d'évitement** vers `#contenu`. Il compte plus qu'ailleurs ici, et
+  pour une raison contre-intuitive : sous 620 px la barre latérale devient la
+  barre du bas mais **reste première dans le DOM**. La tabulation commence donc
+  par sept destinations avant l'écran qu'on regarde, sur téléphone comme sur
+  écran large. Réordonner le DOM aurait été une refonte ;
+- **un crochet unique pour les sept dialogues** (`views/dialogue.ts`) : Échap
+  ferme, la tabulation reste dedans, le focus revient au déclencheur au
+  démontage — donc quelle que soit la façon de fermer. L'écoute est posée sur le
+  nœud du dialogue et jamais sur `document`, parce que les réglages et la
+  suppression sont ouverts **en même temps** : sur `document`, une touche Échap
+  aurait fermé les deux. `TrustDialog` est appelé **sans** `onClose` : cette
+  fenêtre n'a ni croix ni clic sur le fond, lui donner Échap ferait d'une règle
+  produit un contournement au clavier ;
+- **les deux groupes radio** — six catégories de signalement, cinq catégories de
+  demande d'aide — ont un `tabIndex` roulant et les flèches. Ils portaient
+  `role="radiogroup"` sans en tenir la promesse : six arrêts de tabulation pour
+  un choix unique ;
+- **les dialogues et le bandeau d'annonce sont sortis de `<main>`**, pour la
+  raison du point 4. Rien d'autre n'a bougé : ni les états, ni les gardes, ni
+  l'ordre dans lequel ils s'ouvrent ;
+- **la barre du bas range ses onglets en `auto-fit`**, sur la hauteur qu'ils
+  demandent, et garde « Réglages » à sa droite. Elle garde ses **libellés** :
+  des icônes seules auraient tenu sur une ligne, mais ✦ ◷ ↗ ▤ ⌁ ⌂ ne se devinent
+  pas, et un onglet qu'on ne nomme pas est un onglet qu'on n'ouvre pas ;
+- **les champs hors dialogue** — code d'église, nom de communauté, nom et dates
+  d'une cohorte — rendaient le champ blanc du système sur une carte à `#191918`.
+  Mêmes déclarations que `.auth-dialog input`, à l'encre du fond sombre : c'est
+  ranger un élément oublié dans le thème, pas en dessiner un ;
+- **une fuite du thème vert abandonné a été fermée.** `.primary-button.compact`
+  est plus spécifique que la reprise du thème imprimé et gardait son ombre
+  `#204334` — un trait vert sous les boutons de l'espace église, de l'espace
+  mentor et du journal, seule couleur restée dans un produit monochrome.
+
+### Ce qui reste, et qui n'a pas été touché
+
+- `aria-hidden` a été posé sur l'avatar « C » de la barre du haut : c'est un
+  reste de maquette, il s'annonçait juste après le vrai nom du compte. Il est
+  retiré de la **lecture**, pas de l'écran — l'enlever pour de bon est une
+  décision de produit ;
+- quatre dialogues ne sont pas joignables en mode démonstration et n'ont donc
+  été éprouvés qu'en relecture : la connexion (derrière `supabaseConfigured`),
+  les consentements (derrière une lecture de profil distante), le déblocage
+  (derrière un tandem bloqué) et l'espace modérateur (derrière
+  `tandem_est_moderateur()`). Ils portent le même crochet que les trois autres,
+  qui sont mesurés ;
+- le harnais tourne sans réseau : les polices Google ne se chargent pas, et les
+  captures sont donc rendues avec les polices de repli. Les mesures de
+  débordement restent utilisables — une police de repli n'est pas plus étroite
+  que DM Mono — mais les proportions fines restent à l'œil humain.
+
+### Vérifié
+
+- `npm test` — 238 tests (23 fichiers), verts, parité fr/en comprise (une clé
+  ajoutée : `skipToContent`).
+- `apps/web` : `tsc -b` et `vite build` verts.
+- Harnais Playwright sur `dist/` servi localement, trois largeurs
+  (375 / 768 / 1280) : 45 mesures de débordement horizontal, toutes à
+  `scrollWidth === clientWidth` ; 30 arrêts de tabulation relevés avec la valeur
+  calculée de leur `outline` ; cinq dialogues éprouvés (focus d'entrée, piège
+  avant et arrière sur 40 appuis, Échap, restitution au déclencheur,
+  imbrication réglages/suppression).

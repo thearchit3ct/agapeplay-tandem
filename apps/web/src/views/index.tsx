@@ -18,6 +18,7 @@ import type { CategorieSignalement, SessionStep, RemoteMessage, MentorSnapshot, 
 import { CATEGORIES_PROPOSEES, ETATS_DE_SEMAINE, initialeDe, urgenceDe } from '@agapeplay/domain'
 import type { EntreePartagee, PartageEmis } from '../partageJournal'
 import { ROUTE_CONFIDENTIALITE } from './confidentialite'
+import { naviguerDansLeGroupe, useDialogue } from './dialogue'
 
 /**
  * Le lien vers la politique de confidentialité — issue #23.
@@ -89,8 +90,10 @@ export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean;
     setStatus(error ? t.authError : t.magicLinkSent)
   }
 
+  const cadre = useDialogue<HTMLElement>(onClose)
+
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
-    <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title" onClick={(event) => event.stopPropagation()}>
+    <section ref={cadre} className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="auth-dialog-title">{t.signIn}</h2>
       <p>{t.magicLinkDescription}</p>
@@ -111,8 +114,12 @@ export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean;
 }
 
 export function TrustDialog({ t, ageConfirmed, setAgeConfirmed, privacyAccepted, setPrivacyAccepted, termsAccepted, setTermsAccepted, onSave }: { t: Copy; ageConfirmed: boolean; setAgeConfirmed: (value: boolean) => void; privacyAccepted: boolean; setPrivacyAccepted: (value: boolean) => void; termsAccepted: boolean; setTermsAccepted: (value: boolean) => void; onSave: () => void }) {
+  // Sans `onClose` : cette fenêtre n'a ni croix ni clic sur le fond, et Échap
+  // n'en aura pas non plus. Le crochet n'y pose que le piège et la restitution.
+  const cadre = useDialogue<HTMLElement>()
+
   return <div className="auth-dialog-backdrop" role="presentation">
-    <section className="auth-dialog trust-dialog" role="dialog" aria-modal="true" aria-labelledby="trust-dialog-title">
+    <section ref={cadre} className="auth-dialog trust-dialog" role="dialog" aria-modal="true" aria-labelledby="trust-dialog-title">
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span></div>
       <h2 id="trust-dialog-title">{t.trustTitle}</h2>
       <p>{t.trustDescription}</p>
@@ -131,8 +138,10 @@ export function TrustDialog({ t, ageConfirmed, setAgeConfirmed, privacyAccepted,
 }
 
 export function SettingsDialog({ t, prefs, onToggle, onClose, onExport, onSignOutEverywhere, onDelete, busy, mesure, onToggleMesure }: { t: Copy; prefs: AppState['notificationPrefs']; onToggle: (key: keyof AppState['notificationPrefs'], value: boolean) => void; onClose: () => void; onExport: () => void; onSignOutEverywhere: () => void; onDelete: () => void; busy: boolean; mesure: boolean; onToggleMesure: (value: boolean) => void }) {
+  const cadre = useDialogue<HTMLElement>(onClose)
+
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
-    <section className="auth-dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" onClick={(event) => event.stopPropagation()}>
+    <section ref={cadre} className="auth-dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="settings-dialog-title">{t.settingsTitle}</h2>
       <p>{t.protected}</p>
@@ -199,9 +208,10 @@ export function SettingsDialog({ t, prefs, onToggle, onClose, onExport, onSignOu
  */
 export function DeleteAccountDialog({ t, onConfirm, onExport, onClose, busy }: { t: Copy; onConfirm: () => void; onExport: () => void; onClose: () => void; busy: boolean }) {
   const [understood, setUnderstood] = useState(false)
+  const cadre = useDialogue<HTMLElement>(onClose)
 
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
-    <section className="auth-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" onClick={(event) => event.stopPropagation()}>
+    <section ref={cadre} className="auth-dialog delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">{t.settingsTitle}</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="delete-dialog-title">{t.deleteConfirmTitle}</h2>
       <p>{t.deleteConfirmErases}</p>
@@ -229,8 +239,10 @@ export function InviteDialog({ t, email, setEmail, link, onCreate, onClose }: { 
     if (link) void navigator.clipboard.writeText(link)
   }
 
+  const cadre = useDialogue<HTMLElement>(onClose)
+
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
-    <section className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-dialog-title" onClick={(event) => event.stopPropagation()}>
+    <section ref={cadre} className="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">AgapePlay</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="invite-dialog-title">{t.invite}</h2>
       <p>{t.inviteDescription}</p>
@@ -251,8 +263,10 @@ export function InviteDialog({ t, email, setEmail, link, onCreate, onClose }: { 
  * annule est nommé, lui aussi, pour qu'on puisse renoncer sans chercher.
  */
 export function UnblockDialog({ t, onConfirm, onClose }: { t: Copy; onConfirm: () => void; onClose: () => void }) {
+  const cadre = useDialogue<HTMLElement>(onClose)
+
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
-    <section className="auth-dialog unblock-dialog" role="dialog" aria-modal="true" aria-labelledby="unblock-dialog-title" onClick={(event) => event.stopPropagation()}>
+    <section ref={cadre} className="auth-dialog unblock-dialog" role="dialog" aria-modal="true" aria-labelledby="unblock-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">{t.privateConversation}</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="unblock-dialog-title">{t.unblockTitle}</h2>
       <p>{t.unblockDescription}</p>
@@ -308,21 +322,30 @@ export function ReportDialog({
   // La colonne générée reste la seule à faire foi une fois la ligne écrite.
   const urgence = categorie ? urgenceDe(categorie) : null
 
+  const cadre = useDialogue<HTMLElement>(onClose)
+
   return <div className="auth-dialog-backdrop" role="presentation" onClick={onClose}>
-    <section className="auth-dialog report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" onClick={(event) => event.stopPropagation()}>
+    <section ref={cadre} className="auth-dialog report-dialog" role="dialog" aria-modal="true" aria-labelledby="report-dialog-title" onClick={(event) => event.stopPropagation()}>
       <div className="auth-dialog-top"><span className="section-kicker">{t.report}</span><button className="text-button" onClick={onClose} aria-label={t.close}>×</button></div>
       <h2 id="report-dialog-title">{t.reportTitle}</h2>
       <p>{t.reportDescription}</p>
 
       <div className="report-categories" role="radiogroup" aria-labelledby="report-dialog-title">
-        {CATEGORIES_PROPOSEES.map((valeur) => (
+        {/* Un seul arrêt de tabulation pour tout le groupe : c'est ce que
+            `role="radiogroup"` promet, et les flèches font le reste. Sans choix
+            posé, c'est la première catégorie qui porte l'arrêt. */}
+        {CATEGORIES_PROPOSEES.map((valeur, rang) => (
           <button
             key={valeur}
             type="button"
             role="radio"
             aria-checked={categorie === valeur}
+            tabIndex={categorie === null ? (rang === 0 ? 0 : -1) : (categorie === valeur ? 0 : -1)}
             className={`report-category${categorie === valeur ? ' choisie' : ''}`}
             onClick={() => setCategorie(valeur)}
+            onKeyDown={(event) => naviguerDansLeGroupe(
+              event, rang, CATEGORIES_PROPOSEES.length, (cible) => setCategorie(CATEGORIES_PROPOSEES[cible]),
+            )}
           >{libelles[valeur]}</button>
         ))}
       </div>
@@ -352,7 +375,10 @@ export function ReportDialog({
 }
 
 export function NavItem({ active, label, icon, onClick }: { active: boolean; label: string; icon: string; onClick: () => void }) {
-  return <button className={`nav-item ${active ? 'active' : ''}`} onClick={onClick}><span aria-hidden="true">{icon}</span>{label}</button>
+  // `aria-current="page"` et non la seule classe `active` : la classe se voit,
+  // elle ne s'entend pas. C'est la seule façon pour un lecteur d'écran de dire
+  // lequel des sept onglets est ouvert.
+  return <button className={`nav-item ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined} onClick={onClick}><span aria-hidden="true">{icon}</span>{label}</button>
 }
 
 

@@ -642,3 +642,187 @@ h3 { color: #eeeeea; font-weight: 400; }
 .policy-link { margin: 14px 0 0; font-size: 11px; }
 .policy-link a { color: #d1d1ca; text-underline-offset: 3px; }
 .policy-link a:hover { color: #eeeeea; }
+
+/* ===========================================================================
+   Le clavier — issue #14, amendement du 25/08/2026.
+   ===========================================================================
+
+   Ce qui était mesuré avant : `outline: auto 1px rgb(16, 16, 16)`, l'anneau par
+   défaut de Chromium, c'est-à-dire du noir sur `#111111`. Naviguer au clavier
+   revenait à avancer à l'aveugle sur les six onglets, les cinq réponses du
+   bilan et les six catégories de signalement. Le relevé est dans la PR.
+
+   Une seule règle, `:focus-visible` et pas `:focus` : le second poserait
+   l'anneau sur chaque clic de souris, ce que personne ne demande. Les
+   navigateurs de la cible le supportent tous.
+
+   Deux encres, parce que le produit a deux fonds. Le trait est celui du thème —
+   pas de bleu système, pas de halo : le décalage de 2 px suffit à détacher
+   l'anneau d'un bouton d'encre pleine (`.primary-button` : `#171716` sur
+   papier), qui sans lui l'avalerait. */
+:focus-visible {
+  outline: 2px solid #eeeeea;
+  outline-offset: 2px;
+}
+/* Les surfaces claires : la carte de séance, l'étape de séance, les dialogues,
+   et la page publique de la politique n'en a pas — elle est sombre comme le
+   reste. `:focus-visible` y garde le même trait, retourné. */
+.session-card :focus-visible,
+.flow-step :focus-visible,
+.auth-dialog :focus-visible,
+.report-dialog :focus-visible {
+  outline-color: #171716;
+}
+
+/* Le raccourci vers le contenu.
+   Il compte davantage ici qu'ailleurs, et pour une raison contre-intuitive :
+   sous 620 px la barre latérale devient la barre du bas, mais elle reste
+   **première dans le DOM**. La tabulation commence donc par sept destinations
+   avant d'atteindre l'écran qu'on regarde — sur téléphone comme sur écran
+   large. Le lien ne se montre qu'une fois focalisé ; il n'est jamais
+   `display: none`, sans quoi il ne se focaliserait pas. */
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  transform: translateY(-140%);
+  padding: 12px 18px;
+  background: #eeeeea;
+  color: #111111;
+  font: 600 12px 'DM Mono', monospace;
+  letter-spacing: .06em;
+  text-decoration: none;
+  box-shadow: 5px 5px 0 #000000;
+}
+.skip-link:focus-visible { transform: translateY(0); outline-offset: -6px; outline-color: #111111; }
+/* La cible du raccourci porte `tabindex="-1"` pour recevoir le focus ; sans
+   cette règle, le navigateur y dessinerait un anneau autour de toute la page. */
+.main-content:focus { outline: none; }
+
+/* ===========================================================================
+   La barre du bas, et ce qu'elle escamotait — issue #14.
+   ===========================================================================
+
+   Trois défauts constatés en capture, à 375 px comme à 768 px :
+
+   1. la grille valait `repeat(4, 1fr)` pour six onglets (sept avec la
+      modération). Les deux derniers passaient à la ligne dans une barre haute
+      de 72 px : « Mentor » et « Église » étaient coupés par le bord bas de
+      l'écran, donc hors d'atteinte ;
+   2. `.sidebar-bottom` était masqué sous 620 px et `.quiet-button` sous
+      820 px. « Réglages » — donc l'export, la déconnexion partout, le réglage
+      de mesure et la suppression de compte — n'existait plus du tout en
+      dessous de 820 px. Le produit est « mobile first » ;
+   3. le rembourrage bas de `.main-content` valait 100 px pour une barre qui en
+      faisait davantage : la dernière carte de chaque écran passait dessous.
+
+   La barre garde ses libellés. Des icônes seules auraient tenu sur une ligne,
+   mais ✦ ◷ ↗ ▤ ⌁ ⌂ ne se devinent pas — et un onglet qu'on ne nomme pas est un
+   onglet qu'on n'ouvre pas. Deux rangées assumées, donc, et le rembourrage qui
+   va avec. */
+@media (max-width: 820px) {
+  /* Le rail garde son geste de compte, en icône de mot : c'est le seul chemin
+     vers l'export et la suppression. */
+  .sidebar-bottom .quiet-button { display: block; padding: 8px 0; text-align: center; font-size: 10px; }
+}
+
+@media (max-width: 620px) {
+  /* Hauteur libre : la barre fait ce que ses onglets demandent, au lieu de les
+     couper à 72 px. */
+  .sidebar { height: auto; align-items: stretch; gap: 6px; }
+  /* `auto-fit` range quatre onglets par rangée à 375 px et cinq à 520 px,
+     sans qu'aucune largeur ne soit écrite en dur — et sans qu'un septième
+     onglet, celui de la modération, casse quoi que ce soit. */
+  .primary-nav { flex: 1 1 auto; width: auto; min-width: 0; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
+  /* `min-width: 0` sur une cellule de grille n'est pas un ornement : sans lui
+     la cellule prend la largeur de son mot le plus long, et « Aujourd'hui »
+     élargissait la barre au-delà de l'écran. */
+  .nav-item { min-width: 0; overflow: hidden; font-size: 9px; }
+  /* `.sidebar-bottom` redevient visible, réduit à son seul bouton : la vignette
+     de profil ne dit rien qu'on ne lise déjà en haut de l'écran. */
+  .sidebar-bottom { display: flex; align-items: stretch; margin: 0; flex: 0 0 auto; }
+  .profile-chip { display: none; }
+  .sidebar-bottom .quiet-button { display: flex; align-items: center; padding: 0 10px; border-left: 1px solid var(--night-line); }
+  .main-content { padding-bottom: 140px; }
+  /* Le dialogue de suppression colle son pied au bord bas, avec des marges
+     négatives de 31 px qui compensent le rembourrage du dialogue. Sous 620 px
+     ce rembourrage tombe à 20 px : le pied débordait de 11 px de chaque côté,
+     par-dessus le cadre. */
+  .delete-decision { margin: 24px -20px -24px; padding: 18px 20px 24px; }
+}
+
+/* Le fond des dialogues, et le piège du centrage — issue #14.
+
+   `place-items: center` sur une grille centre tant que l'enfant tient ; dès
+   qu'il est plus haut que l'écran, il déborde **des deux côtés** et le haut
+   devient inatteignable, parce qu'un débordement vers le début d'un axe ne
+   crée pas de barre de défilement. Le dialogue des réglages fait aujourd'hui
+   sept blocs — notifications, mesure, export, déconnexion, suppression — et
+   dépasse 900 px de haut : « Supprimer mon compte » était hors de l'écran, sans
+   aucun moyen d'y descendre. Mesuré par le harnais, qui n'a jamais pu cliquer
+   dessus.
+
+   Le remède est le motif connu : une boîte flexible qui défile, et `margin:
+   auto` sur l'enfant. Les marges automatiques centrent quand il reste de la
+   place et retombent à zéro quand il n'y en a plus — donc l'enfant part du haut
+   et le fond défile. Rien ne bouge dans le cas qui tenait déjà. */
+.auth-dialog-backdrop { display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; }
+.auth-dialog { margin: auto; }
+
+/* Les gestes secondaires des dialogues, rendus lisibles — issue #14.
+
+   Trouvé en capture, et c'est le défaut qui rendait le critère « navigation
+   clavier complète » sans objet : `.text-button`, `.outline-button` et le lien
+   vers la politique valent tous l'encre claire du fond sombre, et les sept
+   dialogues sont sur papier. « Télécharger mes données », « Se déconnecter
+   partout », « Supprimer mon compte », « Annuler », « Lire la politique de
+   confidentialité » : tous écrits en gris très clair sur `#f0efe8`. On pouvait
+   les atteindre au clavier — on ne pouvait pas les lire, et un anneau de focus
+   autour d'un mot invisible ne sert personne.
+
+   L'encre du papier est celle que ces dialogues emploient déjà partout
+   ailleurs (`.auth-dialog-top .text-button`, `.delete-export-hint`, les
+   paragraphes) : la reprise ne fait que l'étendre aux boutons qui l'avaient
+   manquée. Aucun tracé, aucune taille, aucune place ne change. */
+.auth-dialog .text-button { color: #171716; }
+.auth-dialog .text-button:hover { color: #4b4b46; }
+.auth-dialog .outline-button { border-color: #555550; color: #171716; }
+.auth-dialog .outline-button:hover { border-color: #171716; background: #171716; color: var(--paper); }
+.auth-dialog .policy-link a { color: #4b4b46; }
+.auth-dialog .policy-link a:hover { color: #171716; }
+
+/* Un message collé depuis ailleurs peut être une URL de deux cents caractères.
+   `.invitation-address` et `.moderation-message p` portaient déjà la coupure ;
+   la conversation, qui est l'endroit où l'on colle le plus, ne l'avait pas. */
+.message { overflow-wrap: anywhere; }
+
+/* Les champs hors dialogue — le code d'église, le nom de la communauté, le nom
+   et les dates d'une cohorte. Aucune règle ne les atteignait : ils rendaient le
+   champ blanc du système sur une carte à `#191918`, avec l'anneau de focus par
+   défaut. Mêmes déclarations que `.auth-dialog input`, à l'encre du fond
+   sombre : c'est ranger un élément oublié dans le thème, pas en dessiner un. */
+.workspace-card input, .invitation-card input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #8f8f88;
+  border-radius: 0;
+  padding: 11px 12px;
+  background: #171716;
+  color: #eeeeea;
+  outline: 0;
+  font: 400 13px 'DM Mono', monospace;
+}
+.workspace-card input:focus, .invitation-card input:focus { border-color: #eeeeea; }
+.workspace-card label, .invitation-card label { color: #a6a6a0; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
+/* `color-scheme` commande l'icône de calendrier de `input[type=date]`, que
+   `color` n'atteint pas : sans elle, un pictogramme sombre sur fond sombre. */
+.invitation-card input[type="date"] { color-scheme: dark; }
+
+/* Une fuite du thème vert abandonné : `.primary-button.compact` est plus
+   spécifique que la reprise `.primary-button` du thème imprimé, et gardait donc
+   son ombre `#204334` — un trait vert sous les boutons de l'espace église, de
+   l'espace mentor et du journal, seule couleur restée dans un produit
+   monochrome. Même ombre que ses aînés, en plus courte. */
+.primary-button.compact { box-shadow: 3px 3px 0 #77776f; }
+.primary-button.compact:hover { box-shadow: 5px 5px 0 #77776f; }
