@@ -1215,3 +1215,114 @@ un humain est la section 8 du doc 28.
   sous 375 px. La page a désormais son propre bloc de marque.
 - Aucune migration, aucun changement mobile, aucun changement de comportement
   produit : le périmètre est `docs/`, `apps/web/**` et les textes partagés.
+
+## Amendement du 26 août 2026 — le parcours « Repartir avec Jésus » (issue #8)
+
+Le contenu est **écrit et intégré**. Il n'est **pas relu**, et cela suffit à le
+rendre impubliable en l'état : le doc 07 impose sept étapes avant publication,
+et une seule est faite. La liste de ce qui attend un humain est plus bas, et
+elle est bloquante pour le pilote en église.
+
+### Ce qui existe désormais
+
+`supabase/migrations/20260826120000_parcours_repartir_complet.sql` : les
+vingt-sept séances manquantes (jours 4 à 30) et la retouche de deux des trois
+séances du 04/08. Aucun changement de schéma, aucune politique. Le parcours
+tient les six semaines et les cinq séances du doc 07, dans l'ordre de ses
+objectifs — faire le point, comprendre l'Évangile, développer la prière, lire
+et mémoriser, grandir avec les autres, servir et transmettre.
+
+`tests/parcours-repartir.test.ts` épingle la forme : trente jours uniques, six
+semaines de cinq, aucun champ vide, durées entre cinq et quinze minutes, une
+référence « Livre chiffre:chiffre » dans chaque citation des deux langues. Il
+lit les migrations, pas la base, et tourne sur `npm test` sans Docker.
+
+### Deux citations anglaises étaient sous copyright
+
+`repartir-01` (« Come to me, all you who are weary and burdened ») et
+`repartir-03` (« Carry each other's burdens ») reprenaient mot pour mot la New
+International Version. Elles sont remplacées par la World English Bible. Le
+parcours entier tient désormais sur deux traductions du domaine public —
+Louis Segond 1910 en français, WEB en anglais — ce qui règle par construction
+le critère de droits que le doc 07 laissait ouvert et que l'issue #4 n'a pas
+tranché. Les trois `verse_fr` du 04/08 ont été vérifiés dans la même passe :
+ils étaient déjà Segond au mot près.
+
+Le test refuse le retour des deux formulations NIV. Ce n'est pas une précaution
+théorique : elles étaient arrivées par copier-coller une première fois.
+
+### Comment les citations ont été vérifiées
+
+Aucune n'a été écrite de mémoire. Les textes ont été récupérés aux sources —
+`api.getbible.net/v2/ls1910` et `bible-api.com?translation=web` — et chaque
+extrait cité a été contrôlé comme **plage contiguë** de son verset, casse,
+guillemets et ponctuation de fin mis à part. Soixante-deux citations
+contrôlées, deux défauts trouvés et corrigés :
+
+- la citation anglaise de Philippiens 4:6 sautait le milieu du verset sans le
+  marquer (« In everything, **[…]** let your requests be made known to God ») ;
+- Psaumes 23:1, d'abord retenu comme verset de mémorisation, a été écarté : la
+  WEB y rend le nom divin par « Yahweh », vocalisation que plusieurs traditions
+  évitent, et le parcours doit se lire sans accroc par un jeune catholique
+  comme protestant.
+
+Le contrôle est resté un script hors dépôt, volontairement : un test qui appelle
+deux API rendrait `npm test` intermittent.
+
+### La discussion hebdomadaire est la cinquième séance
+
+Le doc 07 demande « une discussion hebdomadaire » sans dire où elle tombe dans
+un schéma à trente jours. Décision : jours 5, 10, 15, 20, 25 et 30. Leur thème
+est « La discussion de la semaine », leur action envoie vers la conversation du
+tandem, et leur question se répond à deux. Le test épingle ces six jours — sans
+quoi la discussion pourrait disparaître à la première réécriture de contenu
+sans que rien ne le signale.
+
+### Les trois versets de mémorisation sont une proposition
+
+Le doc 24 fixe la forme de la semaine 4 : un verset choisi dans une liste de
+trois, recopié à la main le premier jour, retapé de mémoire le troisième, dit
+au binôme le cinquième — ici les jours 16, 18 et 20. Il note explicitement que
+**le choix des trois est une décision humaine**.
+
+Proposés : **Psaumes 119:105**, **Ésaïe 41:10**, **Jean 14:27**. Courts, tenant
+hors contexte, sans marqueur confessionnel. Ils vivent dans l'action du jour 16,
+faute d'un champ dédié — le schéma n'a qu'un verset par séance et ce chantier
+n'y touche pas. Ils attendent un relecteur au même titre que le reste.
+
+### Le pont vers Versets Flash n'a pas été écrit
+
+Le doc 24 prévoyait une ligne vers Versets Flash au bas de la séance du jour 16.
+Elle n'y est pas. La mémorisation se fait avec le journal et le binôme, et rien
+d'une séance ne doit dépendre d'une autre application. Le pont reste une
+décision d'écosystème à prendre ailleurs ; ce qui est écrit ici tient sans lui.
+Divergence assumée avec le doc 24, datée du 26/08.
+
+### Ce qui attend un relecteur humain — bloquant pour le pilote
+
+Le doc 07 décrit sept étapes avant publication. Seule la première est faite.
+Sont à relire, avant qu'un adolescent lise une ligne de ce parcours :
+
+1. **Les trente séances**, en entier — relecture biblique et théologique, puis
+   relecture pédagogique et inclusive. Elles sortent d'une seule main et n'ont
+   été vues par personne d'autre.
+2. **Les trois versets de mémorisation** — Psaumes 119:105, Ésaïe 41:10,
+   Jean 14:27. Une proposition, pas un choix arrêté.
+3. **Les deux citations anglaises retouchées** — `repartir-01` et
+   `repartir-03`. Le remplacement est mécaniquement correct ; qu'il dise encore
+   ce que la séance voulait dire est un jugement, pas un contrôle.
+4. **La parité française et anglaise du sens** — l'anglais est écrit comme de
+   l'anglais, pas traduit mot à mot, ce qui rend l'écart possible et invisible
+   à un test.
+5. **Le test sur petit groupe** (étape 6 du doc 07), qui n'a pas eu lieu.
+
+Le parcours est marqué `published` en base depuis le 04/08 : la relecture n'est
+donc pas seulement en retard, elle est en retard sur du contenu déjà lisible
+par l'application. C'est l'état, et il vaut mieux l'écrire.
+
+### Vérifié
+
+- `npm test` — 212 tests (21 fichiers), dont les sept du parcours.
+- `npm run test:rls` — 267 tests, inchangé. La migration s'applique sur la pile
+  locale sans erreur.
+- Les soixante-deux citations, contrôlées aux sources comme décrit plus haut.
