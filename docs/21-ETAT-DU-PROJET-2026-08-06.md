@@ -2182,6 +2182,21 @@ Ce qu'il faut retenir ici :
   expérimentale chez Expo, et son mode de défaillance — un hash qui dérive pour
   une cause invisible dans le diff — est le mauvais pour un studio d'une
   personne.
+- **La règle vaut dans les deux sens.** Le pendant du point précédent est plus
+  dangereux : **tout changement natif doit bumper `version`**. L'oublier donne à
+  la nouvelle build le runtime de l'ancienne, les deux populations cessent
+  d'être étanches, et le prochain update — bâti contre le nouveau code natif —
+  est servi à un binaire qui n'a pas les modules qu'il appelle. Sous
+  `appVersion`, ces deux obligations reposent entièrement sur l'humain : la
+  politique ne déduit rien, elle recopie un champ.
+- **⚠️ Un update se publie toujours avec `--environment production`.**
+  Contrairement à une build, `eas update` fabrique le bundle **sur la machine
+  qui tape la commande**, avec l'environnement qu'elle trouve — donc
+  `apps/mobile/.env`, qui n'est pas versionné. Un `.env` absent ou périmé
+  produirait un bundle aux mauvaises clés Supabase, et il partirait **par les
+  airs vers les applications installées**, sans build pour l'arrêter : la panne
+  silencieuse déjà décrite au doc 29 (« connecte-toi » sans fin), à distance.
+  Le drapeau force les variables posées par `eas env:create`.
 - **Un canal par profil de build** : `internal` → `interne`, `development` →
   `developpement`, `preview` → `apercu`. Le canal est gravé dans le binaire au
   moment de la build ; on ne le change pas après coup, et publier sur `apercu`

@@ -52,7 +52,8 @@ paie l'abonnement.
 cd apps/mobile
 
 # Un changement JavaScript — le cas courant, gratuit.
-eas update --channel interne --message "le bilan ne perd plus la réponse au retour"
+eas update --channel interne --environment production \
+  --message "le bilan ne perd plus la réponse au retour"
 
 # Un changement natif — un jalon, une build, du crédit consommé.
 eas build --profile internal --platform android --auto-submit
@@ -61,6 +62,21 @@ eas build --profile internal --platform android --auto-submit
 Le `--message` est la seule trace lisible de ce qu'un update contient : il
 apparaît dans le tableau de bord Expo et c'est ce qu'on relit six semaines plus
 tard. Une phrase de produit, pas un hash de commit.
+
+**`--environment production` n'est pas décoratif — c'est la garde la plus
+importante de cette commande.** Contrairement à une build, `eas update` fabrique
+le bundle **sur la machine qui tape la commande**, avec l'environnement qu'elle
+trouve : donc `apps/mobile/.env`, qui n'est pas versionné (voir plus bas, point
+2 de « Ce qui attend un humain »). Un `.env` absent, périmé ou pointant sur un
+autre projet Supabase produirait un bundle aux mauvaises clés — et cette fois
+**il partirait par les airs vers les applications déjà installées**, sans build
+pour l'arrêter, avec exactement la panne silencieuse déjà décrite : des écrans
+qui disent « connecte-toi » sans fin. Le drapeau ferme ce chemin ; la doc d'Expo
+est explicite : « Only the environment variables from the specified environment
+will be used during the update process. » Ce sont les variables posées une fois
+par `eas env:create --environment production` qui servent, et elles seules.
+
+Ne jamais publier un update sans ce drapeau.
 
 ### Le canal relie une build à ses updates
 
@@ -108,6 +124,25 @@ C'est un écart assumé avec l'habitude du dépôt voisin (Versets Flash, « tou
 bumper après une build »), et avec ce qu'a fait ce dépôt lui-même jusqu'ici —
 0.2.0 → 0.2.3 pour du travail JavaScript. Sous EAS Update, ce geste devient
 nuisible.
+
+**Et la règle vaut dans l'autre sens, où elle est plus dangereuse encore :**
+
+> **Tout changement natif doit bumper `version`.** L'oublier donne à la nouvelle
+> build le même `runtimeVersion` que l'ancienne : les deux populations cessent
+> d'être étanches, et le prochain update — bâti contre le nouveau code natif —
+> est servi à l'ancien binaire, qui n'a pas les modules qu'il appelle. C'est
+> précisément le plantage au lancement pour tout le monde que cette politique
+> existe pour empêcher.
+
+La liste « Ce qui justifie une build » plus haut est donc à double emploi : elle
+dit quand dépenser un crédit, **et** quand `version` est obligé de bouger. Les
+deux gestes sont le même geste.
+
+Sous `appVersion`, ces deux obligations reposent entièrement sur l'humain — la
+politique ne déduit rien, elle recopie un champ. C'est le fond de l'arbitrage
+avec `fingerprint`, qui automatiserait la détection dans les deux sens : on
+échange une machinerie expérimentale contre une discipline écrite. Elle est
+écrite ici.
 
 **Pourquoi `appVersion` et pas `fingerprint`.** La politique `fingerprint` calcule
 un hash du projet et détecte toute seule qu'un changement est natif : plus
