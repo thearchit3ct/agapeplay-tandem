@@ -48,6 +48,13 @@ corriger.
 | Lien d'invitation d'église, **avec un jeton** | `church_invitations` | faire entrer un groupe | intérêt légitime | 30 j par défaut, 90 au maximum (contrainte en base) | révocation, péremption |
 | Affectation de mentor | `mentor_assignments` | l'espace mentor | contrat | vie du compte | `supprimer_mon_compte()` |
 | Vérification et formation du mentor | `mentor_profiles` | ne confier un mineur qu'à un adulte vérifié | obligation légale / intérêt vital des mineurs | vie du compte | `supprimer_mon_compte()` |
+
+*Sur cette dernière ligne : la table n'a **que** `grant select`, aucune politique
+d'`update`, et aucune fonction ne fait passer `verification_status` à `verified`.
+Le verrou est donc réel — un mentor non vérifié n'accompagne personne — mais le
+geste de vérification n'a aucun propriétaire dans le code : il se pose depuis
+l'éditeur SQL. La politique publique dit le verrou, pas une procédure qui
+n'existe pas.*
 | Demande d'aide (catégorie close) | `help_requests` | dire « fais-moi signe » | contrat | vie du compte (cascade sur l'affectation) | `supprimer_mon_compte()` (cascade) |
 | Encouragement (clé parmi six) | `mentor_encouragements` | un mot du mentor | contrat | vie du compte (cascade) | `supprimer_mon_compte()` (cascade) |
 | Signalement : catégorie, urgence, message visé, note libre (≤ 1000 car.) | `tandem_reports` | protéger quelqu'un | intérêt légitime + protection des mineurs | **conservé après la suppression du compte** | rien, et c'est voulu |
@@ -371,6 +378,13 @@ date dans `profiles.terms_consent_at`. **Aucun document ne porte ces règles**,
 nulle part dans le dépôt. La politique de confidentialité, elle, existe
 désormais et est atteignable. Faire accepter un texte qui n'existe pas est un
 défaut à part entière, indépendant des stores.
+
+**La vérification d'un mentor n'a pas de propriétaire dans le code.** Rien dans
+l'application ne fait passer `mentor_profiles.verification_status` à `verified` ;
+la table n'a pas même de politique d'`update`. Sur un produit qui confie des
+mineurs à des adultes, une vérification qui ne se pose que depuis l'éditeur SQL
+est une procédure sans trace et sans responsable désigné. C'est un sujet de
+conformité autant que de produit.
 
 **Suppression de compte sur mobile.** Voir §3 — blocante pour l'App Store.
 

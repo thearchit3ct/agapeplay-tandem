@@ -524,7 +524,7 @@ export const copy = {
     privacyKeepDebt: 'À dire franchement : les messages d’un tandem terminé n’ont pas encore de durée de conservation fixée. Ce manque est écrit dans notre documentation technique, et il sera comblé.',
 
     privacyDeleteTitle: 'Emporter tes données, ou tout effacer',
-    privacyDeleteExport: 'Emporter : Réglages → Télécharger mes données. Tu obtiens un fichier avec ton profil, ton journal, ta progression, tes bilans, tes partages, tes invitations, ta communauté et tes signalements. Il est fabriqué sur ton appareil.',
+    privacyDeleteExport: 'Emporter : Réglages → Télécharger mes données. Tu obtiens un fichier avec ton profil, tes préférences, ton journal, ta progression, tes bilans, tes partages, les messages que tu as envoyés, tes invitations, ta communauté et tes signalements. Il est fabriqué sur ton appareil. Ce que tes binômes t’ont écrit ou partagé n’y est pas : ce sont leurs mots, pas tes données.',
     privacyDeletePath: 'Effacer : Réglages → Supprimer mon compte. Un écran te dit exactement ce qui part et ce qui reste, avant que tu confirmes.',
     privacyDeleteGoes: 'Ce qui part : ton nom, ton adresse, ton journal, ta progression, tes bilans, tes préférences, tes invitations, tes appartenances. Tes sessions ouvertes sont fermées et ce compte ne peut plus se connecter.',
     privacyDeleteStays: 'Ce qui reste : les messages que tu as laissés dans la conversation de ton binôme, sans ton nom au-dessus — ce sont ses souvenirs autant que les tiens. Les signalements et les décisions de modération restent aussi. Et un blocage que tu as posé tient toujours après ton départ.',
@@ -533,7 +533,7 @@ export const copy = {
     privacyDeleteMobile: 'À dire franchement : l’application mobile n’a pas encore ce bouton. Il est sur le site, et il supprime le même compte.',
 
     privacyAgeTitle: 'Ton âge',
-    privacyAgeBody: 'Il faut avoir 16 ans pour utiliser Tandem. On te demande de le confirmer à l’inscription et on te croit : aucune pièce d’identité n’est demandée, et on n’en veut pas. Les mentors, eux, sont vérifiés par leur église avant de pouvoir accompagner quelqu’un.',
+    privacyAgeBody: 'Il faut avoir 16 ans pour utiliser Tandem. On te demande de le confirmer à l’inscription et on te croit : aucune pièce d’identité n’est demandée, et on n’en veut pas. Un mentor, lui, ne peut accompagner personne tant que son église ne l’a pas validé — et cette validation se fait hors de l’application, entre adultes.',
 
     privacyRightsTitle: 'Tes droits',
     privacyRightsBody: 'La loi te donne le droit de savoir ce qu’on a sur toi, de le corriger, de l’emporter, de le faire effacer et de t’opposer à certains usages. Les deux plus utiles — emporter et effacer — sont des boutons dans l’application, sans avoir à écrire à personne. Pour le reste, écris-nous : on répond dans le mois.',
@@ -1009,7 +1009,7 @@ export const copy = {
     privacyKeepDebt: 'To say it plainly: messages in a tandem that has ended have no retention period set yet. That gap is written down in our technical documentation, and it will be closed.',
 
     privacyDeleteTitle: 'Taking your data with you, or erasing everything',
-    privacyDeleteExport: 'Taking it: Settings → Download my data. You get a file with your profile, your journal, your progress, your weekly notes, your shares, your invitations, your community and your reports. It is built on your device.',
+    privacyDeleteExport: 'Taking it: Settings → Download my data. You get a file with your profile, your preferences, your journal, your progress, your weekly notes, your shares, the messages you sent, your invitations, your community and your reports. It is built on your device. What your partners wrote or shared with you is not in it: those are their words, not your data.',
     privacyDeletePath: 'Erasing: Settings → Delete my account. A screen tells you exactly what goes and what stays, before you confirm.',
     privacyDeleteGoes: 'What goes: your name, your address, your journal, your progress, your weekly notes, your preferences, your invitations, your memberships. Your open sessions are closed and that account can no longer sign in.',
     privacyDeleteStays: 'What stays: the messages you left in your partner’s conversation, with no name above them — they are their memories as much as yours. Reports and moderation decisions stay too. And a block you set still holds after you leave.',
@@ -1018,7 +1018,7 @@ export const copy = {
     privacyDeleteMobile: 'To say it plainly: the mobile app does not have that button yet. It is on the website, and it deletes the same account.',
 
     privacyAgeTitle: 'Your age',
-    privacyAgeBody: 'You must be 16 to use Tandem. We ask you to confirm it when you sign up and we believe you: no identity document is asked for, and we do not want one. Mentors, for their part, are verified by their church before they can accompany anyone.',
+    privacyAgeBody: 'You must be 16 to use Tandem. We ask you to confirm it when you sign up and we believe you: no identity document is asked for, and we do not want one. A mentor, for their part, can accompany nobody until their church has cleared them — and that clearing happens outside the app, between adults.',
 
     privacyRightsTitle: 'Your rights',
     privacyRightsBody: 'The law gives you the right to know what we hold about you, to correct it, to take it with you, to have it erased and to object to certain uses. The two most useful ones — taking and erasing — are buttons in the app, with nobody to write to. For the rest, write to us: we answer within a month.',
