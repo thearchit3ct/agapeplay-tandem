@@ -34,6 +34,13 @@ export { InvitationsView } from './invitations'
 export { ChurchView } from './communaute'
 export type { ActionsCommunaute } from './communaute'
 
+// L'espace mentor. Il est parti d'ici le 26/08/2026 (issue #16) : il n'était
+// qu'un instantané de vérification, il porte désormais le tableau de suivi, le
+// mot d'encouragement, la réponse du participant à une proposition et la
+// demande d'aide — avec sa propre scène de conception.
+export { MentorView } from './mentor'
+export type { ActionsMentor } from './mentor'
+
 export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClose: () => void }) {
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
@@ -321,21 +328,6 @@ export function ReportDialog({
     </section>
   </div>
 }
-
-export function MentorView({ snapshot, t }: { snapshot: MentorSnapshot; t: Copy }) {
-  const verification = snapshot?.verificationStatus === 'verified' ? t.verifiedStatus : t.pendingStatus
-  const training = snapshot?.trainingStatus === 'completed' ? t.completedStatus : t.requiredStatus
-
-  return <section className="content-section workspace-section">
-    <div className="section-header"><div><span className="section-kicker">{t.mentorWorkspace}</span><h2>{t.mentorWorkspace}</h2><p>{t.mentorPrivateRule}</p></div><span className="workspace-glyph" aria-hidden="true">⌁</span></div>
-    <div className="workspace-grid">
-      <article className="workspace-card"><span className="section-kicker">{t.mentorVerification}</span><strong>{verification}</strong><p>{snapshot ? t.requiredStatus : t.mentorEmpty}</p></article>
-      <article className="workspace-card"><span className="section-kicker">{t.mentorTraining}</span><strong>{training}</strong><p>{t.mentorPrivateRule}</p></article>
-    </div>
-    {!snapshot && <div className="workspace-empty"><span className="workspace-empty-mark" aria-hidden="true">—</span><strong>{t.workspacePending}</strong><p>{t.mentorEmpty}</p></div>}
-  </section>
-}
-
 
 export function NavItem({ active, label, icon, onClick }: { active: boolean; label: string; icon: string; onClick: () => void }) {
   return <button className={`nav-item ${active ? 'active' : ''}`} onClick={onClick}><span aria-hidden="true">{icon}</span>{label}</button>

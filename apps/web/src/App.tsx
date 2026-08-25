@@ -11,6 +11,8 @@ import { clearState, initialState, jetonCommunauteRetenu, loadState, oublierJeto
 import { nomDuFichierExport, rassemblerExport, telechargerJson } from './export'
 import type { Ligne, Reponse, SectionExport } from './export'
 import { copy } from '@agapeplay/content/copy/web'
+import type { Copy } from '@agapeplay/content/copy/web'
+import type { Accompagnement, CategorieAide, MonAccompagnement, MotEncouragement } from '@agapeplay/domain'
 import { partageDuJournal, unblockAffordance } from '@agapeplay/domain'
 import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, RefusDAdhesion } from '@agapeplay/domain'
 import { jetonDepuisUrl } from '@agapeplay/domain'
@@ -18,6 +20,11 @@ import type { CategorieSignalement, DossierModeration, StatutSignalement } from 
 import { changerStatut, chargerDossiers, chargerJournal, estModerateur } from './moderation'
 import type { LigneJournal } from './moderation'
 import { chargerInvitations, revoquerInvitation } from './invitations'
+import {
+  chargerAccompagnements, chargerMaDemandeOuverte, chargerMesEncouragements, chargerMonAccompagnement,
+  cloreMaDemande, demanderDeLAide, direQueJaiVu, envoyerUnMot, repondreALaProposition,
+} from './mentor'
+import type { MotRecu } from './mentor'
 import {
   changerMembre, chargerAppartenance, chargerEspaceResponsable, cloturerCohorte,
   creerCohorte, emettreLien, fonderCommunaute, rejoindreCommunaute, revoquerLien,
@@ -107,6 +114,16 @@ function App() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine)
   const [pendingSync, setPendingSync] = useState(() => readSyncQueue().length)
   const [mentorSnapshot, setMentorSnapshot] = useState<MentorSnapshot>(null)
+  // L'espace mentor — issue #16. Cinq états, et une relecture qui suit le motif
+  // de la modération et des invitations : un compteur en dépendance d'effet,
+  // jamais un appel direct après une écriture.
+  const [accompagnements, setAccompagnements] = useState<Accompagnement[]>([])
+  const [monAccompagnement, setMonAccompagnement] = useState<MonAccompagnement | null>(null)
+  const [maDemandeAide, setMaDemandeAide] = useState<Awaited<ReturnType<typeof chargerMaDemandeOuverte>>>(null)
+  const [motsRecus, setMotsRecus] = useState<MotRecu[]>([])
+  const [mentorNotice, setMentorNotice] = useState<keyof Copy | null>(null)
+  const [mentorEnCours, setMentorEnCours] = useState<string | null>(null)
+  const [relectureMentor, setRelectureMentor] = useState(0)
   const [churchSnapshot, setChurchSnapshot] = useState<ChurchSnapshot>(null)
   // Espace modérateur. `moderateur` commande l'existence de l'onglet, rien de
   // plus : chaque politique en dessous rappelle tandem_est_moderateur(), si
@@ -329,6 +346,30 @@ function App() {
     })
     return () => { cancelled = true }
   }, [authSession?.user.id, activeTab, relectureInvitations])
+
+  // L'espace mentor ne se lit qu'une fois son onglet ouvert, comme la
+  // modération et les invitations : `tandem_mes_accompagnements()` parcourt la
+  // progression et les bilans de chaque personne accompagnée, et rien n'oblige
+  // quelqu'un venu écrire son journal à payer ce calcul.
+  useEffect(() => {
+    const client = supabase
+    if (!client || !authSession || activeTab !== 'mentor') return
+    let cancelled = false
+    const moi = authSession.user.id
+    void Promise.all([
+      chargerAccompagnements(client),
+      chargerMonAccompagnement(client),
+      chargerMaDemandeOuverte(client, moi),
+      chargerMesEncouragements(client, moi),
+    ]).then(([suivi, mien, aide, mots]) => {
+      if (cancelled) return
+      setAccompagnements(suivi)
+      setMonAccompagnement(mien)
+      setMaDemandeAide(aide)
+      setMotsRecus(mots)
+    })
+    return () => { cancelled = true }
+  }, [authSession?.user.id, activeTab, relectureMentor])
 
   // Le jeton lu dans la barre d'adresse, mis à l'abri puis effacé de l'URL.
   //
@@ -1288,6 +1329,90 @@ function App() {
    * silencieux d'un `using` est ici indistinguable d'une erreur — dans les deux
    * cas rien n'a bougé — et c'est exactement ce que l'écran doit dire.
    */
+  /**
+   * Les gestes de l'espace mentor — issue #16.
+   *
+   * Chacun relit sa réponse avant de changer l'écran : un UPDATE écarté par un
+   * `using` ne lève rien, et annoncer « c'est envoyé » sur zéro ligne écrite
+   * est le pire des deux mondes. `relectureMentor` recharge ensuite, plutôt que
+   * de recoudre l'état à la main — le signal se recalcule en base, pas ici.
+   */
+  const actionsMentor = {
+    onEncourager: (accompagnement: Accompagnement, mot: MotEncouragement) => {
+      const client = supabase
+      if (!client || !authSession) return
+      setMentorEnCours(accompagnement.assignmentId)
+      void envoyerUnMot(client, {
+        assignmentId: accompagnement.assignmentId,
+        moi: authSession.user.id,
+        participantId: accompagnement.participantId,
+        mot,
+      }).then((issue) => {
+        setMentorEnCours(null)
+        // Trois issues distinctes : « déjà envoyé aujourd'hui » est un refus
+        // réussi de la base, pas une panne, et le dire autrement ferait croire
+        // que rien n'est parti.
+        setMentorNotice(issue === 'envoye' ? 'encourageSent'
+          : issue === 'deja-aujourdhui' ? 'encourageAlreadyToday' : 'encourageFailed')
+        if (issue === 'envoye') setRelectureMentor((tour) => tour + 1)
+      })
+    },
+    onDireQueJaiVu: (aideId: string) => {
+      const client = supabase
+      if (!client) return
+      setMentorEnCours(aideId)
+      void direQueJaiVu(client, aideId).then((fait) => {
+        setMentorEnCours(null)
+        setMentorNotice(fait ? 'helpAcknowledged' : 'encourageFailed')
+        if (fait) setRelectureMentor((tour) => tour + 1)
+      })
+    },
+    onRepondre: (assignmentId: string, reponse: 'active' | 'ended') => {
+      const client = supabase
+      if (!client) return
+      setMentorEnCours(assignmentId)
+      void repondreALaProposition(client, assignmentId, reponse).then((fait) => {
+        setMentorEnCours(null)
+        setMentorNotice(fait ? 'myMentorAnswered' : 'myMentorFailed')
+        if (fait) setRelectureMentor((tour) => tour + 1)
+      })
+    },
+    onDemanderDeLAide: (categorie: CategorieAide) => {
+      const client = supabase
+      if (!client || !authSession || !monAccompagnement) return
+      setMentorEnCours('aide')
+      void demanderDeLAide(client, {
+        assignmentId: monAccompagnement.assignmentId,
+        mentorId: monAccompagnement.mentorId,
+        moi: authSession.user.id,
+        categorie,
+      }).then((fait) => {
+        setMentorEnCours(null)
+        setMentorNotice(fait ? 'askHelpSent' : 'askHelpFailed')
+        if (!fait) return
+        // `help_requested` était le seul nom du catalogue verrouillé (doc 08) à
+        // n'être émis nulle part. La catégorie est une valeur close, jamais un
+        // mot de la personne : la contrainte de sobriété des metadata la
+        // refuserait de toute façon.
+        void emettre(supabase, 'help_requested', {
+          locale: state.locale,
+          proprietes: { source_role: 'participant', category: categorie },
+        })
+        setRelectureMentor((tour) => tour + 1)
+      })
+    },
+    onCloreMaDemande: (aideId: string) => {
+      const client = supabase
+      if (!client) return
+      setMentorEnCours(aideId)
+      void cloreMaDemande(client, aideId).then((fait) => {
+        setMentorEnCours(null)
+        setMentorNotice(fait ? 'myMentorAnswered' : 'askHelpFailed')
+        if (fait) setRelectureMentor((tour) => tour + 1)
+      })
+    },
+  }
+
   const actionsCommunaute = {
     onFonder: (nom: string) => {
       const client = supabase
@@ -1537,7 +1662,17 @@ function App() {
               onRefresh={() => setRelectureInvitations((tour) => tour + 1)}
               onCancel={(invitationId) => void annulerInvitation(invitationId)}
             />}
-            {activeTab === 'mentor' && <MentorView snapshot={mentorSnapshot} t={t} />}
+            {activeTab === 'mentor' && <MentorView
+              snapshot={mentorSnapshot}
+              accompagnements={accompagnements}
+              mien={monAccompagnement}
+              aideOuverte={maDemandeAide}
+              motsRecus={motsRecus}
+              notice={mentorNotice}
+              enCours={mentorEnCours}
+              t={t}
+              actions={actionsMentor}
+            />}
             {activeTab === 'church' && <ChurchView
               snapshot={churchSnapshot}
               espace={espaceCommunaute}

@@ -30,7 +30,12 @@ describe('assemblage de l’export', () => {
 
     const resultat = await rassemblerExport(lire, COMPTE, LE_JOUR)
 
-    expect(Object.keys(resultat.donnees).sort()).toEqual([...new Set(SECTIONS.map((s) => s.clef))].sort())
+    // Les sections déclarées, plus les deux sens de l'espace mentor (#16) qui
+    // vivent sous leur propre clef : « ce que j'ai demandé » et « ce qu'on m'a
+    // demandé » ne se lisent pas de la même façon dans un fichier d'export.
+    expect(Object.keys(resultat.donnees).sort()).toEqual([...new Set([
+      ...SECTIONS.map((s) => s.clef), 'demandes_d_aide_recues', 'encouragements_emis',
+    ])].sort())
     expect(resultat.donnees.journal).toEqual([{ id: 'j1', text: 'Ce que j’ai gardé.' }])
     expect(resultat.compte).toEqual(COMPTE)
     expect(resultat.genere_le).toBe('2026-08-24T10:00:00.000Z')
@@ -63,6 +68,25 @@ describe('assemblage de l’export', () => {
     expect(vus).toContain('accompagnements:participant_id')
     expect(vus).toContain('accompagnements:mentor_id')
     expect(resultat.donnees.accompagnements).toEqual([{ id: 'a1' }, { id: 'a2' }])
+  })
+
+  it('exporte les deux sens de l’espace mentor, sous des clefs distinctes', async () => {
+    // Sans les deux lectures miroir, un mentor exporterait un fichier où rien
+    // ne dirait qu'on lui a demandé de l'aide, ni ce qu'il a écrit.
+    const { lire, vus } = lecteur({
+      'demandes_d_aide_emises:requester_id': { data: [{ id: 'h1' }], error: null },
+      'demandes_d_aide_recues:mentor_id': { data: [{ id: 'h2' }], error: null },
+      'encouragements_recus:participant_id': { data: [{ id: 'e1' }], error: null },
+      'encouragements_emis:mentor_id': { data: [{ id: 'e2' }], error: null },
+    })
+
+    const resultat = await rassemblerExport(lire, COMPTE, LE_JOUR)
+    expect(vus).toContain('demandes_d_aide_emises:requester_id')
+    expect(vus).toContain('demandes_d_aide_recues:mentor_id')
+    expect(resultat.donnees.demandes_d_aide_emises).toEqual([{ id: 'h1' }])
+    expect(resultat.donnees.demandes_d_aide_recues).toEqual([{ id: 'h2' }])
+    expect(resultat.donnees.encouragements_recus).toEqual([{ id: 'e1' }])
+    expect(resultat.donnees.encouragements_emis).toEqual([{ id: 'e2' }])
   })
 
   it('n’écrit aucun jeton d’invitation dans le fichier', async () => {

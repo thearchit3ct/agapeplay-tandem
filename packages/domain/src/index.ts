@@ -53,6 +53,15 @@ export {
 } from './mesure'
 export type { EvenementMesure, NomEvenement, ValeurMesure } from './mesure'
 
+export {
+  CATEGORIES_AIDE, MOTS_ENCOURAGEMENT, SIGNAL_SEUIL_JOURS, SIGNAUX,
+  gestesDuParticipant, mentorJoignable, orientationHumaine,
+} from './mentor'
+export type {
+  Accompagnement, CategorieAide, GestesDuParticipant, MonAccompagnement,
+  MotEncouragement, SignalAccompagnement,
+} from './mentor'
+
 export { assemblerDossiers, transitionsPossibles, urgenceDe, CATEGORIES_PROPOSEES } from './moderation'
 export type {
   StatutSignalement, CategorieSignalement, UrgenceSignalement,

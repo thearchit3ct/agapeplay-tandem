@@ -1056,3 +1056,71 @@ Chacun a coûté du temps une fois. Ils sont ici pour ne pas le coûter deux.
 2. **Le nom en dur.** Court, et visible par tout utilisateur.
 3. **L'interface de modération.** La base l'attend.
 4. **Le mobile sur un appareil.** Ne se délègue pas : il faut un téléphone.
+
+---
+
+## Amendement du 26 août 2026 — l'espace mentor (issue #16)
+
+Le détail des décisions vit dans **`docs/27-ESPACE-MENTOR.md`** ; ce qui suit
+n'en garde que ce qu'un état du projet doit dire.
+
+### Ce qui existe désormais
+
+Deux tables (`help_requests`, `mentor_encouragements`), trois fonctions
+`security definer` (`tandem_accompagnement_actif`, `tandem_mes_accompagnements`,
+`tandem_mon_accompagnement`), un écran refondu (`apps/web/src/views/mentor.tsx`,
+extrait du barrel `views/index.tsx`), et le premier chemin par lequel une
+affectation de mentor peut atteindre `active` depuis l'application.
+
+Ce dernier point mérite d'être isolé : la décision 5 du #17 réservait déjà
+l'écriture de `active` au participant, mais **aucun écran ne la lui offrait**.
+Sans l'écran ajouté ici, le tableau de suivi serait resté vide pour toujours.
+
+### Le principe, en une ligne
+
+Le mentor reçoit **des catégories, jamais des observations** : un mot parmi
+quatre, calculé dans une fonction qui lit `session_progress` et
+`weekly_checkins` hors RLS et n'en laisse rien sortir. Aucune date d'activité,
+aucun compte, aucun tri par signal.
+
+### Écart mobile, constaté et non traité
+
+`apps/mobile` ne connaît rien de l'espace mentor. Le chantier est web-first,
+comme le #17, et pour une raison plus forte : le geste de demande d'aide
+appartient à la carte d'accompagnement, qui n'existe qu'en web. L'accrocher à
+l'écran tandem mobile — le seul écran mobile où elle aurait pu tenir —
+recollerait visuellement les deux membranes que la décision 6 du #17 sépare.
+La règle est dans `packages/domain/src/mentor.ts`, partagée : la reprise sera
+courte le jour où le mobile portera aussi la carte d'accompagnement.
+
+### Deuxième écart : aucune notification
+
+Un mentor apprend qu'on lui a demandé de l'aide en ouvrant l'onglet. Rien ne
+prévient, rien ne relance — c'est le même manque d'ordonnanceur que la dette de
+purge nommée par le #17, et il se soldera avec elle ou pas du tout.
+
+### Vérifié
+
+- `npm test` — 203 tests (20 fichiers) ; `npm run test:rls` — **267 tests**
+  (19 fichiers), dont 25 nouveaux. Les quatre suites qui prouvent depuis le
+  25/08 qu'un mentor vérifié et affecté ne lit **rien** du journal, des
+  conversations, des partages et des bilans restent vertes **sans avoir été
+  amendées** — c'est la mesure la plus utile du chantier.
+- **Vérification par mutation**, sur la base vivante, scripts dans
+  `.rls-stack/mutations/` — sept conjoncts cassés, six font rougir :
+  garde de vérification retirée de `tandem_mes_accompagnements()` (1 rouge) ;
+  la fonction rend aussi les affectations `pending` (1) ; tri par signal au lieu
+  du nom (2) ; l'état d'origine quitte le `using` des transitions de demande
+  d'aide (1) ; `tandem_accompagnement_actif` ne regarde plus `mentor_profiles`
+  (3) ; `jour` entre dans le `grant insert` (1).
+- Le septième est un **résultat, pas un échec** : retirer les deux `delete`
+  explicites de `supprimer_mon_compte()` ne fait rougir personne, parce que la
+  cascade depuis `mentor_assignments` fait le travail. C'est ce que le
+  commentaire de la migration affirme, et c'était à mesurer plutôt qu'à croire.
+- Restauration en rejouant `supabase/migrations/20260826090000_espace_mentor.sql`
+  **depuis le fichier**, ce qui vérifie du même coup qu'il est rejouable. Piège
+  rencontré : un `grant` ne se retire pas en rejouant la migration — un `grant`
+  est additif. La mutation `jour` a donc dû être annulée par un `revoke`
+  explicite, et sa trace résiduelle avait faussé la mutation suivante avant
+  qu'on s'en aperçoive.
+- `tsc -b` et `vite build` : passent.
