@@ -7,7 +7,10 @@
  * qu'un adolescent de seize ans ne fera pas.
  */
 import { describe, expect, it } from 'vitest'
-import { clearState, initialState, loadState, saveState } from './storage'
+import {
+  clearState, initialState, jetonCommunauteRetenu, loadState,
+  oublierJetonCommunaute, retenirJetonCommunaute, saveState,
+} from './storage'
 
 const STORAGE_KEY = 'agapeplay-tandem-demo-state'
 
@@ -62,5 +65,42 @@ describe('effacement local', () => {
     clearState()
 
     expect(loadState()).toEqual(initialState)
+  })
+})
+
+/**
+ * Le jeton d'invitation d'église doit franchir une connexion.
+ *
+ * C'est tout l'enjeu, et il ne se voit pas en cliquant sur le lien depuis un
+ * compte déjà ouvert : `signInWithOAuth` et le lien magique reviennent sur
+ * l'origine **nue**, sans query string et avec un état React reparti de zéro.
+ * Sans ces trois fonctions, « invitation par lien » ne marche que pour ceux qui
+ * n'en ont pas besoin.
+ */
+describe('le jeton de communauté', () => {
+  it('se retient, se relit et s’oublie', () => {
+    expect(jetonCommunauteRetenu()).toBeNull()
+
+    retenirJetonCommunaute('jeton-42')
+    expect(jetonCommunauteRetenu()).toBe('jeton-42')
+
+    oublierJetonCommunaute()
+    expect(jetonCommunauteRetenu()).toBeNull()
+  })
+
+  it('ne rend pas un jeton vide pour un jeton', () => {
+    // Une chaîne vide écrite par accident vaudrait un appel à la RPC avec un
+    // jeton qui ne peut que lever — un refus affiché sans que personne n'ait
+    // rien demandé.
+    localStorage.setItem('agapeplay-tandem-communaute-jeton', '   ')
+    expect(jetonCommunauteRetenu()).toBeNull()
+    oublierJetonCommunaute()
+  })
+
+  it('survit à `clearState` : il appartient à l’église, pas au compte', () => {
+    retenirJetonCommunaute('jeton-42')
+    clearState()
+    expect(jetonCommunauteRetenu()).toBe('jeton-42')
+    oublierJetonCommunaute()
   })
 })

@@ -9,6 +9,68 @@ Dépôt `thearchit3ct/agapeplay-tandem`, branche `main`.
 
 ---
 
+## Amendement du 25 août 2026 — communautés, groupes et rôles (issue #17)
+
+*Ajouté sans rien retirer de ce qui précède, ni des amendements du même jour
+plus bas. Le détail des décisions vit dans
+[`26-COMMUNAUTES-GROUPES-ET-ROLES.md`](./26-COMMUNAUTES-GROUPES-ET-ROLES.md) ;
+ce qui suit est ce qu'il faut savoir sans l'ouvrir.*
+
+Les six tables d'église posées le 4 août n'avaient **aucun chemin d'écriture** —
+pas une politique `insert`, pas un `grant`, pas un écran. Elles en ont
+désormais, sous un principe unique : **préparer est libre, faire entrer
+quelqu'un ne l'est pas.**
+
+Ce qu'il faut retenir ici :
+
+- **Créer une communauté est un geste de l'application** (`creer_ma_communaute`),
+  **l'activer ne l'est pas.** `churches` n'a toujours aucun `grant` d'écriture :
+  `pending` → `active` se fait depuis l'éditeur SQL du tableau de bord, comme
+  pour `tandem_moderators`. ⚠️ Ne pas « réparer » en accordant un `grant update`.
+- **`pending` retient trois gestes et trois seulement** : émettre un lien,
+  rejoindre par un lien, affecter un mentor. Créer des cohortes et les clôturer
+  reste permis. `suspended` referme les mêmes trois, immédiatement.
+- **Un lien d'invitation ne confère que `member`.** Jamais mentor, jamais
+  responsable. C'est la borne la plus importante du chantier.
+- **`ends_on` est une règle de droit, `starts_on` une règle d'écran.** Une même
+  fenêtre peut relever des deux niveaux selon le bord — le vocabulaire du
+  chantier #49 s'applique bord par bord, pas fenêtre par fenêtre.
+- **Le responsable propose, le jeune accepte.** `mentor_assignments` naît
+  `pending` et seul le participant peut écrire `active`. La phrase du doc 06 est
+  devenue une politique.
+- **`admin` et `church_members.status = 'invited'` sont inatteignables.** Aucun
+  chemin du dépôt ne les écrit, et un test l'épingle. Ne pas les prendre pour
+  des chemins existants.
+- **Aucune colonne ne relie un tandem à une église.** La membrane est
+  `mentor_assignments`. Voir le doc 26, décision 6, avant d'en ajouter une pour
+  l'issue #16.
+
+**Second piège, produit celui-là.** Le jeton d'invitation doit franchir une
+connexion : le cas courant est quelqu'un **sans compte**, et `signInWithOAuth`
+comme le lien magique reviennent sur l'origine **nue**, sans query string et
+avec un état React reparti de zéro. Il passe donc par le stockage local avant
+que l'URL ne soit nettoyée. Tout lien futur qui doit survivre à une connexion
+aura le même problème.
+
+**Piège mesuré, à ne pas redécouvrir.** `error: infinite recursion detected in
+policy for relation "church_groups"`, sur un simple `insert … returning` : la
+politique de lecture de `church_groups` interrogeait `group_members`, dont celle
+du responsable interrogeait `church_groups`. Une politique qui lit une table
+dont la politique lit la première fait lever la base, et le cycle ne se voit pas
+à la lecture d'une politique seule. Trois fonctions `security definer` portent
+désormais la traversée.
+
+**Écarts.** Pas de QR code (le lien suffit au critère ; un encodeur local coûte
+plus qu'il n'apporte — doc 26). Rien côté **mobile** : ce chantier est
+web-first, les gestes de responsable sont des gestes d'écran large, et le
+domaine partagé n'a rien de spécifique au web — un écran mobile n'aurait qu'à
+être écrit. Une seule appartenance active à la fois. Un fondateur unique qui
+supprime son compte laisse une église sans responsable, réparable par SQL
+sanctionné. Et la dette de conservation de la PR #44 reste ouverte : aucune
+purge automatique n'est promise, faute d'ordonnanceur.
+
+---
+
 ## Amendement du 25 août 2026 — le bilan de fin de semaine (issue #18)
 
 *Ajouté sans rien retirer de ce qui précède, ni des quatre amendements du même

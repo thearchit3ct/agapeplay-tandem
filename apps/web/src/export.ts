@@ -72,6 +72,26 @@ export const SECTIONS: readonly SectionExport[] = [
   // de journal, déjà présente dans la section au-dessus.
   { clef: 'bilans_hebdomadaires', table: 'weekly_checkins', colonnes: 'week_key, state, created_at, updated_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'partages_du_journal', table: 'journal_shares', colonnes: 'entry_id, tandem_id, created_at', colonne: 'shared_by', cible: 'compte' },
+  // La vie de communauté, depuis le 25/08/2026 (issue #17). Trois sections, et
+  // une quatrième volontairement amputée :
+  //
+  // - `communaute` : son adhésion, son rôle, la date de son entrée ;
+  // - `cohortes` : les groupes qu'elle a rejoints ;
+  // - `accompagnements` : les affectations de mentor où elle figure, des deux
+  //   côtés — mentor comme participant. Comme `tandems`, la table est lue deux
+  //   fois (voir `SECTION_ACCOMPAGNEMENTS_MENTOR`) ;
+  // - `liens_d_invitation_emis` : les liens qu'un responsable a émis, **sans
+  //   leur jeton**. Le jeton est bien lisible par elle — c'est elle qui l'a
+  //   créé — mais un fichier d'export circule : on l'envoie à un juriste, on le
+  //   dépose sur un cloud, on l'oublie dans un dossier de téléchargements. Y
+  //   écrire des jetons vivants ferait d'un fichier de transparence une clé
+  //   d'entrée dans une communauté de mineurs. Le compte des entrées et la
+  //   date de péremption suffisent à dire ce qu'elle a fait ; le jeton, lui,
+  //   se relit dans l'application tant qu'il vit.
+  { clef: 'communaute', table: 'church_members', colonnes: 'church_id, role, status, created_at', colonne: 'user_id', cible: 'compte' },
+  { clef: 'cohortes', table: 'group_members', colonnes: 'group_id, created_at', colonne: 'user_id', cible: 'compte' },
+  { clef: 'accompagnements', table: 'mentor_assignments', colonnes: 'id, church_id, group_id, mentor_id, participant_id, status, created_at', colonne: 'participant_id', cible: 'compte' },
+  { clef: 'liens_d_invitation_emis', table: 'church_invitations', colonnes: 'church_id, group_id, status, uses, max_uses, expires_at, created_at', colonne: 'created_by', cible: 'compte' },
   { clef: 'tandems', table: 'tandems', colonnes: 'id, status, blocked_by, created_at, ended_at', colonne: 'participant_a_id', cible: 'compte' },
   { clef: 'messages_envoyes', table: 'tandem_messages', colonnes: 'id, tandem_id, body, created_at', colonne: 'sender_id', cible: 'compte' },
   { clef: 'invitations_emises', table: 'tandem_invitations', colonnes: 'id, invitee_email, status, created_at, expires_at, accepted_at', colonne: 'inviter_id', cible: 'compte' },
@@ -124,6 +144,20 @@ const SECTION_TANDEMS_B: SectionExport = {
   colonne: 'participant_b_id', cible: 'compte',
 }
 
+/**
+ * Deux accompagnements m'appartiennent aussi : celui où je suis le participant
+ * et celui où je suis le mentor. Même raison qu'au-dessus, même remède —
+ * PostgREST ne compose pas un `or` depuis cette forme déclarative, et les deux
+ * lectures fusionnent. Contrairement aux messages, aucune des deux n'est « les
+ * données d'un tiers » : une affectation est un lien, elle appartient
+ * pleinement aux deux personnes qu'elle nomme.
+ */
+const SECTION_ACCOMPAGNEMENTS_MENTOR: SectionExport = {
+  clef: 'accompagnements', table: 'mentor_assignments',
+  colonnes: 'id, church_id, group_id, mentor_id, participant_id, status, created_at',
+  colonne: 'mentor_id', cible: 'compte',
+}
+
 const exiger = (section: SectionExport, reponse: Reponse): Ligne[] => {
   if (reponse.error) {
     throw new Error(`export interrompu : la lecture de « ${section.clef} » a échoué (${reponse.error.message})`)
@@ -151,6 +185,10 @@ export const rassemblerExport = async (
     donnees[section.clef] = exiger(section, await lire(section))
   }
   donnees.tandems = [...donnees.tandems, ...exiger(SECTION_TANDEMS_B, await lire(SECTION_TANDEMS_B))]
+  donnees.accompagnements = [
+    ...donnees.accompagnements,
+    ...exiger(SECTION_ACCOMPAGNEMENTS_MENTOR, await lire(SECTION_ACCOMPAGNEMENTS_MENTOR)),
+  ]
 
   return {
     genere_le: maintenant.toISOString(),

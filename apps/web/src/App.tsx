@@ -7,16 +7,22 @@ import { supabase, supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
 import { loadPublishedJourney } from '@agapeplay/content'
 import { clearSyncQueue, enqueueSync, idsJournalEnAttente, readSyncQueue, removeSync } from './offlineQueue'
-import { clearState, initialState, loadState, saveState } from './storage'
+import { clearState, initialState, jetonCommunauteRetenu, loadState, oublierJetonCommunaute, retenirJetonCommunaute, saveState } from './storage'
 import { nomDuFichierExport, rassemblerExport, telechargerJson } from './export'
 import type { Ligne, Reponse, SectionExport } from './export'
 import { copy } from '@agapeplay/content/copy/web'
 import { partageDuJournal, unblockAffordance } from '@agapeplay/domain'
-import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus } from '@agapeplay/domain'
+import type { Tab, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, RefusDAdhesion } from '@agapeplay/domain'
+import { jetonDepuisUrl } from '@agapeplay/domain'
 import type { CategorieSignalement, DossierModeration, StatutSignalement } from '@agapeplay/domain'
 import { changerStatut, chargerDossiers, chargerJournal, estModerateur } from './moderation'
 import type { LigneJournal } from './moderation'
 import { chargerInvitations, revoquerInvitation } from './invitations'
+import {
+  changerMembre, chargerAppartenance, chargerEspaceResponsable, cloturerCohorte,
+  creerCohorte, emettreLien, fonderCommunaute, rejoindreCommunaute, revoquerLien,
+} from './communaute'
+import type { EspaceResponsable } from './communaute'
 import { appliquerConsentementDuCompte, emettre, mesureAcceptee, oublierIdentifiantDeMesure, poserConsentementLocal, premiereFois } from './mesure'
 import { trancheDuree } from '@agapeplay/domain'
 import { chargerPartagesEmis, chargerPartagesRecus, poserPartage, retirerPartage, supprimerEntree } from './partageJournal'
@@ -129,6 +135,18 @@ function App() {
   // au rendu ferait qu'une invitation change d'état au milieu d'un clic — et
   // rendrait la vue impossible à éprouver.
   const [instantLecture, setInstantLecture] = useState(() => new Date())
+  // L'espace église — issue #17. `espaceCommunaute` ne se remplit que pour un
+  // responsable ; pour tous les autres il reste vide, et ce n'est pas l'écran
+  // qui le décide (voir `communaute.ts`).
+  const [espaceCommunaute, setEspaceCommunaute] = useState<EspaceResponsable>({ cohortes: [], membres: [], liens: [] })
+  const [refusCommunaute, setRefusCommunaute] = useState<RefusDAdhesion | 'nom_invalide' | null>(null)
+  const [relectureCommunaute, setRelectureCommunaute] = useState(0)
+  const [relectureAppartenance, setRelectureAppartenance] = useState(0)
+  // Le jeton d'invitation d'église, gardé jusqu'à ce qu'il y ait quelqu'un pour
+  // l'utiliser. Il vient du stockage à l'ouverture, parce que le chemin normal
+  // le fait franchir une connexion qui recharge la page — voir
+  // `retenirJetonCommunaute` dans `storage.ts`, qui porte le raisonnement.
+  const [jetonCommunaute, setJetonCommunaute] = useState<string | null>(() => jetonCommunauteRetenu())
   // Le bilan de fin de semaine — issue #18. Quatre états, et aucun compteur :
   // `bilans` porte les semaines déjà répondues (pour ne pas reposer une
   // question à laquelle on a répondu), `bilanRepondu` la réponse posée pendant
@@ -312,6 +330,72 @@ function App() {
     return () => { cancelled = true }
   }, [authSession?.user.id, activeTab, relectureInvitations])
 
+  // Le jeton lu dans la barre d'adresse, mis à l'abri puis effacé de l'URL.
+  //
+  // Dans un effet et non dans un initialiseur de `useState` : `replaceState`
+  // est un effet de bord sur le navigateur, et le rendu n'est pas l'endroit
+  // pour cela. L'effacement, lui, n'est pas cosmétique — un jeton laissé dans
+  // l'URL entre dans l'historique d'un appareil souvent partagé, à seize ans.
+  useEffect(() => {
+    const jeton = jetonDepuisUrl(window.location.search)
+    if (jeton === null) return
+    retenirJetonCommunaute(jeton)
+    window.history.replaceState(null, '', window.location.pathname)
+    setJetonCommunaute(jeton)
+  }, [])
+
+  // L'appartenance à une communauté — issue #17. Elle a son effet à elle, et
+  // pas une ligne de plus dans celui de la synchronisation : fonder ou
+  // rejoindre doit la relire, et rejouer la synchronisation entière pour deux
+  // colonnes serait payer une file d'attente et une demi-douzaine de requêtes
+  // pour un geste qui n'en demande qu'une.
+  useEffect(() => {
+    const client = supabase
+    if (!client || !authSession) { setChurchSnapshot(null); return }
+    let cancelled = false
+    void chargerAppartenance(client, authSession.user.id).then((appartenance) => {
+      if (!cancelled) setChurchSnapshot(appartenance)
+    })
+    return () => { cancelled = true }
+  }, [authSession?.user.id, relectureAppartenance])
+
+  // L'espace du responsable, relu à l'ouverture de l'onglet et après chaque
+  // geste. Comme partout ici, un seul effet écoute et porte la garde de
+  // démontage : les actions poussent un compteur plutôt que d'appeler la base
+  // elles-mêmes une seconde fois.
+  useEffect(() => {
+    const client = supabase
+    if (!client || !churchSnapshot || activeTab !== 'church') return
+    let cancelled = false
+    setInstantLecture(new Date())
+    void chargerEspaceResponsable(client, churchSnapshot).then((espace) => {
+      if (!cancelled) setEspaceCommunaute(espace)
+    })
+    return () => { cancelled = true }
+  }, [churchSnapshot?.churchId, churchSnapshot?.role, churchSnapshot?.statut, activeTab, relectureCommunaute])
+
+  // Le jeton reçu par lien, joué dès qu'une session existe. Il est consommé —
+  // `setJetonCommunaute(null)` — avant même de connaître le résultat : une
+  // tentative qui échoue ne doit pas se rejouer en boucle à chaque rendu, et
+  // le refus, lui, s'affiche.
+  useEffect(() => {
+    const client = supabase
+    if (!client || !authSession || jetonCommunaute === null) return
+    const jeton = jetonCommunaute
+    // Consommé avant de connaître le résultat, et oublié du stockage dans le
+    // même geste : les deux issues sont terminales. Une tentative qui échoue ne
+    // doit pas se rejouer à chaque rendu, ni ressurgir au prochain démarrage.
+    setJetonCommunaute(null)
+    oublierJetonCommunaute()
+    void rejoindreCommunaute(client, jeton).then((resultat) => {
+      if ('refus' in resultat) { setRefusCommunaute(resultat.refus); return }
+      setRefusCommunaute(null)
+      setTab('church')
+      setRelectureAppartenance((tour) => tour + 1)
+      showNotice(t.churchJoined, 4200)
+    })
+  }, [authSession?.user.id, jetonCommunaute])
+
   // Ce que le binôme m'a partagé. Relu à chaque ouverture de l'onglet, et à
   // chaque changement de statut du tandem : c'est ainsi qu'un partage retiré
   // disparaît de l'écran du destinataire, et qu'un blocage referme le panneau.
@@ -443,19 +527,9 @@ function App() {
         setMesureConsentie(mesureAcceptee())
       }
 
-      const [mentorResult, membershipResult] = await Promise.all([
-        client.from('mentor_profiles').select('verification_status, training_status').eq('user_id', authSession.user.id).maybeSingle(),
-        client.from('church_members').select('church_id, role').eq('user_id', authSession.user.id).eq('status', 'active').limit(1),
-      ])
+      const mentorResult = await client.from('mentor_profiles').select('verification_status, training_status').eq('user_id', authSession.user.id).maybeSingle()
       if (!cancelled) {
         setMentorSnapshot(mentorResult.data ? { verificationStatus: mentorResult.data.verification_status, trainingStatus: mentorResult.data.training_status } : null)
-        const membership = membershipResult.data?.[0]
-        if (membership) {
-          const groupMembershipResult = await client.from('group_members').select('group_id').eq('user_id', authSession.user.id)
-          setChurchSnapshot({ churchId: membership.church_id, role: membership.role, groupCount: groupMembershipResult.data?.length ?? 0 })
-        } else {
-          setChurchSnapshot(null)
-        }
       }
 
       // `blocked_by` fait partie de la sélection depuis le 06/08/2026 : sans
@@ -1205,6 +1279,82 @@ function App() {
     showNotice(t.inviteCreated, 4200)
   }
 
+  /**
+   * Les gestes de communauté — issue #17.
+   *
+   * Tous suivent la même forme, et c'est la règle du dépôt : l'appel rend la
+   * ligne relue (ou `null`), l'écran n'annonce rien avant de l'avoir vue, et
+   * un échec passe par `showNotice` plutôt que par un état muet. Le refus
+   * silencieux d'un `using` est ici indistinguable d'une erreur — dans les deux
+   * cas rien n'a bougé — et c'est exactement ce que l'écran doit dire.
+   */
+  const actionsCommunaute = {
+    onFonder: (nom: string) => {
+      const client = supabase
+      if (!client) return
+      void fonderCommunaute(client, nom).then((resultat) => {
+        if ('refus' in resultat) { setRefusCommunaute(resultat.refus); return }
+        setRefusCommunaute(null)
+        setRelectureAppartenance((tour) => tour + 1)
+      })
+    },
+    onRejoindre: (jetonOuLien: string) => {
+      // Le lien entier collé depuis un message, ou le code seul lu à voix
+      // haute : les deux formes arrivent, et `jetonDepuisUrl` les réconcilie.
+      const jeton = jetonOuLien.includes('?') ? jetonDepuisUrl(jetonOuLien.slice(jetonOuLien.indexOf('?'))) : jetonOuLien
+      if (jeton === null) { setRefusCommunaute('invitation_introuvable'); return }
+      setJetonCommunaute(jeton)
+    },
+    onCreerCohorte: (cohorte: { nom: string; debutLe: string | null; finLe: string | null }) => {
+      const client = supabase
+      if (!client || !churchSnapshot) return
+      void creerCohorte(client, churchSnapshot.churchId, cohorte).then((creee) => {
+        if (!creee) { showNotice(t.syncError, 4200); return }
+        setRelectureCommunaute((tour) => tour + 1)
+      })
+    },
+    onCloturerCohorte: (cohorteId: string) => {
+      const client = supabase
+      if (!client) return
+      void cloturerCohorte(client, cohorteId).then((cloturee) => {
+        if (!cloturee) { showNotice(t.syncError, 4200); return }
+        setRelectureCommunaute((tour) => tour + 1)
+      })
+    },
+    onEmettreLien: (cohorteId: string | null) => {
+      const client = supabase
+      if (!client || !churchSnapshot || !authSession) return
+      void emettreLien(client, churchSnapshot.churchId, authSession.user.id, cohorteId).then((lien) => {
+        if (!lien) { showNotice(t.syncError, 4200); return }
+        setRelectureCommunaute((tour) => tour + 1)
+      })
+    },
+    onRevoquerLien: (jeton: string) => {
+      const client = supabase
+      if (!client) return
+      void revoquerLien(client, jeton).then((revoque) => {
+        if (!revoque) { showNotice(t.syncError, 4200); return }
+        setRelectureCommunaute((tour) => tour + 1)
+      })
+    },
+    onNommerMentor: (membreId: string) => {
+      const client = supabase
+      if (!client || !churchSnapshot) return
+      void changerMembre(client, churchSnapshot.churchId, membreId, { role: 'mentor' }).then((membre) => {
+        if (!membre) { showNotice(t.syncError, 4200); return }
+        setRelectureCommunaute((tour) => tour + 1)
+      })
+    },
+    onRetirerMembre: (membreId: string) => {
+      const client = supabase
+      if (!client || !churchSnapshot) return
+      void changerMembre(client, churchSnapshot.churchId, membreId, { statut: 'revoked' }).then((membre) => {
+        if (!membre) { showNotice(t.syncError, 4200); return }
+        setRelectureCommunaute((tour) => tour + 1)
+      })
+    },
+  }
+
   const annulerInvitation = async (invitationId: string) => {
     const client = supabase
     if (!client) return
@@ -1388,7 +1538,15 @@ function App() {
               onCancel={(invitationId) => void annulerInvitation(invitationId)}
             />}
             {activeTab === 'mentor' && <MentorView snapshot={mentorSnapshot} t={t} />}
-            {activeTab === 'church' && <ChurchView snapshot={churchSnapshot} t={t} />}
+            {activeTab === 'church' && <ChurchView
+              snapshot={churchSnapshot}
+              espace={espaceCommunaute}
+              origine={window.location.origin}
+              maintenant={instantLecture}
+              refus={refusCommunaute}
+              t={t}
+              actions={actionsCommunaute}
+            />}
             {activeTab === 'moderation' && <ModerationView
               dossiers={dossiers}
               chargement={moderationChargement}
