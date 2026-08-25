@@ -9,6 +9,136 @@ Dépôt `thearchit3ct/agapeplay-tandem`, branche `main`.
 
 ---
 
+## Amendement du 25 août 2026 — le bilan de fin de semaine (issue #18)
+
+*Ajouté sans rien retirer de ce qui précède, ni des quatre amendements du même
+jour plus bas.*
+
+L'issue demandait cinq choses : un bilan de fin de semaine, un rappel réglable
+et désactivable, un message de reprise après absence, aucun mot de honte ni de
+série perdue, et une mesure sans contenu sensible. Voici ce qui a été tranché.
+
+**Une semaine se termine le samedi, et c'est la semaine du calendrier — pas
+celle du parcours.** La question posée est « comment s'est passée ta semaine ? »,
+pas « où en es-tu ? » : la semaine d'un adolescent de seize ans est celle du
+lycée et du week-end, elle finit quand elle finit pour tout le monde. La lecture
+relative au parcours avait surtout un défaut rédhibitoire : elle exige une
+progression pour avancer, donc quelqu'un qui n'a rien fait depuis trois semaines
+n'aurait jamais de bilan — précisément la personne à qui l'on veut proposer de
+revenir. La clé est une semaine ISO (`2026-W35`), calculée par
+`packages/domain/src/bilan.ts` avec ses cas de bord (le 1er janvier 2027 est un
+vendredi et appartient à `2026-W53`).
+
+**La fenêtre va du samedi au vendredi suivant.** Sept jours, donc **exactement
+un** bilan ouvert à chaque instant : jamais deux à choisir, jamais un arriéré.
+Passé vendredi, la semaine s'en va — aucun écran ne la rappelle, aucune ligne ne
+la compte. C'est « une semaine sans bilan n'est pas un échec », écrit en dates :
+une file de bilans en retard serait exactement l'inverse. La base, elle, ignore
+cette fenêtre et accepte toute semaine bien formée : c'est une règle d'écran (ce
+qu'on propose), pas une règle de droit (ce qu'on autorise), et l'inscrire en SQL
+ferait dépendre une correction tardive de l'horloge du téléphone.
+
+**La table ne porte qu'une semaine et un mot.** L'EPIC D du doc 04 range
+ensemble statut, note privée et partage ; les deux derniers existaient déjà et
+les réécrire aurait fait deux endroits qui disent la même chose. La note est une
+entrée de `journal_entries` — sa politique own-only, sa suppression, son export
+et sa ligne dans `supprimer_mon_compte()` sont écrites depuis l'issue #11 — et
+son partage une ligne de `journal_shares`. `public.weekly_checkins` ne porte donc
+que la réponse rapide : `(user_id, week_key)` en clé, un `state` parmi cinq.
+
+**On ne partage pas son statut à son binôme, et c'est une décision.** Ce serait
+un second chemin de lecture croisée — donc une seconde fonction
+`security definer`, donc le double de surface — pour un seul mot, et un mot qui
+se lit mal : « rude » trois semaines de suite s'interprète tout seul quand on n'a
+pas les phrases autour. Ce que l'on ouvre à son binôme, ce sont des mots
+choisis. Le statut reste à celle qui l'a posé, mentor compris.
+
+**Cinq réponses closes, aucune échelle.** `paisible`, `dense`, `rude`,
+`ailleurs`, `incertain`. Une note de 1 à 5 aurait produit une courbe, la courbe
+une comparaison, et la comparaison est le mécanisme de honte que l'issue demande
+d'éviter. Les mots qualifient la semaine, jamais la personne. `ailleurs` est
+offert au même rang que les autres — l'absence n'a pas à se justifier — et
+`incertain` existe pour que celle qui ne sait pas ne choisisse pas un mot faux.
+Il n'y a **ni compteur, ni série, ni « semaines consécutives »** : ni dans le
+schéma, ni dans le domaine. Un test épingle la liste des exports de
+`bilan.ts` — la garde contre « tu as manqué 3 semaines » n'est pas une relecture
+de texte, c'est l'absence du nombre.
+
+**Deux interrupteurs, pas un.** `notification_preferences` gagne une colonne
+`weekly_checkin` ; `absence`, qui existait depuis le premier jour, garde le
+message de reprise. On peut vouloir la paix en semaine et accepter une question
+le samedi, et l'inverse : les confondre ferait qu'éteindre l'un éteint l'autre.
+
+**La reprise après absence : douze jours, et un booléen.** Douze et pas huit —
+une semaine sautée est à l'intérieur de ce que le produit tolère de lui-même, et
+accueillir « de retour » après une seule semaine calme reviendrait à commenter le
+rythme de quelqu'un. `repriseApresAbsence` rend un booléen, jamais un écart :
+rien de ce qu'on n'a pas calculé ne peut s'afficher. Les mots disent que rien n'a
+bougé et qu'on reprend où l'on veut — c'est la seule information utile à
+quelqu'un qui rouvre l'application après trois semaines, la peur à cet âge étant
+d'avoir perdu sa place.
+
+**Une invitation douce au plus.** Quelqu'un qui revient après un mois remplit les
+deux conditions en même temps ; empiler un mot d'accueil et une question à
+remplir ferait de son retour une formalité. La précédence est tranchée dans
+`invitationDouce`, avec son test : l'accueil passe, le bilan attend.
+
+**La mesure.** `weekly_checkin_completed` est émis **après** que l'écriture ait
+lu sa réponse — un événement posé sur une écriture refusée gonflerait la seule
+ligne du funnel que ce chantier existe pour remplir. Sa propriété `week` porte la
+semaine couverte et non la date du jour : les deux diffèrent d'un à six jours
+puisque le bilan se répond jusqu'au vendredi suivant, et `occurred_at` ne dirait
+donc pas quelle semaine a été accompagnée. La ligne 7 de
+`mesure_funnel_binome` cesse d'être muette par construction.
+
+### Ce que la vérification par mutation a corrigé
+
+Le commentaire de la migration disait d'abord que le `with check` de
+`weekly_checkins_update_own` était **la** garde contre un
+`update … set user_id = <un tiers>`. La mesure dit autre chose : en le
+remplaçant par `(true)`, aucun test ne rougit. La table « Policies Applied by
+Command Type » de la documentation de `CREATE POLICY` en donne la raison — pour
+un UPDATE, les politiques SELECT s'appliquent à la ligne existante **et à la
+nouvelle**, si bien que `weekly_checkins_select_own` referme déjà la porte. Le
+`with check` est gardé comme seconde serrure, et la mutation le prouve en deux
+temps : SELECT élargi seul ⇒ le déplacement reste refusé ; SELECT élargi **et**
+`with check (true)` ⇒ il passe. À retenir pour toute table own-only du dépôt :
+un `with check` d'UPDATE ne se teste pas seul.
+
+### Écarts assumés de ce chantier
+
+- **Aucun rappel poussé, ni sur le web ni sur le mobile.** Le web n'a pas de
+  push du tout ; le mobile est borné par Expo Go, où l'import seul
+  d'`expo-notifications` jette (voir `apps/mobile/src/notifications.ts` et le
+  piège déjà consigné plus bas). Le rappel livré est donc une carte douce au bon
+  moment dans l'application, désactivable, et elle suffit au critère « rappel
+  configurable et désactivable ». Le rappel réellement poussé — un samedi matin,
+  sur le téléphone — viendra avec les builds EAS de l'issue #13, et il n'aura
+  rien à décider : la fenêtre, la préférence et les mots existent déjà.
+- **Pas de message de reprise en mode démonstration.** L'absence se calcule
+  depuis `session_progress.completed_at` et `weekly_checkins.updated_at` ;
+  l'état local ne garde que des identifiants de séances, sans date. Sans compte,
+  l'application ne peut donc rien dire d'une absence — et elle se tait plutôt que
+  d'affirmer ce qu'elle n'a pas mesuré.
+- **Le bilan n'entre pas dans la file hors-ligne.** Une question de fin de
+  semaine posée hier n'a pas à être renvoyée demain. L'écran le dit — « ton bilan
+  sera encore là quand la connexion reviendra » — au lieu de promettre une
+  synchronisation qui n'existe pas.
+- **« Une autre fois » n'écarte la carte que pour la visite en cours.** Le refus
+  durable est l'interrupteur des réglages, qui porte ce nom et se retrouve ; un
+  écart écrit dans le stockage ferait une troisième mémoire du même choix, plus
+  discrète et impossible à défaire quand on change d'avis.
+- **La correction d'une réponse n'est offerte que le temps de la visite.** La
+  base l'autorise à tout moment (`weekly_checkins_update_own`), l'écran la
+  propose juste après la réponse — le temps de rattraper un clic manqué. Faire
+  réapparaître une carte déjà répondue pour permettre de la corriger reposerait
+  une question à laquelle on a répondu, ce que ce chantier existe pour éviter.
+- **Le mobile n'émet pas `journey_id` avec l'événement.** L'écran d'accueil
+  mobile ne charge aucun parcours ; la colonne est nullable et le funnel ne s'en
+  sert pas. Même famille d'écart que `account_created`, déjà nommé au doc 25.
+
+---
+
 ## Amendement du 25 août 2026 — trois études de conception (issues #25, #26, #27)
 
 *Ajouté sans rien retirer de ce qui précède. Les trois amendements plus bas
