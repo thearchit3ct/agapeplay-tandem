@@ -2,7 +2,13 @@
   "expo": {
     "name": "AgapePlay Tandem",
     "slug": "agapeplay-tandem",
-    "version": "0.2.3",
+    "version": "0.3.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e6d358e4-f5c1-4acd-987f-2baaed8678fc"
+    },
     "orientation": "portrait",
     "scheme": "agapeplay",
     "userInterfaceStyle": "light",

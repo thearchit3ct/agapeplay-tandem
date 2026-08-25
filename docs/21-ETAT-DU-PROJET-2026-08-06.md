@@ -2151,3 +2151,92 @@ chaîne de publication, pas de finition mobile.
   iOS 18, l'haptique demande un moteur, la micro-échelle et le greffon des
   worklets demandent un build natif. La checklist de recette au doigt est dans
   la PR.
+
+---
+
+## Amendement du 28/08/2026 — le régime des builds : EAS Update entre dans le dépôt
+
+*Ajouté sans rien retirer. Le détail opérationnel — les deux commandes, le
+tableau des canaux, les pièges — vit en tête de
+[`29-BUILD-MOBILE.md`](./29-BUILD-MOBILE.md), section « Le régime des builds ».
+Ce qui suit est ce qu'il faut savoir sans l'ouvrir.*
+
+Le fondateur a pris l'abonnement Expo, et une build en consomme le crédit. La
+discipline s'inverse donc : **une build ne se lance plus que pour un changement
+natif, un jalon à la fois ; tout le JavaScript part par les airs.**
+`expo-updates` (~57.0.17, posé par `npx expo install`) est le moteur qui rend
+cette phrase exécutable. C'est la seule dépendance ajoutée.
+
+Ce qu'il faut retenir ici :
+
+- **`runtimeVersion` suit la politique `appVersion`**, et c'est la décision
+  centrale du chantier. Le champ `version` d'`app.json` **est** l'identité du
+  runtime : un update n'est servi qu'aux builds portant exactement le même. La
+  conséquence n'est pas intuitive et se retourne en silence — **bumper `version`
+  pour un changement purement JavaScript orpheline toutes les builds
+  installées** : l'update part, n'atteint personne, et ne dit rien. `version` ne
+  bouge donc **qu'à un jalon natif**, et un envoi JavaScript se nomme par son
+  `--message`. ⚠️ C'est l'inverse de l'habitude du dépôt voisin (Versets Flash,
+  « toujours bumper après une build ») et de ce que ce dépôt a fait jusqu'ici
+  (0.2.0 → 0.2.3 pour du JavaScript). `fingerprint` a été écartée : encore
+  expérimentale chez Expo, et son mode de défaillance — un hash qui dérive pour
+  une cause invisible dans le diff — est le mauvais pour un studio d'une
+  personne.
+- **La règle vaut dans les deux sens.** Le pendant du point précédent est plus
+  dangereux : **tout changement natif doit bumper `version`**. L'oublier donne à
+  la nouvelle build le runtime de l'ancienne, les deux populations cessent
+  d'être étanches, et le prochain update — bâti contre le nouveau code natif —
+  est servi à un binaire qui n'a pas les modules qu'il appelle. Sous
+  `appVersion`, ces deux obligations reposent entièrement sur l'humain : la
+  politique ne déduit rien, elle recopie un champ.
+- **⚠️ Un update se publie toujours avec `--environment production`.**
+  Contrairement à une build, `eas update` fabrique le bundle **sur la machine
+  qui tape la commande**, avec l'environnement qu'elle trouve — donc
+  `apps/mobile/.env`, qui n'est pas versionné. Un `.env` absent ou périmé
+  produirait un bundle aux mauvaises clés Supabase, et il partirait **par les
+  airs vers les applications installées**, sans build pour l'arrêter : la panne
+  silencieuse déjà décrite au doc 29 (« connecte-toi » sans fin), à distance.
+  Le drapeau force les variables posées par `eas env:create`.
+- **Un canal par profil de build** : `internal` → `interne`, `development` →
+  `developpement`, `preview` → `apercu`. Le canal est gravé dans le binaire au
+  moment de la build ; on ne le change pas après coup, et publier sur `apercu`
+  n'atteint jamais la piste interne.
+- **`appVersionSource` est passé de `"local"` à `"remote"`**, et le profil
+  `internal` porte `autoIncrement`. La raison est précise : sous `"local"`,
+  `autoIncrement` écrit le nouveau `versionCode` dans l'`app.json` de la machine
+  qui construit, et un oubli de commit fait repartir la build suivante du même
+  numéro — le Play Store la refuse **après** la build, crédit consommé. Le piège
+  du versionCode manuel (PR #65) n'aurait été que déplacé d'un cran. Sous
+  `"remote"`, EAS tient `versionCode` et `buildNumber`, `autoIncrement` devient
+  idempotent, et **`version` reste local et versionné** — indispensable, puisque
+  c'est lui qui porte le runtime. ⚠️ Ne pas revenir à `"local"` sans relire ce
+  paragraphe. Le doc 29 disait « les incrémenter est un geste volontaire,
+  versionné, pas une décision d'un serveur de build » : la phrase y est amendée
+  à l'endroit où elle se trouve, et n'est plus vraie que de `version`.
+- **La v0.2.3 déjà sur la piste interne ne recevra jamais rien.** Elle
+  n'embarque pas `expo-updates`. Le régime commence à la build d'amorçage
+  0.3.0 ; c'est le seul crédit que ce chantier coûte.
+- **Un update arrive au deuxième lancement.** Le greffon pose
+  `CHECK_ON_LAUNCH = ALWAYS` et `LAUNCH_WAIT_MS = 0` : l'application s'ouvre
+  toujours sur son bundle en cache, télécharge en tâche de fond, applique au
+  lancement suivant. Ne pas conclure à un update perdu au premier essai.
+
+**Rien n'a bougé dans le code de l'application.** Aucun écran, aucune règle,
+aucun hook. Trois vérifications d'interaction, faites plutôt que supposées :
+`expo-updates` n'enregistre **aucun écouteur d'URL** (`grep` sur le paquet
+installé), donc rien à arbitrer avec `useAuthDeepLink` ni avec
+`useLiensDInvitation` ; le greffon est **appliqué automatiquement** et n'a pas
+sa place dans `plugins` (`npx expo config --type introspect` montre les cinq
+entrées de manifeste posées) ; et `npm run mobile:export` — la garde Metro de la
+CI — passe, `expo-updates` n'ayant pas d'implémentation web qui le gênerait. Le
+module est par ailleurs inerte en développement : un dev client charge son
+bundle depuis Metro, pas depuis un update.
+
+**Ce que le dépôt ne peut toujours pas prouver.** Publier un update demande une
+build compatible installée, donc la build d'amorçage 0.3.0 — qui n'a pas été
+lancée ici, c'est précisément le crédit qu'on économise. Ce qui se vérifie sans
+consommer a été vérifié : `npx expo config --type public` rend bien
+`updates.url` et `runtimeVersion` (il **rend la politique telle quelle**,
+`{ "policy": "appVersion" }`, sans la résoudre — la résolution en chaîne concrète se fait côté
+EAS, au moment de la build et de l'update) ; `eas update:configure` a été passé
+après coup et n'a rien eu à corriger.
