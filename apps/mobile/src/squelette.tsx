@@ -14,20 +14,28 @@
  * jamais à une réponse, fût-elle vide.
  *
  * **Le mouvement, et son absence.** La pulsation est une opacité animée, sans
- * dégradé qui glisse ni bibliothèque d'animation : `Animated` suffit, et ajouter
- * une dépendance pour faire respirer un rectangle serait payer cher un effet de
- * surface. Elle se coupe quand le système demande moins de mouvement
- * (`AccessibilityInfo`) — la forme reste, figée à mi-opacité : ce qu'elle a à
+ * dégradé qui glisse : l'`Animated` de React Native suffit à faire respirer un
+ * rectangle. Elle se coupe quand le système demande moins de mouvement
+ * (`useMouvementReduit`) — la forme reste, figée à mi-opacité : ce qu'elle a à
  * dire est dans son contour, pas dans son battement.
+ *
+ * *Note du 28/08/2026.* Ce commentaire disait jusqu'ici qu'« ajouter une
+ * dépendance pour faire respirer un rectangle serait payer cher un effet de
+ * surface ». La phrase reste vraie **pour ce fichier** : `react-native-reanimated`
+ * est entré dans l'arbre depuis, mais pour les animations de présence
+ * (`presence.tsx`), qu'`Animated` ne sait pas faire — une sortie a besoin qu'on
+ * retienne un composant démonté. Le squelette, lui, n'a rien à y gagner et n'y a
+ * pas été porté : une pulsation d'opacité n'est pas une raison de changer d'outil.
  *
  * Une seule valeur animée pour toute l'application, partagée : les rectangles
  * d'un même écran battent alors **ensemble**, ce qui se lit comme une intention
  * plutôt que comme du bruit. La boucle ne tourne que tant qu'un squelette est
  * affiché.
  */
-import { useEffect, useRef, useState } from 'react'
-import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { Animated, Easing, Platform, StyleSheet, View } from 'react-native'
 import type { StyleProp, ViewStyle } from 'react-native'
+import { useMouvementReduit } from './mouvement'
 import { colors } from './theme'
 
 const OPACITE_BASSE = 0.35
@@ -57,25 +65,6 @@ const arreter = () => {
   boucle?.stop()
   boucle = null
   pulsation.setValue(OPACITE_BASSE)
-}
-
-/**
- * Le réglage système « réduire les animations », lu et suivi.
- *
- * Lu à chaque montage plutôt qu'une fois pour toutes : il se change depuis les
- * réglages du téléphone pendant que l'application tourne, et l'écouteur le dit.
- */
-function useMouvementReduit(): boolean {
-  const [reduit, setReduit] = useState(false)
-
-  useEffect(() => {
-    let actif = true
-    void AccessibilityInfo.isReduceMotionEnabled().then((valeur) => { if (actif) setReduit(valeur) })
-    const abonnement = AccessibilityInfo.addEventListener('reduceMotionChanged', (valeur) => { if (actif) setReduit(valeur) })
-    return () => { actif = false; abonnement.remove() }
-  }, [])
-
-  return reduit
 }
 
 type ProprietesDeSquelette = {
