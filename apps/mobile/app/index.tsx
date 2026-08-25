@@ -71,9 +71,13 @@ export default function HomeScreen() {
    *
    * L'état du bilan n'est pas ici : il a son propre effet, accroché au compte,
    * et le lire aux deux endroits en ferait deux lectures à chaque montage.
+   *
+   * Les trois lectures sont rendues ensemble plutôt que lancées et oubliées :
+   * le tirer-pour-rafraîchir les attend, et un sablier qui s'arrête avant que
+   * les réponses n'arrivent annonce une relecture qui n'a pas encore eu lieu.
    */
-  const relire = useCallback(() => {
-    void supabase?.auth.getSession().then(({ data }) => {
+  const relire = useCallback(() => Promise.all([
+    supabase?.auth.getSession().then(({ data }) => {
       if (!monte.current) return
       setSession(data.session)
       // Le refus de mesure suit le compte, pas l'appareil : sans cette lecture,
@@ -81,20 +85,20 @@ export default function HomeScreen() {
       // session, seul le réglage local décide — il n'y a personne à qui
       // demander.
       const lecture = data.session ? lireConsentementDuCompte(data.session.user.id) : mesureAcceptee()
-      void lecture.then((effectif) => { if (monte.current) setMesure(effectif) })
-    })
+      return lecture.then((effectif) => { if (monte.current) setMesure(effectif) })
+    }),
     // Le bandeau hors ligne dit ce qui reste réellement en file, et plus un
     // état de maquette qu'un appui allumait : une promesse de synchronisation
     // doit être adossée à quelque chose qui attend vraiment.
-    void flushProgressQueue().then((restants) => { if (monte.current) setOffline(restants > 0) })
+    flushProgressQueue().then((restants) => { if (monte.current) setOffline(restants > 0) }),
     // Une invitation retenue mais pas encore jouée doit se voir : le lien peut
     // avoir été ouvert avant toute connexion, ou l'écran quitté en route.
-    void jetonRetenu().then((recu) => { if (monte.current) setInvitationEnAttente(recu !== null) })
-  }, [])
+    jetonRetenu().then((recu) => { if (monte.current) setInvitationEnAttente(recu !== null) }),
+  ]), [])
 
   useFocusEffect(useCallback(() => {
     monte.current = true
-    relire()
+    void relire()
     // La session peut naître PENDANT que l'écran est monté — c'est exactement
     // ce que fait le lien magique ramassé par useAuthDeepLink. Sans cet
     // abonnement, l'en-tête resterait « Se connecter » jusqu'à une navigation.
@@ -111,7 +115,7 @@ export default function HomeScreen() {
    */
   const rafraichir = useCallback(async () => {
     setRafraichissement(true)
-    relire()
+    await relire()
     const compteId = session?.user.id
     if (compteId) {
       const etat = await lireEtatDuBilan(compteId)

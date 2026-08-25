@@ -365,206 +365,206 @@ export default function TandemScreen() {
         composeur se retrouve au ras du clavier — le comportement d'une
         messagerie. */}
     <View style={[styles.colonne, { paddingBottom: espacement }]}>
-    <ScrollView
-      ref={refDefilement}
-      style={styles.fil}
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
-      refreshControl={<RefreshControl
-        refreshing={rafraichissement}
-        onRefresh={() => void rafraichir()}
-        colors={[colors.copper]}
-        tintColor={colors.copper}
-      />}
-    >
-      <View style={styles.topline}>
-        <Link href="/" asChild>
-          <Pressable style={[styles.backTouch, toucheMinimale]}>
-            {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
-          </Pressable>
-        </Link>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t.language}
-          style={[styles.localeTouch, toucheMinimale]}
-          onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
-        >
-          {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
-        </Pressable>
-      </View>
-
-      <Text style={styles.kicker}>{t.kicker}</Text>
-      <Text style={styles.title}>{t.title}</Text>
-      {/* Le vrai nom, plus jamais celui de la maquette. Sans tandem ou sans
-          nom posé, la ligne d'indice ci-dessous dit déjà la situation. */}
-      <View style={styles.avatar}><Text style={styles.avatarText}>{initialeDe(partnerName)}</Text></View>
-      <Text style={styles.name}>{partnerName ?? (loading ? '…' : t.noTandem)}</Text>
-      <Text style={styles.status}>{loading ? t.loading : !tandem ? ' ' : blocked ? `— ${t.blockedStatus}` : `● ${t.online}`}</Text>
-
-      {!loading && !session && <Text style={styles.hint}>{t.signInPrompt}</Text>}
-      {!loading && session && !tandem && <Text style={styles.hint}>{t.noTandem}</Text>}
-
-      {tandem && <View style={styles.thread}>
-        {/* Trois cas, et le troisième est le seul qui se voit vraiment : une
-            lecture coupée par la politique rend une liste vide, exactement
-            comme une conversation qui n'a jamais commencé. */}
-        {!acces.peutLire
-          ? <Text style={styles.threadNote}>{t.threadClosed}</Text>
-          : messages.length === 0
-            ? <Text style={styles.threadNote}>{t.emptyThread}</Text>
-            : messages.map((message) => {
-              const deMoi = message.senderId === session?.user.id
-              return <View key={message.id} style={[styles.bubble, deMoi ? styles.bubbleMine : styles.bubbleTheirs]}>
-                <Text style={[styles.author, deMoi && styles.authorMine]}>{deMoi ? t.me : partnerName ?? t.tandem}</Text>
-                <Text style={[styles.body, deMoi && styles.bodyMine]}>{message.body}</Text>
-                <Text style={[styles.time, deMoi && styles.timeMine]}>{new Date(message.createdAt).toLocaleString()}</Text>
-              </View>
-            })}
-      </View>}
-
-      {affordance !== 'hidden' && panneau === 'aucun' && <View style={styles.panel}>
-        <Text style={styles.panelKicker}>{t.blockedStatus.toUpperCase()}</Text>
-        {affordance === 'unblockable' && <>
-          <Text style={styles.panelText}>{t.unblockOwnerNote}</Text>
-          <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => setPanneau('deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
-        </>}
-        {/* Aucun bouton dans les deux cas suivants : la politique le refuserait
-            pour l'un, personne ne peut rien pour l'autre. La phrase tient lieu
-            de réponse, ce qui est plus honnête qu'un geste qui échoue. */}
-        {affordance === 'blocked-by-other' && <Text style={styles.panelText}>{t.unblockOtherNote}</Text>}
-        {affordance === 'frozen' && <Text style={styles.panelText}>{t.unblockFrozenNote}</Text>}
-      </View>}
-
-      {panneau === 'deblocage' && <View style={styles.panel}>
-        <Text style={styles.panelKicker}>{t.unblockTitle}</Text>
-        <Text style={styles.panelText}>{t.unblockDescription}</Text>
-        <Text style={styles.panelText}>{t.unblockReversible}</Text>
-        <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void unblock()}><Text style={styles.panelActionText}>{t.unblockConfirm}  →</Text></Pressable>
-        <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.unblockCancel}</Text>}</Pressable>
-      </View>}
-
-      {/* Le blocage se confirme, là où le web le pose sur un appui unique : sur
-          un téléphone, un bouton se touche par accident, et celui-ci ferme une
-          conversation. Le panneau dit ce qui change, puis ce qui reste
-          réversible — le même ordre que le déblocage juste au-dessus. */}
-      {panneau === 'blocage' && <View style={styles.panel}>
-        <Text style={styles.panelKicker}>{t.blockTitle}</Text>
-        <Text style={styles.panelText}>{t.blockDescription}</Text>
-        <Text style={styles.panelText}>{t.blockReversible}</Text>
-        <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void bloquer()}><Text style={styles.panelActionText}>{t.blockConfirm}  →</Text></Pressable>
-        <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.blockCancel}</Text>}</Pressable>
-      </View>}
-
-
-      {/* Le signalement, devenu une question. Panneau dans la page et non
-          `Alert.alert` : celui-ci ne rend rien d'utilisable sous
-          react-native-web, et `mobile:export` est la seule garde Metro sans
-          appareil. C'est la même règle que la confirmation de blocage.
-
-          Le mot libre est facultatif et l'écran le dit : à ce moment-là,
-          raconter est difficile, choisir une ligne ne l'est pas — et un champ
-          qu'on croit obligatoire est un signalement abandonné. */}
-      {panneau === 'signalement' && <View style={styles.panel}>
-        <Text style={styles.panelKicker}>{t.report}</Text>
-        <Text style={styles.panelTitle}>{t.reportTitle}</Text>
-        <Text style={styles.panelText}>{t.reportDescription}</Text>
-
-        <View style={styles.categories}>
-          {CATEGORIES_PROPOSEES.map((valeur) => (
-            <Pressable
-              key={valeur}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: categorie === valeur }}
-              android_ripple={ondeEncre}
-              style={({ pressed }) => [styles.category, categorie === valeur && styles.categoryChosen, pressed && styles.pressed]}
-              onPress={() => setCategorie(valeur)}
-            >
-              <Text style={[styles.categoryText, categorie === valeur && styles.categoryTextChosen]}>{libelleCategorie(valeur, t)}</Text>
+      <ScrollView
+        ref={refDefilement}
+        style={styles.fil}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        refreshControl={<RefreshControl
+          refreshing={rafraichissement}
+          onRefresh={() => void rafraichir()}
+          colors={[colors.copper]}
+          tintColor={colors.copper}
+        />}
+      >
+        <View style={styles.topline}>
+          <Link href="/" asChild>
+            <Pressable style={[styles.backTouch, toucheMinimale]}>
+              {({ pressed }) => <Text style={[styles.back, pressed && styles.pressed]}>← {t.today}</Text>}
             </Pressable>
-          ))}
+          </Link>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.language}
+            style={[styles.localeTouch, toucheMinimale]}
+            onPress={() => setLocale(locale === 'fr' ? 'en' : 'fr')}
+          >
+            {({ pressed }) => <Text style={[styles.locale, pressed && styles.pressed]}>{locale.toUpperCase()}</Text>}
+          </Pressable>
         </View>
 
-        {/* Dit sur les deux seules catégories d'urgence immédiate, et nulle part
-            ailleurs : sous chacune il deviendrait invisible, absent il
-            laisserait croire qu'envoyer ce formulaire est un secours. */}
-        {categorie && urgenceDe(categorie) === 'immediate' && <>
-          <Text style={styles.panelAlert}>{t.reportHelplineNote}</Text>
-          <Text style={styles.panelText}>{t.reportUrgentNote}</Text>
-        </>}
+        <Text style={styles.kicker}>{t.kicker}</Text>
+        <Text style={styles.title}>{t.title}</Text>
+        {/* Le vrai nom, plus jamais celui de la maquette. Sans tandem ou sans
+            nom posé, la ligne d'indice ci-dessous dit déjà la situation. */}
+        <View style={styles.avatar}><Text style={styles.avatarText}>{initialeDe(partnerName)}</Text></View>
+        <Text style={styles.name}>{partnerName ?? (loading ? '…' : t.noTandem)}</Text>
+        <Text style={styles.status}>{loading ? t.loading : !tandem ? ' ' : blocked ? `— ${t.blockedStatus}` : `● ${t.online}`}</Text>
 
-        <Text style={styles.panelLabel}>{t.reportNoteLabel}</Text>
+        {!loading && !session && <Text style={styles.hint}>{t.signInPrompt}</Text>}
+        {!loading && session && !tandem && <Text style={styles.hint}>{t.noTandem}</Text>}
+
+        {tandem && <View style={styles.thread}>
+          {/* Trois cas, et le troisième est le seul qui se voit vraiment : une
+              lecture coupée par la politique rend une liste vide, exactement
+              comme une conversation qui n'a jamais commencé. */}
+          {!acces.peutLire
+            ? <Text style={styles.threadNote}>{t.threadClosed}</Text>
+            : messages.length === 0
+              ? <Text style={styles.threadNote}>{t.emptyThread}</Text>
+              : messages.map((message) => {
+                const deMoi = message.senderId === session?.user.id
+                return <View key={message.id} style={[styles.bubble, deMoi ? styles.bubbleMine : styles.bubbleTheirs]}>
+                  <Text style={[styles.author, deMoi && styles.authorMine]}>{deMoi ? t.me : partnerName ?? t.tandem}</Text>
+                  <Text style={[styles.body, deMoi && styles.bodyMine]}>{message.body}</Text>
+                  <Text style={[styles.time, deMoi && styles.timeMine]}>{new Date(message.createdAt).toLocaleString()}</Text>
+                </View>
+              })}
+        </View>}
+
+        {affordance !== 'hidden' && panneau === 'aucun' && <View style={styles.panel}>
+          <Text style={styles.panelKicker}>{t.blockedStatus.toUpperCase()}</Text>
+          {affordance === 'unblockable' && <>
+            <Text style={styles.panelText}>{t.unblockOwnerNote}</Text>
+            <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => setPanneau('deblocage')}><Text style={styles.panelActionText}>{t.unblock}  →</Text></Pressable>
+          </>}
+          {/* Aucun bouton dans les deux cas suivants : la politique le refuserait
+              pour l'un, personne ne peut rien pour l'autre. La phrase tient lieu
+              de réponse, ce qui est plus honnête qu'un geste qui échoue. */}
+          {affordance === 'blocked-by-other' && <Text style={styles.panelText}>{t.unblockOtherNote}</Text>}
+          {affordance === 'frozen' && <Text style={styles.panelText}>{t.unblockFrozenNote}</Text>}
+        </View>}
+
+        {panneau === 'deblocage' && <View style={styles.panel}>
+          <Text style={styles.panelKicker}>{t.unblockTitle}</Text>
+          <Text style={styles.panelText}>{t.unblockDescription}</Text>
+          <Text style={styles.panelText}>{t.unblockReversible}</Text>
+          <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void unblock()}><Text style={styles.panelActionText}>{t.unblockConfirm}  →</Text></Pressable>
+          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.unblockCancel}</Text>}</Pressable>
+        </View>}
+
+        {/* Le blocage se confirme, là où le web le pose sur un appui unique : sur
+            un téléphone, un bouton se touche par accident, et celui-ci ferme une
+            conversation. Le panneau dit ce qui change, puis ce qui reste
+            réversible — le même ordre que le déblocage juste au-dessus. */}
+        {panneau === 'blocage' && <View style={styles.panel}>
+          <Text style={styles.panelKicker}>{t.blockTitle}</Text>
+          <Text style={styles.panelText}>{t.blockDescription}</Text>
+          <Text style={styles.panelText}>{t.blockReversible}</Text>
+          <Pressable style={({ pressed }) => [styles.panelAction, pressed && styles.pressed]} android_ripple={ondeClaire} onPress={() => void bloquer()}><Text style={styles.panelActionText}>{t.blockConfirm}  →</Text></Pressable>
+          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.blockCancel}</Text>}</Pressable>
+        </View>}
+
+
+        {/* Le signalement, devenu une question. Panneau dans la page et non
+            `Alert.alert` : celui-ci ne rend rien d'utilisable sous
+            react-native-web, et `mobile:export` est la seule garde Metro sans
+            appareil. C'est la même règle que la confirmation de blocage.
+
+            Le mot libre est facultatif et l'écran le dit : à ce moment-là,
+            raconter est difficile, choisir une ligne ne l'est pas — et un champ
+            qu'on croit obligatoire est un signalement abandonné. */}
+        {panneau === 'signalement' && <View style={styles.panel}>
+          <Text style={styles.panelKicker}>{t.report}</Text>
+          <Text style={styles.panelTitle}>{t.reportTitle}</Text>
+          <Text style={styles.panelText}>{t.reportDescription}</Text>
+
+          <View style={styles.categories}>
+            {CATEGORIES_PROPOSEES.map((valeur) => (
+              <Pressable
+                key={valeur}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: categorie === valeur }}
+                android_ripple={ondeEncre}
+                style={({ pressed }) => [styles.category, categorie === valeur && styles.categoryChosen, pressed && styles.pressed]}
+                onPress={() => setCategorie(valeur)}
+              >
+                <Text style={[styles.categoryText, categorie === valeur && styles.categoryTextChosen]}>{libelleCategorie(valeur, t)}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Dit sur les deux seules catégories d'urgence immédiate, et nulle part
+              ailleurs : sous chacune il deviendrait invisible, absent il
+              laisserait croire qu'envoyer ce formulaire est un secours. */}
+          {categorie && urgenceDe(categorie) === 'immediate' && <>
+            <Text style={styles.panelAlert}>{t.reportHelplineNote}</Text>
+            <Text style={styles.panelText}>{t.reportUrgentNote}</Text>
+          </>}
+
+          <Text style={styles.panelLabel}>{t.reportNoteLabel}</Text>
+          <TextInput
+            style={styles.noteInput}
+            value={motLibre}
+            onChangeText={setMotLibre}
+            onFocus={remonter}
+            maxLength={1000}
+            multiline
+            placeholder={t.reportNotePlaceholder}
+            placeholderTextColor={colors.muted}
+          />
+
+          {/* Sans catégorie il n'y a rien à envoyer : `category` est `not null` et
+              sans défaut, la base refuserait l'insert. */}
+          <Pressable
+            accessibilityRole="button"
+            disabled={!categorie || signalement}
+            android_ripple={ondeClaire}
+            style={({ pressed }) => [styles.panelAction, (!categorie || signalement) && styles.panelActionOff, pressed && styles.pressed]}
+            onPress={() => void signaler()}
+          ><Text style={styles.panelActionText}>{signalement ? t.reporting : t.reportConfirm}  →</Text></Pressable>
+          <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.reportCancel}</Text>}</Pressable>
+        </View>}
+
+        {/* Les deux gestes, en bas de l'écran comme sur le web : ils ne sont pas
+            la conversation, ils sont ce qu'on fait quand elle tourne mal. Le
+            signalement reste offert sur une relation bloquée — c'est souvent là
+            qu'il sert. Rien n'est affiché sans tandem : il n'y aurait rien à
+            bloquer ni à signaler, et un bouton qui ne peut pas aboutir est une
+            promesse trahie. */}
+        {(gestes.peutSignaler || gestes.peutBloquer) && panneau === 'aucun' && <View style={styles.safety}>
+          {gestes.peutSignaler && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => setPanneau('signalement')}>
+            {({ pressed }) => <Text style={[styles.safetyDanger, pressed && styles.pressed]}>{t.report}</Text>}
+          </Pressable>}
+          {gestes.peutBloquer && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => setPanneau('blocage')}>
+            {({ pressed }) => <Text style={[styles.safetyAction, pressed && styles.pressed]}>{t.block}</Text>}
+          </Pressable>}
+        </View>}
+
+        {notice.length > 0 && <Text style={styles.notice}>{notice}</Text>}
+        <Text style={styles.private}>{t.privacyNote}</Text>
+      </ScrollView>
+
+      {/* Le composeur, épinglé. Il reste **visible mais fermé** quand la relation
+          ne permet plus d'écrire, comme sur le web : le retirer laisserait croire
+          que la conversation n'a jamais eu de composeur, là où le placeholder dit
+          qu'elle est close. */}
+      {composeurVisible && <View style={styles.composer}>
         <TextInput
-          style={styles.noteInput}
-          value={motLibre}
-          onChangeText={setMotLibre}
-          onFocus={remonter}
-          maxLength={1000}
+          style={[styles.input, !acces.peutEcrire && styles.inputClosed]}
+          value={draft}
+          onChangeText={setDraft}
+          editable={acces.peutEcrire && !sending}
           multiline
-          placeholder={t.reportNotePlaceholder}
+          placeholder={acces.peutEcrire ? t.composerPlaceholder : t.composerClosed}
           placeholderTextColor={colors.muted}
+          accessibilityLabel={t.composerPlaceholder}
+          // Le fil descend sur son dernier message quand la case prend le
+          // clavier : sans cela, le clavier monterait devant la fin de la
+          // conversation qu'on est justement en train de poursuivre.
+          onFocus={auDernierMessage}
         />
-
-        {/* Sans catégorie il n'y a rien à envoyer : `category` est `not null` et
-            sans défaut, la base refuserait l'insert. */}
         <Pressable
           accessibilityRole="button"
-          disabled={!categorie || signalement}
+          disabled={!acces.peutEcrire || sending || !draft.trim()}
           android_ripple={ondeClaire}
-          style={({ pressed }) => [styles.panelAction, (!categorie || signalement) && styles.panelActionOff, pressed && styles.pressed]}
-          onPress={() => void signaler()}
-        ><Text style={styles.panelActionText}>{signalement ? t.reporting : t.reportConfirm}  →</Text></Pressable>
-        <Pressable style={toucheMinimale} onPress={() => setPanneau('aucun')}>{({ pressed }) => <Text style={[styles.panelCancel, pressed && styles.pressed]}>{t.reportCancel}</Text>}</Pressable>
+          style={({ pressed }) => [styles.sendButton, (!acces.peutEcrire || sending || !draft.trim()) && styles.sendButtonOff, pressed && styles.pressed]}
+          onPress={() => void envoyer()}
+        >
+          <Text style={styles.sendButtonText}>{sending ? t.sending : `${t.send}  →`}</Text>
+        </Pressable>
       </View>}
-
-      {/* Les deux gestes, en bas de l'écran comme sur le web : ils ne sont pas
-          la conversation, ils sont ce qu'on fait quand elle tourne mal. Le
-          signalement reste offert sur une relation bloquée — c'est souvent là
-          qu'il sert. Rien n'est affiché sans tandem : il n'y aurait rien à
-          bloquer ni à signaler, et un bouton qui ne peut pas aboutir est une
-          promesse trahie. */}
-      {(gestes.peutSignaler || gestes.peutBloquer) && panneau === 'aucun' && <View style={styles.safety}>
-        {gestes.peutSignaler && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => setPanneau('signalement')}>
-          {({ pressed }) => <Text style={[styles.safetyDanger, pressed && styles.pressed]}>{t.report}</Text>}
-        </Pressable>}
-        {gestes.peutBloquer && <Pressable accessibilityRole="button" style={toucheMinimale} onPress={() => setPanneau('blocage')}>
-          {({ pressed }) => <Text style={[styles.safetyAction, pressed && styles.pressed]}>{t.block}</Text>}
-        </Pressable>}
-      </View>}
-
-      {notice.length > 0 && <Text style={styles.notice}>{notice}</Text>}
-      <Text style={styles.private}>{t.privacyNote}</Text>
-    </ScrollView>
-
-    {/* Le composeur, épinglé. Il reste **visible mais fermé** quand la relation
-        ne permet plus d'écrire, comme sur le web : le retirer laisserait croire
-        que la conversation n'a jamais eu de composeur, là où le placeholder dit
-        qu'elle est close. */}
-    {composeurVisible && <View style={styles.composer}>
-      <TextInput
-        style={[styles.input, !acces.peutEcrire && styles.inputClosed]}
-        value={draft}
-        onChangeText={setDraft}
-        editable={acces.peutEcrire && !sending}
-        multiline
-        placeholder={acces.peutEcrire ? t.composerPlaceholder : t.composerClosed}
-        placeholderTextColor={colors.muted}
-        accessibilityLabel={t.composerPlaceholder}
-        // Le fil descend sur son dernier message quand la case prend le
-        // clavier : sans cela, le clavier monterait devant la fin de la
-        // conversation qu'on est justement en train de poursuivre.
-        onFocus={auDernierMessage}
-      />
-      <Pressable
-        accessibilityRole="button"
-        disabled={!acces.peutEcrire || sending || !draft.trim()}
-        android_ripple={ondeClaire}
-        style={({ pressed }) => [styles.sendButton, (!acces.peutEcrire || sending || !draft.trim()) && styles.sendButtonOff, pressed && styles.pressed]}
-        onPress={() => void envoyer()}
-      >
-        <Text style={styles.sendButtonText}>{sending ? t.sending : `${t.send}  →`}</Text>
-      </Pressable>
-    </View>}
     </View>
   </SafeAreaView>
 }
