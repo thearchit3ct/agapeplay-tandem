@@ -352,7 +352,6 @@ create table if not exists public.mentor_encouragements (
   -- d'hier. Motif du #17 (`mentor_assignments.status` hors du grant).
   jour date not null default (timezone('utc', now()))::date,
   created_at timestamptz not null default timezone('utc', now()),
-  read_at timestamptz,
   check (mentor_id <> participant_id)
 );
 
@@ -402,14 +401,12 @@ create policy "encouragements_mentor_insert"
     )
   );
 
--- Marquer comme lu. `using` et `with check` portent la même identité : ici il
--- n'y a pas de transition d'état à garder, seulement une colonne à poser.
-drop policy if exists "encouragements_participant_read_at" on public.mentor_encouragements;
-create policy "encouragements_participant_read_at"
-  on public.mentor_encouragements for update
-  to authenticated
-  using (participant_id = (select auth.uid()))
-  with check (participant_id = (select auth.uid()));
+-- **Aucun accusé de lecture, et aucune politique UPDATE.** Une colonne
+-- `read_at` avait été écrite, puis retirée : un canal à sens unique n'a pas de
+-- retour, et le seul usage qu'aurait eu cette date est de dire au mentor si le
+-- jeune avait ouvert son message. C'est un signal sur le jeune, donc exactement
+-- ce que ce fichier refuse de produire. Ce qui reste est plus simple : un mot
+-- arrive, et il est là.
 
 -- Le participant peut effacer un encouragement reçu, et le mentor ne le peut
 -- pas. Le doc 06 : « possibilité de quitter une relation sans justification
@@ -423,7 +420,6 @@ create policy "encouragements_participant_delete"
 
 grant select on public.mentor_encouragements to authenticated;
 grant insert (assignment_id, mentor_id, participant_id, message_key) on public.mentor_encouragements to authenticated;
-grant update (read_at) on public.mentor_encouragements to authenticated;
 grant delete on public.mentor_encouragements to authenticated;
 
 -- ===========================================================================

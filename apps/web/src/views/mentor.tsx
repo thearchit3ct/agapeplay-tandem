@@ -80,12 +80,14 @@ export type ActionsMentor = {
 }
 
 export function MentorView({
-  snapshot, accompagnements, mien, aideOuverte, motsRecus, notice, enCours, t, actions,
+  snapshot, accompagnements, propositionsEnAttente, mien, aideOuverte, motsRecus, notice, enCours, t, actions,
 }: {
   /** L'instantané de vérification, inchangé depuis le 4 août. */
   snapshot: MentorSnapshot
   /** Vide pour qui n'est pas mentor, et pour un mentor non vérifié : c'est la même absence, vue d'ici. */
   accompagnements: Accompagnement[]
+  /** Les affectations que le jeune n'a pas encore acceptées. Un compte, jamais une liste. */
+  propositionsEnAttente: number
   /** Ce que l'appelant vit de l'autre côté, comme participant. */
   mien: MonAccompagnement | null
   aideOuverte: { id: string; categorie: CategorieAide; statut: 'open' | 'acknowledged' } | null
@@ -128,7 +130,10 @@ export function MentorView({
         </article>
       </div>
 
-      <TableauDeSuivi accompagnements={accompagnements} enCours={enCours} t={t} actions={actions} />
+      <TableauDeSuivi
+        accompagnements={accompagnements} propositionsEnAttente={propositionsEnAttente}
+        enCours={enCours} t={t} actions={actions}
+      />
     </>}
 
     <MonAccompagnementCarte
@@ -144,20 +149,32 @@ export function MentorView({
 }
 
 function TableauDeSuivi({
-  accompagnements, enCours, t, actions,
+  accompagnements, propositionsEnAttente, enCours, t, actions,
 }: {
   accompagnements: Accompagnement[]
+  propositionsEnAttente: number
   enCours: string | null
   t: Copy
   actions: ActionsMentor
 }) {
+  // Une proposition en attente n'est pas rien : dire « aucun participant ne
+  // t'est encore affecté » à quelqu'un qu'on vient de nommer serait faux. Le
+  // compte est dit, le nom ne l'est pas — il naît de l'acceptation.
+  const attente = propositionsEnAttente > 0 && <p className="invitation-note" role="status">
+    {t.mentorPendingProposal} {t.mentorPendingProposalNote}
+  </p>
+
   if (accompagnements.length === 0) {
-    return <p className="invitation-state" role="status">{t.mentorEmpty}</p>
+    return <>
+      <p className="invitation-state" role="status">{t.mentorEmpty}</p>
+      {attente}
+    </>
   }
 
   return <div className="invitations-section">
     <span className="section-kicker">{t.mentorFollowUp}</span>
     <p>{t.mentorFollowUpIntro}</p>
+    {attente}
     <ul className="invitation-list">
       {/* L'ordre est celui rendu par la base : alphabétique, jamais par signal.
           Aucun `sort` ici, et c'est le point — voir l'en-tête. */}
@@ -202,7 +219,8 @@ function LigneAccompagnement({
       {t.encourageAction}
     </button>
 
-    {ouvert && <div className="invitation-lead">
+    {ouvert && <div className="invitation-lead" role="group" aria-label={t.encourageTitle}>
+      <strong>{t.encourageTitle}</strong>
       <p>{t.encourageIntro}</p>
       {MOTS_ENCOURAGEMENT.map((mot) => (
         <button

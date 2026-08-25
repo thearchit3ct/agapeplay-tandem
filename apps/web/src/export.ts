@@ -96,7 +96,7 @@ export const SECTIONS: readonly SectionExport[] = [
   // miroir plus bas, comme pour les accompagnements. Aucune des deux tables ne
   // porte de texte libre : ce qui sort est une catégorie et une clé.
   { clef: 'demandes_d_aide_emises', table: 'help_requests', colonnes: 'id, assignment_id, mentor_id, category, status, created_at, acknowledged_at', colonne: 'requester_id', cible: 'compte' },
-  { clef: 'encouragements_recus', table: 'mentor_encouragements', colonnes: 'id, assignment_id, mentor_id, message_key, jour, created_at, read_at', colonne: 'participant_id', cible: 'compte' },
+  { clef: 'encouragements_recus', table: 'mentor_encouragements', colonnes: 'id, assignment_id, mentor_id, message_key, jour, created_at', colonne: 'participant_id', cible: 'compte' },
   { clef: 'liens_d_invitation_emis', table: 'church_invitations', colonnes: 'church_id, group_id, status, uses, max_uses, expires_at, created_at', colonne: 'created_by', cible: 'compte' },
   { clef: 'tandems', table: 'tandems', colonnes: 'id, status, blocked_by, created_at, ended_at', colonne: 'participant_a_id', cible: 'compte' },
   { clef: 'messages_envoyes', table: 'tandem_messages', colonnes: 'id, tandem_id, body, created_at', colonne: 'sender_id', cible: 'compte' },

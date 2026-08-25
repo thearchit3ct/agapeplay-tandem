@@ -22,7 +22,8 @@ import type { LigneJournal } from './moderation'
 import { chargerInvitations, revoquerInvitation } from './invitations'
 import {
   chargerAccompagnements, chargerMaDemandeOuverte, chargerMesEncouragements, chargerMonAccompagnement,
-  cloreMaDemande, demanderDeLAide, direQueJaiVu, envoyerUnMot, repondreALaProposition,
+  cloreMaDemande, compterPropositionsEnAttente, demanderDeLAide, direQueJaiVu, envoyerUnMot,
+  repondreALaProposition,
 } from './mentor'
 import type { MotRecu } from './mentor'
 import {
@@ -118,6 +119,7 @@ function App() {
   // de la modération et des invitations : un compteur en dépendance d'effet,
   // jamais un appel direct après une écriture.
   const [accompagnements, setAccompagnements] = useState<Accompagnement[]>([])
+  const [propositionsEnAttente, setPropositionsEnAttente] = useState(0)
   const [monAccompagnement, setMonAccompagnement] = useState<MonAccompagnement | null>(null)
   const [maDemandeAide, setMaDemandeAide] = useState<Awaited<ReturnType<typeof chargerMaDemandeOuverte>>>(null)
   const [motsRecus, setMotsRecus] = useState<MotRecu[]>([])
@@ -361,9 +363,11 @@ function App() {
       chargerMonAccompagnement(client),
       chargerMaDemandeOuverte(client, moi),
       chargerMesEncouragements(client, moi),
-    ]).then(([suivi, mien, aide, mots]) => {
+      compterPropositionsEnAttente(client, moi),
+    ]).then(([suivi, mien, aide, mots, attente]) => {
       if (cancelled) return
       setAccompagnements(suivi)
+      setPropositionsEnAttente(attente)
       setMonAccompagnement(mien)
       setMaDemandeAide(aide)
       setMotsRecus(mots)
@@ -568,8 +572,15 @@ function App() {
         setMesureConsentie(mesureAcceptee())
       }
 
+      // `.error` est testé depuis le 26/08/2026 (issue #16). L'enjeu a changé :
+      // cet instantané commandait deux cartes de statut, il commande désormais
+      // l'existence de tout l'espace mentor. Une lecture en échec traitée comme
+      // « pas de profil mentor » ferait disparaître le tableau de suivi sans un
+      // mot, et ressemblerait à une révocation.
       const mentorResult = await client.from('mentor_profiles').select('verification_status, training_status').eq('user_id', authSession.user.id).maybeSingle()
-      if (!cancelled) {
+      if (mentorResult.error) {
+        if (!cancelled) showNotice(t.syncError, 4200)
+      } else if (!cancelled) {
         setMentorSnapshot(mentorResult.data ? { verificationStatus: mentorResult.data.verification_status, trainingStatus: mentorResult.data.training_status } : null)
       }
 
@@ -1665,6 +1676,7 @@ function App() {
             {activeTab === 'mentor' && <MentorView
               snapshot={mentorSnapshot}
               accompagnements={accompagnements}
+              propositionsEnAttente={propositionsEnAttente}
               mien={monAccompagnement}
               aideOuverte={maDemandeAide}
               motsRecus={motsRecus}

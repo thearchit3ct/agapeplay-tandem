@@ -66,8 +66,10 @@ proposition que le jeune n'a pas encore acceptée ; en rendre le nom donnerait a
 mentor l'identité de quelqu'un qui n'a pas dit oui — et la décision 5 du #17
 tient précisément à ce que ce oui existe. Le mentor voit ses propositions en
 attente par `mentor_assignments_member_read` (des uuid et un statut, depuis le
-4 août) : l'écran peut donc dire « une proposition attend une réponse » sans
-nommer personne.
+4 août) ; l'écran en fait **un compte, jamais une liste** — « une proposition
+attend une réponse » — sans nommer personne. Sans ce compte, un mentor qu'on
+vient de nommer lirait « aucun participant ne t'est encore affecté » alors
+qu'une affectation existe et attend : faux, et décourageant.
 
 > **Le nom naît de l'acceptation.**
 
@@ -199,6 +201,13 @@ l'index est un **refus réussi**, pas une panne : l'écran lit sa réponse et di
 qui arrive chez quelqu'un lui appartient ; ce que le mentor a envoyé ne lui
 appartient plus.
 
+**Aucun accusé de lecture.** Une colonne `read_at` avait été écrite, avec sa
+politique UPDATE et son grant, puis retirée avant la livraison : le seul usage
+qu'elle aurait eu est de dire au mentor si le jeune avait ouvert son message.
+C'est un signal sur le jeune, donc exactement ce que ce chantier refuse de
+produire — et un canal à sens unique n'a pas de retour à mesurer. Ce qui reste
+est plus simple : un mot arrive, et il est là.
+
 ---
 
 ## Décision 5 — la vérification garde ce qui sort, pas ce qui est nommé
@@ -247,6 +256,15 @@ sa jumelle, qui ne rend que `active`. L'asymétrie est le sujet : le jeune doit
 voir la proposition pour y répondre ; le mentor n'a pas à connaître le nom de
 quelqu'un qui n'a pas encore répondu. `paused` et `ended` ne sortent pas — il
 n'y a rien à y faire, et une relation terminée n'a pas à rester affichée.
+
+**Un défaut trouvé en relecture, et qui ne se voyait par aucun test de base** :
+`gestesDuParticipant` rendait d'abord `orienter: !joignable`, si bien qu'une
+proposition en attente affichait à la fois « ton église te propose d'être
+accompagné·e par Marc » et, trois lignes plus bas, « personne ne t'accompagne
+pour l'instant — 119, 3018, 3114 ». Sur l'écran même où un jeune de seize ans
+décide de consentir. La règle juste est `orienter = !repondre && !joignable` :
+on oriente quand il n'y a **rien à répondre et personne à joindre**. Un test le
+tient désormais, nommément.
 
 **Cette carte vit sur l'onglet « Mentor », pas sur celui du tandem.** La
 conversation du binôme et la relation à l'église sont deux membranes que le #17

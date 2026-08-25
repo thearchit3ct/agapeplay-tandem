@@ -148,13 +148,18 @@ export const mentorJoignable = (accompagnement: MonAccompagnement | null): boole
 
 /**
  * Ce que l'écran du participant a le droit de proposer, en un seul objet plutôt
- * qu'en quatre booléens éparpillés dans le composant.
+ * qu'en trois booléens éparpillés dans le composant.
  *
- * `orienter` est vrai exactement quand `demanderDeLAide` est faux : il n'y a
- * pas d'état où l'écran se tait. Quelqu'un sans mentor, ou dont le mentor n'est
- * pas encore vérifié, voit les recours réels — son binôme, le responsable de sa
- * communauté, et les numéros du doc 22. C'est le critère « l'écran ne promet
- * pas une aide que personne ne recevra ».
+ * `orienter` est vrai quand il n'y a **rien à répondre et personne à joindre**.
+ * Les deux conjoncts comptent, et le premier a coûté un défaut : `!joignable`
+ * seul rendait `orienter` vrai sur une proposition en attente — c'est-à-dire
+ * qu'un jeune de seize ans lisait « ton église te propose d'être accompagné·e
+ * par Marc », puis, trois lignes plus bas, « personne ne t'accompagne pour
+ * l'instant, appelle le 119 », sur l'écran même où il décide de consentir.
+ *
+ * Quelqu'un sans mentor, ou dont le mentor n'est pas vérifié, voit les recours
+ * réels — son binôme, le responsable de sa communauté, les numéros du doc 22.
+ * C'est le critère « l'écran ne promet pas une aide que personne ne recevra ».
  */
 export type GestesDuParticipant = {
   repondre: boolean
@@ -167,12 +172,13 @@ export const gestesDuParticipant = (
   aideDejaOuverte: boolean,
 ): GestesDuParticipant => {
   const joignable = mentorJoignable(accompagnement)
+  const repondre = accompagnement?.statut === 'pending'
   return {
-    repondre: accompagnement?.statut === 'pending',
+    repondre,
     // Une demande déjà ouverte n'en autorise pas une seconde : la base porte un
     // index unique partiel, et un écran qui laisserait rappeler ferait échouer
     // le geste au lieu de dire « c'est déjà parti ».
     demanderDeLAide: joignable && !aideDejaOuverte,
-    orienter: !joignable,
+    orienter: !repondre && !joignable,
   }
 }

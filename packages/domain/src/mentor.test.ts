@@ -85,15 +85,24 @@ describe('gestesDuParticipant', () => {
     expect(gestesDuParticipant(accompagnement(), true).demanderDeLAide).toBe(false)
   })
 
-  it('oriente exactement quand personne ne peut recevoir — jamais de silence', () => {
+  it('oriente quand il n’y a rien à répondre et personne à joindre', () => {
     // Le critère de l'issue : « l'écran ne promet pas une aide que personne ne
-    // recevra ». Il n'existe donc aucun état où les deux sont faux.
-    for (const cas of [null, accompagnement({ statut: 'pending' }), accompagnement({ formation: 'expired' })]) {
+    // recevra ».
+    for (const cas of [null, accompagnement({ formation: 'expired' }), accompagnement({ verification: 'revoked' })]) {
       expect(gestesDuParticipant(cas, false).orienter).toBe(true)
     }
-    // Témoin : un mentor joignable, lui, n'a pas besoin d'être contourné.
+    // Témoin : un mentor joignable n'a pas besoin d'être contourné.
     expect(gestesDuParticipant(accompagnement(), false).orienter).toBe(false)
     expect(gestesDuParticipant(null, false)).toEqual({ repondre: false, demanderDeLAide: false, orienter: true })
+  })
+
+  it('ne double pas une proposition d’un « personne ne t’accompagne »', () => {
+    // Le défaut qu'un `orienter: !joignable` produisait : sur l'écran même où
+    // un jeune de seize ans décide de consentir, la carte le nommait puis
+    // disait, trois lignes plus bas, que personne ne l'accompagnait.
+    const gestes = gestesDuParticipant(accompagnement({ statut: 'pending' }), false)
+    expect(gestes.repondre).toBe(true)
+    expect(gestes.orienter).toBe(false)
   })
 
   it('propose de répondre tant que la proposition attend', () => {

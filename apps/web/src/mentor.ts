@@ -61,6 +61,30 @@ export const chargerAccompagnements = async (client: SupabaseClient): Promise<Ac
 }
 
 /**
+ * Le nombre de propositions qu'un mentor n'a pas encore vues acceptées.
+ *
+ * `tandem_mes_accompagnements()` ne rend que les affectations `active` — le nom
+ * naît de l'acceptation. Sans ce compte, un mentor qu'on vient de nommer lirait
+ * « aucun participant ne t'est encore affecté » alors qu'une affectation existe
+ * et attend une réponse : c'est faux, et c'est décourageant.
+ *
+ * Un compte, jamais une liste : `mentor_assignments_member_read` lui rendrait
+ * les identifiants, et un identifiant hexadécimal est déjà plus que ce que la
+ * décision 1 lui accorde avant le oui du jeune.
+ */
+export const compterPropositionsEnAttente = async (
+  client: SupabaseClient,
+  moi: string,
+): Promise<number> => {
+  const { count, error } = await client
+    .from('mentor_assignments')
+    .select('id', { count: 'exact', head: true })
+    .eq('mentor_id', moi)
+    .eq('status', 'pending')
+  return error ? 0 : count ?? 0
+}
+
+/**
  * Ce que le participant voit de son côté. La plus récente d'abord — la RPC
  * ordonne déjà, on prend la première : une seule relation à la fois est le cas
  * réel, et afficher deux propositions concurrentes serait une question de
@@ -189,7 +213,11 @@ export const envoyerUnMot = async (
   return data ? 'envoye' : 'echec'
 }
 
-export type MotRecu = { id: string; mot: MotEncouragement; recuLe: string; lu: boolean }
+/**
+ * Pas de champ « lu » : la table ne porte aucun accusé de lecture, et c'est une
+ * décision (voir la migration). Un mot arrive, et il est là.
+ */
+export type MotRecu = { id: string; mot: MotEncouragement; recuLe: string }
 
 /**
  * Les mots reçus. Le filtre sur `participant_id` n'est pas redondant avec la
@@ -204,7 +232,7 @@ export const chargerMesEncouragements = async (
 ): Promise<MotRecu[]> => {
   const { data, error } = await client
     .from('mentor_encouragements')
-    .select('id, message_key, created_at, read_at')
+    .select('id, message_key, created_at')
     .eq('participant_id', moi)
     .order('created_at', { ascending: false })
     .limit(5)
@@ -213,6 +241,5 @@ export const chargerMesEncouragements = async (
     id: ligne.id as string,
     mot: ligne.message_key as MotEncouragement,
     recuLe: ligne.created_at as string,
-    lu: ligne.read_at !== null,
   }))
 }
