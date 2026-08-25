@@ -856,6 +856,58 @@ describe('Les affectations de mentor', () => {
   })
 })
 
+describe('La liste des membres, avec des noms', () => {
+  it('rend au responsable les noms de sa communauté, et rien à personne d’autre', async () => {
+    const decor = await monterDecor()
+    await commeService(async (client) => {
+      await client.query(
+        `insert into public.profiles (id, display_name) values ($1, 'Léa'), ($2, 'Marc')
+         on conflict (id) do update set display_name = excluded.display_name`,
+        [decor.lea.id, decor.marc.id],
+      )
+    })
+
+    await commeUtilisateur(decor.pauline, async (client) => {
+      const { rows } = await client.query<{ nom: string; role: string }>(
+        'select nom, role from public.tandem_membres_de_ma_communaute() order by nom',
+      )
+      expect(rows).toHaveLength(5)
+      expect(rows.map((r) => r.nom)).toContain('Léa')
+    })
+
+    // Bruno est responsable, mais d'ailleurs : il obtient sa communauté à lui,
+    // et aucun nom de celle de Pauline. C'est l'étanchéité, vue depuis la
+    // fonction — et la raison pour laquelle elle n'a pas de paramètre.
+    await commeUtilisateur(decor.bruno, async (client) => {
+      const { rows } = await client.query<{ nom: string }>('select nom from public.tandem_membres_de_ma_communaute()')
+      expect(rows).toHaveLength(1)
+      expect(rows.map((r) => r.nom)).not.toContain('Léa')
+    })
+
+    // Ni le mentor, ni le membre : table vide. C'est le repli fermé, et c'est
+    // ce qui rend l'absence de paramètre utile.
+    for (const curieux of [decor.marc, decor.youssef]) {
+      await commeUtilisateur(curieux, async (client) => {
+        const { rowCount } = await client.query('select 1 from public.tandem_membres_de_ma_communaute()')
+        expect(rowCount).toBe(0)
+      })
+    }
+    await commeAuthentifieSansIdentite(async (client) => {
+      const { rowCount } = await client.query('select 1 from public.tandem_membres_de_ma_communaute()')
+      expect(rowCount).toBe(0)
+    })
+  })
+
+  it('ne laisse pas sortir de `profiles` autre chose que le nom', async () => {
+    const decor = await monterDecor()
+    await commeUtilisateur(decor.pauline, async (client) => {
+      // La fonction énumère ses colonnes ; `profiles` reste fermée par ailleurs.
+      const { rowCount } = await client.query('select 1 from public.profiles where id = $1', [decor.lea.id])
+      expect(rowCount).toBe(0)
+    })
+  })
+})
+
 describe('Ce que ce chantier n’ouvre pas', () => {
   it('ne donne au responsable aucun accès au contenu spirituel de ses membres', async () => {
     const decor = await monterDecor()

@@ -452,6 +452,62 @@ create policy "church_members_leader_update"
 
 grant update (role, status) on public.church_members to authenticated;
 
+-- ---------------------------------------------------------------------------
+-- La liste des membres, avec des noms — et pourquoi ce n'est pas une politique
+-- ---------------------------------------------------------------------------
+--
+-- `church_members_leader_read` rend au responsable une liste d'**uuid**.
+-- `profiles` est own-only depuis `…_000001` : personne ne lit le nom de
+-- personne. Un écran de gestion qui affiche seize identifiants hexadécimaux
+-- n'est pas un écran de gestion, et le doc 06 accorde justement au responsable
+-- le « profil public minimal — oui si groupe ».
+--
+-- Deux façons de le donner, et le choix n'est pas indifférent :
+--
+-- - une **politique SELECT** sur `profiles` pour les responsables. Refusée.
+--   `profiles` est la table la plus sensible du schéma après le journal — elle
+--   porte les dates de consentement, l'état du compte, la demande de
+--   suppression — et une politique y ouvre *toutes* les colonnes, aujourd'hui
+--   et à chaque colonne ajoutée plus tard. Personne ne se souviendrait, en
+--   ajoutant un champ, qu'un responsable d'église le lira ;
+-- - une **fonction** qui rend exactement les cinq colonnes utiles. Retenue.
+--   Le motif est celui de `tandem_partenaire()` : ce qui sort est énuméré une
+--   fois, ici, et une colonne ajoutée à `profiles` n'en sort pas toute seule.
+--
+-- **Sans paramètre**, comme `tandem_est_moderateur()` : elle répond « les
+-- membres de la communauté que je dirige ». Une variante prenant un
+-- `church_id` ferait de tout compte un annuaire des membres de n'importe
+-- quelle église — et la borne d'une seule appartenance active rend le
+-- paramètre inutile de toute façon.
+--
+-- Elle ne rend **rien** à qui n'est pas responsable : repli fermé, table vide.
+
+create or replace function public.tandem_membres_de_ma_communaute()
+returns table (user_id uuid, role text, statut text, nom text, entre_le timestamptz)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select m.user_id, m.role, m.status, coalesce(p.display_name, ''), m.created_at
+  from public.church_members m
+  join public.church_members moi
+    on moi.church_id = m.church_id
+   and moi.user_id = auth.uid()
+   and moi.role = 'leader'
+   and moi.status = 'active'
+  left join public.profiles p on p.id = m.user_id
+  where auth.uid() is not null
+  order by m.created_at asc
+$$;
+
+comment on function public.tandem_membres_de_ma_communaute() is
+  'Les membres de la communauté que l''appelant dirige : identifiant, rôle, statut, nom d''affichage, date d''entrée. Sans paramètre, pour ne pas devenir un annuaire d''église. Énumère ce qui sort de profiles plutôt que d''y ouvrir une politique — une colonne ajoutée à profiles ne sortira pas d''elle-même.';
+
+revoke all on function public.tandem_membres_de_ma_communaute() from public;
+revoke all on function public.tandem_membres_de_ma_communaute() from anon;
+grant execute on function public.tandem_membres_de_ma_communaute() to authenticated;
+
 -- ===========================================================================
 -- Les liens d'invitation
 -- ===========================================================================

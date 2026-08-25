@@ -27,6 +27,13 @@ export { ModerationView } from './moderation'
 // lui sont propres, et il n'emprunte rien aux vues ci-dessous.
 export { InvitationsView } from './invitations'
 
+// L'espace église. Il est parti d'ici le 25/08/2026 (issue #17) : il n'était
+// qu'un instantané en lecture, il porte désormais tous les gestes d'une
+// communauté — fonder, rejoindre, ouvrir une cohorte, émettre un lien — et sa
+// propre scène de conception.
+export { ChurchView } from './communaute'
+export type { ActionsCommunaute } from './communaute'
+
 export function AuthDialog({ t, loading, onClose }: { t: Copy; loading: boolean; onClose: () => void }) {
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
@@ -329,19 +336,6 @@ export function MentorView({ snapshot, t }: { snapshot: MentorSnapshot; t: Copy 
   </section>
 }
 
-export function ChurchView({ snapshot, t }: { snapshot: ChurchSnapshot; t: Copy }) {
-  const roleLabels = { member: t.memberRole, mentor: t.mentorRole, leader: t.leaderRole, admin: t.adminRole }
-  return <section className="content-section workspace-section">
-    <div className="section-header"><div><span className="section-kicker">{t.churchWorkspace}</span><h2>{t.churchWorkspace}</h2><p>{t.aggregateStatsDescription}</p></div><span className="workspace-glyph" aria-hidden="true">⌂</span></div>
-    {!snapshot ? <div className="workspace-empty"><span className="workspace-empty-mark" aria-hidden="true">—</span><strong>{t.workspacePending}</strong><p>{t.churchEmpty}</p></div> : <>
-      <div className="workspace-grid">
-        <article className="workspace-card"><span className="section-kicker">{t.roleLabel}</span><strong>{roleLabels[snapshot.role]}</strong><p>{t.churchWorkspace}</p></article>
-        <article className="workspace-card"><span className="section-kicker">{t.churchGroups}</span><strong>{snapshot.groupCount}</strong><p>{t.groupsLabel}</p></article>
-      </div>
-      <div className="workspace-empty"><span className="workspace-empty-mark" aria-hidden="true">◌</span><strong>{t.aggregateStats}</strong><p>{t.statsEmpty}</p></div>
-    </>}
-  </section>
-}
 
 export function NavItem({ active, label, icon, onClick }: { active: boolean; label: string; icon: string; onClick: () => void }) {
   return <button className={`nav-item ${active ? 'active' : ''}`} onClick={onClick}><span aria-hidden="true">{icon}</span>{label}</button>

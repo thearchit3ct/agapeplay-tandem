@@ -29,6 +29,19 @@ export type { StatutInvitation, EtatInvitation, Invitation, RevocationInvitation
 export { prochaineSeance } from './parcours'
 
 export {
+  PARAM_COMMUNAUTE,
+  cohorteRecevable, etatCohorte, etatLien, jetonDepuisUrl, jourUtc,
+  lienDInvitation, placesRestantes, pouvoirsEglise, refusDAdhesion,
+} from './communaute'
+export type {
+  Cohorte, EtatCohorte, EtatLien, LienInvitation, PouvoirsEglise,
+  RefusDAdhesion, RoleEglise, StatutEglise,
+} from './communaute'
+// Réimportés en plus d'être réexportés : `ChurchSnapshot`, plus bas dans ce
+// fichier, s'en sert. Un `export type … from` ne les met pas dans la portée.
+import type { RoleEglise, StatutEglise } from './communaute'
+
+export {
   ABSENCE_SEUIL_JOURS, ETATS_DE_SEMAINE,
   cleDeSemaine, invitationDouce, repriseApresAbsence, semaineDuBilan,
 } from './bilan'
@@ -118,7 +131,22 @@ export type Tab = AppState['activeTab']
 export type SessionStep = 'read' | 'practice' | 'complete'
 export type RemoteMessage = { id: string; senderId: string; body: string; createdAt: string }
 export type MentorSnapshot = { verificationStatus: 'pending' | 'verified' | 'rejected' | 'revoked'; trainingStatus: 'required' | 'in_progress' | 'completed' | 'expired' } | null
-export type ChurchSnapshot = { churchId: string; role: 'member' | 'mentor' | 'leader' | 'admin'; groupCount: number } | null
+/**
+ * L'appartenance de la personne à une communauté, telle que l'écran la reçoit.
+ *
+ * Le nom et le statut s'y sont ajoutés le 25/08/2026 (issue #17) : sans eux,
+ * l'écran ne pouvait ni nommer la communauté ni dire pourquoi les gestes
+ * d'invitation manquent tant qu'elle n'est pas activée. `role` reprend
+ * `RoleEglise`, pour qu'un rôle ajouté un jour à la base fasse échouer `tsc -b`
+ * ici plutôt que de s'afficher en blanc.
+ */
+export type ChurchSnapshot = {
+  churchId: string
+  nom: string
+  statut: StatutEglise
+  role: RoleEglise
+  groupCount: number
+} | null
 
 /**
  * Le nom à afficher pour un compte, déduit de son identité de connexion.

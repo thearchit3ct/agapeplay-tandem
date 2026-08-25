@@ -50,6 +50,28 @@ describe('assemblage de l’export', () => {
     expect(resultat.donnees.tandems).toEqual([{ id: 't1' }, { id: 't2' }])
   })
 
+  it('réunit les accompagnements des deux rôles dans une seule section', async () => {
+    // Une affectation nomme deux personnes ; l'export de chacune doit la
+    // contenir. Sans la seconde lecture, un mentor exporterait un fichier où
+    // rien ne dirait qu'il accompagne quelqu'un.
+    const { lire, vus } = lecteur({
+      'accompagnements:participant_id': { data: [{ id: 'a1' }], error: null },
+      'accompagnements:mentor_id': { data: [{ id: 'a2' }], error: null },
+    })
+
+    const resultat = await rassemblerExport(lire, COMPTE, LE_JOUR)
+    expect(vus).toContain('accompagnements:participant_id')
+    expect(vus).toContain('accompagnements:mentor_id')
+    expect(resultat.donnees.accompagnements).toEqual([{ id: 'a1' }, { id: 'a2' }])
+  })
+
+  it('n’écrit aucun jeton d’invitation dans le fichier', async () => {
+    // Un export circule : on l'envoie, on le dépose, on l'oublie. Un jeton
+    // vivant y serait une clé d'entrée dans une communauté de mineurs.
+    const section = SECTIONS.find((s) => s.clef === 'liens_d_invitation_emis')
+    expect(section?.colonnes).not.toContain('token')
+  })
+
   it('dit dans le fichier pourquoi les événements de mesure n’y sont pas', async () => {
     // L'absence est structurelle — aucune ligne d'`analytics_events` ne désigne
     // un compte — mais une absence non expliquée se lit comme un oubli, et sur
