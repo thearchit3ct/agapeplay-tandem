@@ -72,6 +72,16 @@ Conséquence voulue : `suspended` n'est pas décoratif. Une église suspendue
 cesse à l'instant d'inviter et d'affecter — les politiques relisent `status` à
 chaque requête, sans migration ni redéploiement.
 
+**Une nuance assumée** : `pending` et `suspended` ouvrent exactement les mêmes
+droits, alors que l'un est une attente et l'autre une sanction. Une communauté
+suspendue peut donc encore créer et clôturer des cohortes. C'est délibéré, et le
+dommage est borné par la ligne du dessus — personne n'entre, aucun mentor n'est
+affecté, une cohorte préparée pendant une suspension reste vide. Distinguer les
+deux demanderait un second conjonct sur chaque politique d'organisation, pour
+empêcher quelqu'un de ranger des dates dans un espace que plus personne ne peut
+rejoindre. À reprendre le jour où une suspension réelle aura eu lieu et qu'on
+saura ce qu'on veut qu'elle fasse.
+
 ---
 
 ## Décision 2 — les cohortes, et le bord de la fenêtre qui est un droit
@@ -138,6 +148,13 @@ D'où `church_invitations` : anonyme, multi-usage, plafonnée (`max_uses`,
 50 par défaut, 500 au plus), périssable (30 jours par défaut, **90 au maximum
 par contrainte `check`**), révocable.
 
+**La révocation est définitive.** Le `with check` exige `status = 'revoked'` :
+un lien repris ne se remet pas en service. La contrainte `check` de la table
+l'autoriserait — c'est la politique qui ferme — parce qu'un lien révoqué a
+continué de circuler pendant qu'il ne valait rien, et le remettre en vie
+rouvrirait une porte à tous ceux qui l'ont recopié entre-temps. On en émet un
+autre : le nouveau porte un jeton que personne n'a jamais eu.
+
 Et surtout : **un lien ne confère que `member`.** Jamais `mentor`, jamais
 `leader`. C'est la borne la plus importante du chantier. Un lien qui
 fabriquerait des mentors fabriquerait des adultes référents de mineurs par
@@ -164,6 +181,26 @@ de bits et de correction Reed-Solomon, dans un dépôt dont la règle est que
 chaque décision est épinglée par un test. Le rapport entre ce que cela coûte et
 ce que cela ajoute à un lien qu'on peut déjà copier ne le justifie pas
 aujourd'hui. À rouvrir si les pilotes le demandent.
+
+---
+
+### Le jeton doit franchir une connexion
+
+Le cas majoritaire d'un lien d'église n'est pas quelqu'un de connecté : c'est
+quelqu'un qui **n'a pas encore de compte**. Il ouvre le lien reçu dans un groupe
+de messagerie, arrive sans session, se connecte — et `signInWithOAuth` comme le
+lien magique quittent la page pour revenir sur `window.location.origin`, **nu**.
+La query string a disparu, l'état React est reparti de zéro.
+
+Le jeton est donc mis à l'abri dans le stockage local (`retenirJetonCommunaute`)
+**avant** que l'URL ne soit nettoyée, relu quand une session apparaît, et oublié
+dès qu'il a servi — ou dès qu'il a été refusé, ce qui est aussi terminal. Le
+nettoyage de l'URL n'est pas cosmétique non plus : un jeton laissé dans la barre
+d'adresse entre dans l'historique d'un appareil souvent partagé, à seize ans.
+
+`clearState()` ne l'emporte pas : la suppression de compte efface ce qui
+appartient à la personne, et un jeton d'invitation appartient à l'église qui l'a
+émis. Il périme tout seul, en base, au plus tard à 90 jours.
 
 ---
 

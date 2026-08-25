@@ -7,7 +7,7 @@ import { supabase, supabaseConfigured } from './lib/supabaseClient'
 import { getJourney } from './mockData'
 import { loadPublishedJourney } from '@agapeplay/content'
 import { clearSyncQueue, enqueueSync, idsJournalEnAttente, readSyncQueue, removeSync } from './offlineQueue'
-import { clearState, initialState, loadState, saveState } from './storage'
+import { clearState, initialState, jetonCommunauteRetenu, loadState, oublierJetonCommunaute, retenirJetonCommunaute, saveState } from './storage'
 import { nomDuFichierExport, rassemblerExport, telechargerJson } from './export'
 import type { Ligne, Reponse, SectionExport } from './export'
 import { copy } from '@agapeplay/content/copy/web'
@@ -142,17 +142,11 @@ function App() {
   const [refusCommunaute, setRefusCommunaute] = useState<RefusDAdhesion | 'nom_invalide' | null>(null)
   const [relectureCommunaute, setRelectureCommunaute] = useState(0)
   const [relectureAppartenance, setRelectureAppartenance] = useState(0)
-  // Le jeton lu dans l'URL, gardé jusqu'à ce qu'il y ait quelqu'un pour
-  // l'utiliser. Il est capté au tout premier rendu — avant même de savoir si
-  // une session existe — puis effacé de la barre d'adresse : quelqu'un qui
-  // arrive par un lien d'église passe presque toujours par une connexion, et
-  // un jeton laissé dans l'URL survivrait dans l'historique du navigateur d'un
-  // appareil souvent partagé.
-  const [jetonCommunaute, setJetonCommunaute] = useState<string | null>(() => {
-    const jeton = jetonDepuisUrl(window.location.search)
-    if (jeton !== null) window.history.replaceState(null, '', window.location.pathname)
-    return jeton
-  })
+  // Le jeton d'invitation d'église, gardé jusqu'à ce qu'il y ait quelqu'un pour
+  // l'utiliser. Il vient du stockage à l'ouverture, parce que le chemin normal
+  // le fait franchir une connexion qui recharge la page — voir
+  // `retenirJetonCommunaute` dans `storage.ts`, qui porte le raisonnement.
+  const [jetonCommunaute, setJetonCommunaute] = useState<string | null>(() => jetonCommunauteRetenu())
   // Le bilan de fin de semaine — issue #18. Quatre états, et aucun compteur :
   // `bilans` porte les semaines déjà répondues (pour ne pas reposer une
   // question à laquelle on a répondu), `bilanRepondu` la réponse posée pendant
@@ -336,6 +330,20 @@ function App() {
     return () => { cancelled = true }
   }, [authSession?.user.id, activeTab, relectureInvitations])
 
+  // Le jeton lu dans la barre d'adresse, mis à l'abri puis effacé de l'URL.
+  //
+  // Dans un effet et non dans un initialiseur de `useState` : `replaceState`
+  // est un effet de bord sur le navigateur, et le rendu n'est pas l'endroit
+  // pour cela. L'effacement, lui, n'est pas cosmétique — un jeton laissé dans
+  // l'URL entre dans l'historique d'un appareil souvent partagé, à seize ans.
+  useEffect(() => {
+    const jeton = jetonDepuisUrl(window.location.search)
+    if (jeton === null) return
+    retenirJetonCommunaute(jeton)
+    window.history.replaceState(null, '', window.location.pathname)
+    setJetonCommunaute(jeton)
+  }, [])
+
   // L'appartenance à une communauté — issue #17. Elle a son effet à elle, et
   // pas une ligne de plus dans celui de la synchronisation : fonder ou
   // rejoindre doit la relire, et rejouer la synchronisation entière pour deux
@@ -374,7 +382,11 @@ function App() {
     const client = supabase
     if (!client || !authSession || jetonCommunaute === null) return
     const jeton = jetonCommunaute
+    // Consommé avant de connaître le résultat, et oublié du stockage dans le
+    // même geste : les deux issues sont terminales. Une tentative qui échoue ne
+    // doit pas se rejouer à chaque rendu, ni ressurgir au prochain démarrage.
     setJetonCommunaute(null)
+    oublierJetonCommunaute()
     void rejoindreCommunaute(client, jeton).then((resultat) => {
       if ('refus' in resultat) { setRefusCommunaute(resultat.refus); return }
       setRefusCommunaute(null)

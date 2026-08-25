@@ -598,15 +598,23 @@ create policy "church_invitations_leader_insert"
     )
   );
 
--- Révoquer, et rien d'autre : le `grant` colonnaire ne porte que `status`, donc
--- ni le jeton, ni le plafond, ni la date de péremption ne se réécrivent. Un
--- lien qu'on regretterait se reprend ; il ne se prolonge pas.
+-- Révoquer, et rien d'autre. Deux bornes, et la seconde est la moins évidente :
+--
+-- - le `grant` colonnaire ne porte que `status`, donc ni le jeton, ni le
+--   plafond, ni la date de péremption ne se réécrivent. Un lien qu'on
+--   regretterait se reprend ; il ne se prolonge pas ;
+-- - `status = 'revoked'` dans le `with check` : **la révocation est
+--   définitive.** Sans ce conjonct, la contrainte `check` laisse repasser un
+--   lien de `revoked` à `pending` — c'est-à-dire remettre en service une URL
+--   qu'on avait reprise, et qui a continué de circuler pendant ce temps. On ne
+--   remet pas un lien en vie, on en émet un autre : le nouveau porte un jeton
+--   que personne n'a jamais eu.
 drop policy if exists "church_invitations_leader_update" on public.church_invitations;
 create policy "church_invitations_leader_update"
   on public.church_invitations for update
   to authenticated
   using (public.tandem_role_eglise(church_id) = 'leader')
-  with check (public.tandem_role_eglise(church_id) = 'leader');
+  with check (public.tandem_role_eglise(church_id) = 'leader' and status = 'revoked');
 
 grant select on public.church_invitations to authenticated;
 grant insert (church_id, group_id, created_by, max_uses, expires_at) on public.church_invitations to authenticated;

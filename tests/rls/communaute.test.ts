@@ -605,6 +605,10 @@ describe('Le lien d’invitation', () => {
 
       expect(await refuse(client, `update public.church_invitations set max_uses = 500 where church_id = $1`, [decor.bethel]))
         .toMatch(/permission denied/)
+      // La révocation est définitive : remettre un lien en service, ce serait
+      // remettre en vie une URL qui a continué de circuler entre-temps.
+      expect(await refuse(client, `update public.church_invitations set status = 'pending' where token = $1`, [decor.jetonRevoque]))
+        .toMatch(/row-level security/)
       expect(await refuse(client, `update public.church_invitations set token = 'choisi' where church_id = $1`, [decor.bethel]))
         .toMatch(/permission denied/)
     })
