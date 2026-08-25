@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { initialeDe, nomDepuisIdentite, prochaineSeance } from '@agapeplay/domain'
-import type { FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import type { AppState, Locale, Session as Seance } from '@agapeplay/domain'
 import { supabase, supabaseConfigured } from './lib/supabaseClient'
