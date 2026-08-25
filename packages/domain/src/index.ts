@@ -29,6 +29,12 @@ export type { StatutInvitation, EtatInvitation, Invitation, RevocationInvitation
 export { prochaineSeance } from './parcours'
 
 export {
+  ABSENCE_SEUIL_JOURS, ETATS_DE_SEMAINE,
+  cleDeSemaine, invitationDouce, repriseApresAbsence, semaineDuBilan,
+} from './bilan'
+export type { EtatDeSemaine, InvitationDouce, ContexteInvitation } from './bilan'
+
+export {
   LONGUEUR_MAX_VALEUR, MESURE_DUREE_MAX_JOURS, NOMS_EVENEMENTS, PROPRIETES_AUTORISEES,
   identifiantPerime, preparerEvenement, trancheDuree,
 } from './mesure'
@@ -86,11 +92,19 @@ export type AppState = {
   completedSessionIds: string[]
   journalEntries: JournalEntry[]
   tandem: Tandem
+  /**
+   * Les clés sont **les noms de colonnes** de `notification_preferences`, et
+   * non des noms camelCase : l'écran fait `upsert({ ...notificationPrefs })` et
+   * relit la réponse par `{ ...data }`. Renommer une clé ici casserait les deux
+   * sens de la synchronisation sans qu'aucun test ne l'attrape — d'où
+   * `weekly_checkin` et pas `weeklyCheckin`.
+   */
   notificationPrefs: {
     sessions: boolean
     messages: boolean
     church: boolean
     absence: boolean
+    weekly_checkin: boolean
   }
 }
 

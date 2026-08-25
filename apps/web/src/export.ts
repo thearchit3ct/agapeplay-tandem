@@ -58,7 +58,7 @@ export type SectionExport = {
  */
 export const SECTIONS: readonly SectionExport[] = [
   { clef: 'profil', table: 'profiles', colonnes: 'id, display_name, locale, account_status, created_at, updated_at, age_confirmed_at, privacy_consent_at, terms_consent_at, deletion_requested_at', colonne: 'id', cible: 'compte' },
-  { clef: 'preferences_de_notification', table: 'notification_preferences', colonnes: 'sessions, messages, church, absence, updated_at', colonne: 'user_id', cible: 'compte' },
+  { clef: 'preferences_de_notification', table: 'notification_preferences', colonnes: 'sessions, messages, church, absence, weekly_checkin, updated_at', colonne: 'user_id', cible: 'compte' },
   // Le consentement à la mesure y figure depuis le 25/08/2026 : c'est un choix
   // de la personne, et le seul endroit où ce choix est écrit sous son nom. Les
   // ÉVÉNEMENTS de mesure, eux, n'y sont pas et ne peuvent pas y être — voir
@@ -66,6 +66,11 @@ export const SECTIONS: readonly SectionExport[] = [
   { clef: 'preference_de_mesure', table: 'mesure_preferences', colonnes: 'mesure, updated_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'progression', table: 'session_progress', colonnes: 'journey_id, session_id, completed_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'journal', table: 'journal_entries', colonnes: 'id, text, mood, created_at', colonne: 'user_id', cible: 'compte' },
+  // Les bilans de fin de semaine, depuis le 25/08/2026 (issue #18). Une semaine
+  // et un mot : c'est tout ce que la table porte, et tout ce qui sort ici. La
+  // note écrite en marge d'un bilan n'a pas de ligne à elle — c'est une entrée
+  // de journal, déjà présente dans la section au-dessus.
+  { clef: 'bilans_hebdomadaires', table: 'weekly_checkins', colonnes: 'week_key, state, created_at, updated_at', colonne: 'user_id', cible: 'compte' },
   { clef: 'partages_du_journal', table: 'journal_shares', colonnes: 'entry_id, tandem_id, created_at', colonne: 'shared_by', cible: 'compte' },
   { clef: 'tandems', table: 'tandems', colonnes: 'id, status, blocked_by, created_at, ended_at', colonne: 'participant_a_id', cible: 'compte' },
   { clef: 'messages_envoyes', table: 'tandem_messages', colonnes: 'id, tandem_id, body, created_at', colonne: 'sender_id', cible: 'compte' },

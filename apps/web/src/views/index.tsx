@@ -14,8 +14,8 @@ import { supabase } from '../lib/supabaseClient'
 import type { AppState } from '@agapeplay/domain'
 import { getJourney } from '../mockData'
 import type { Copy } from '@agapeplay/content/copy/web'
-import type { CategorieSignalement, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance, PartageDuJournal } from '@agapeplay/domain'
-import { CATEGORIES_PROPOSEES, initialeDe, urgenceDe } from '@agapeplay/domain'
+import type { CategorieSignalement, SessionStep, RemoteMessage, MentorSnapshot, ChurchSnapshot, TandemStatus, UnblockAffordance, PartageDuJournal, EtatDeSemaine, InvitationDouce } from '@agapeplay/domain'
+import { CATEGORIES_PROPOSEES, ETATS_DE_SEMAINE, initialeDe, urgenceDe } from '@agapeplay/domain'
 import type { EntreePartagee, PartageEmis } from '../partageJournal'
 
 // L'espace modérateur vit dans son propre fichier : il ne partage rien avec les
@@ -108,6 +108,11 @@ export function SettingsDialog({ t, prefs, onToggle, onClose, onExport, onSignOu
         <label><input type="checkbox" checked={prefs.messages} onChange={(event) => onToggle('messages', event.target.checked)} /> <span>{t.messageNotifications}</span></label>
         <label><input type="checkbox" checked={prefs.church} onChange={(event) => onToggle('church', event.target.checked)} /> <span>{t.churchNotifications}</span></label>
         <label><input type="checkbox" checked={prefs.absence} onChange={(event) => onToggle('absence', event.target.checked)} /> <span>{t.absenceNotifications}</span></label>
+        {/* Le bilan a son propre interrupteur, et pas une case de plus sous
+            « Séances quotidiennes » : on peut vouloir la paix en semaine et
+            accepter une question le samedi. Voir la migration
+            20260825213000 pour le raisonnement complet. */}
+        <label><input type="checkbox" checked={prefs.weekly_checkin} onChange={(event) => onToggle('weekly_checkin', event.target.checked)} /> <span>{t.weeklyCheckinNotifications}</span></label>
       </div>
       {/* La mesure est décrite avant d'être réglable : la case seule ne dirait
           pas ce qu'on mesure, et un interrupteur qu'on ne comprend pas n'est
@@ -343,8 +348,120 @@ export function NavItem({ active, label, icon, onClick }: { active: boolean; lab
 }
 
 
-export function TodayView({ session, completedCount, partnerName, t, onStart, onOpenJournal, onOpenTandem }: { session: ReturnType<typeof getJourney>['sessions'][number]; completedCount: number; partnerName: string | null; t: Copy; onStart: () => void; onOpenJournal: () => void; onOpenTandem: () => void }) {
+/**
+ * Les cinq réponses, et le texte de chacune.
+ *
+ * La table est ici et pas dans le domaine : le domaine décide du vocabulaire
+ * (`ETATS_DE_SEMAINE`, épinglé par ses tests), les écrans décident des mots. Le
+ * typage `Record<EtatDeSemaine, …>` fait échouer `tsc -b` le jour où une
+ * réponse s'ajoute sans son libellé — une réponse muette serait un bouton vide.
+ */
+const LIBELLE_ETAT: Record<EtatDeSemaine, keyof Copy> = {
+  paisible: 'checkinCalm',
+  dense: 'checkinFull',
+  rude: 'checkinHard',
+  ailleurs: 'checkinElsewhere',
+  incertain: 'checkinUnsure',
+}
+
+/**
+ * Le mot d'accueil après une absence — troisième critère de l'issue #18.
+ *
+ * Ce qu'il ne dit pas est ce qui compte. Pas de durée (« ça fait douze
+ * jours »), pas de comptage (« tu as manqué deux semaines »), pas de reproche
+ * déguisé en enthousiasme (« on t'attendait ! »), pas de bouton qui presse.
+ * Rien de tout cela n'est affichable ici, parce que rien de tout cela n'est
+ * calculé : `repriseApresAbsence` rend un booléen et pas un écart, exprès.
+ *
+ * Ce qu'il dit : que rien n'a bougé, et qu'on reprend où l'on veut. C'est la
+ * seule information réellement utile à quelqu'un qui rouvre l'application après
+ * trois semaines — la peur, à cet âge, est d'avoir perdu sa place.
+ */
+export function RepriseNote({ t, onStart }: { t: Copy; onStart: () => void }) {
+  return <section className="side-note gentle-note">
+    <span className="section-kicker">{t.today}</span>
+    <h3>{t.resumeTitle}</h3>
+    <p>{t.resumeBody}</p>
+    <button className="text-button" onClick={onStart}>{t.resumeAction} <span aria-hidden="true">→</span></button>
+  </section>
+}
+
+/**
+ * Le bilan de fin de semaine — premier critère de l'issue #18.
+ *
+ * Une question, cinq réponses, et deux façons d'en sortir : répondre, ou
+ * « une autre fois ». Pas de croix qui ferme sans rien dire, pas de « plus
+ * tard » qui promette un retour dans l'heure.
+ *
+ * « Une autre fois » écarte la carte **pour cette visite seulement**, et ce
+ * choix se défend : refuser une fois pour toutes, c'est ce que fait
+ * l'interrupteur des réglages, qui porte ce nom et qui se retrouve. Un écart
+ * qu'on écrirait dans le stockage ferait une troisième mémoire du même choix,
+ * plus discrète et impossible à retrouver quand on change d'avis.
+ *
+ * Une fois répondue, la carte devient une ligne d'accusé de réception qui reste
+ * le temps de la visite — le temps de corriger un clic manqué — puis disparaît.
+ * Elle ne revient pas avant le samedi suivant : reposer une question déjà
+ * répondue est la forme la plus banale du harcèlement doux.
+ */
+export function BilanCard({ t, repondu, enCours, note, onRepondre, onCorriger, onEcarter, onOpenJournal }: {
+  t: Copy
+  /** La réponse posée pendant cette visite, ou `null` tant qu'il n'y en a pas. */
+  repondu: EtatDeSemaine | null
+  /** Une réponse est en vol : les cinq boutons se désarment ensemble. */
+  enCours: boolean
+  /** Ce qui empêche d'enregistrer — hors ligne, pas de compte — ou une chaîne vide. */
+  note: string
+  onRepondre: (etat: EtatDeSemaine) => void
+  onCorriger: () => void
+  onEcarter: () => void
+  onOpenJournal: () => void
+}) {
+  return <section className="prompt-panel checkin-panel">
+    <div className="panel-heading"><span className="section-kicker">{t.checkinTitle}</span><span className="private-label">⌁ {t.private}</span></div>
+    {repondu
+      ? <>
+          <h3>{t.checkinSaved}</h3>
+          <p>{t[LIBELLE_ETAT[repondu]]}</p>
+          <div className="checkin-footer">
+            <button className="text-button" onClick={onCorriger}>{t.checkinChange}</button>
+            <button className="text-button" onClick={onOpenJournal}>{t.openJournal} ↗</button>
+          </div>
+          {/* Proposé APRÈS la réponse, jamais à la place : la question du bilan
+              se répond en un geste, et glisser un champ de texte au milieu la
+              transformerait en devoir. La note, elle, est une entrée de journal
+              ordinaire — donc partageable, effaçable et exportable par les
+              chemins qui existent déjà. */}
+          <p className="journal-note">{t.checkinNote}</p>
+        </>
+      : <>
+          <h3>{t.checkinQuestion}</h3>
+          <p>{t.checkinIntro}</p>
+          <div className="checkin-choices">{ETATS_DE_SEMAINE.map((etat) => (
+            <button className="small-button" key={etat} disabled={enCours || Boolean(note)} onClick={() => onRepondre(etat)}>{t[LIBELLE_ETAT[etat]]}</button>
+          ))}</div>
+          {/* Pas de bouton là où la base refuserait — la règle du journal, et
+              la même ici : hors ligne ou sans compte, rien ne s'enregistrerait
+              et le dire vaut mieux que promettre. */}
+          {note && <p className="journal-note" role="status">{note}</p>}
+          <div className="checkin-footer"><button className="text-button" onClick={onEcarter}>{t.checkinLater}</button></div>
+        </>}
+  </section>
+}
+
+export function TodayView({ session, completedCount, partnerName, t, invitation, bilanRepondu, bilanEnCours, bilanNote, onStart, onOpenJournal, onOpenTandem, onRepondreBilan, onCorrigerBilan, onEcarterBilan }: { session: ReturnType<typeof getJourney>['sessions'][number]; completedCount: number; partnerName: string | null; t: Copy; invitation: InvitationDouce; bilanRepondu: EtatDeSemaine | null; bilanEnCours: boolean; bilanNote: string; onStart: () => void; onOpenJournal: () => void; onOpenTandem: () => void; onRepondreBilan: (etat: EtatDeSemaine) => void; onCorrigerBilan: () => void; onEcarterBilan: () => void }) {
   return <>
+    {/* Une invitation douce au plus, jamais deux — la précédence est tranchée
+        dans `invitationDouce` et testée là-bas. Quelqu'un qui revient après
+        trois semaines remplit les deux conditions en même temps, et empiler un
+        mot d'accueil et une question à remplir ferait de son retour une
+        formalité. L'accusé de réception, lui, survit à la réponse : ce n'est
+        plus une invitation. */}
+    {invitation.forme === 'reprise'
+      ? <RepriseNote t={t} onStart={onStart} />
+      : (invitation.forme === 'bilan' || bilanRepondu)
+        ? <BilanCard t={t} repondu={bilanRepondu} enCours={bilanEnCours} note={bilanNote} onRepondre={onRepondreBilan} onCorriger={onCorrigerBilan} onEcarter={onEcarterBilan} onOpenJournal={onOpenJournal} />
+        : null}
     <section className="hero-grid">
       <article className="session-card">
         <div className="session-card-top"><span className="pill">{session.theme}</span><span className="duration">{session.duration} min</span></div>

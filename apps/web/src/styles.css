@@ -582,3 +582,12 @@ h3 { color: #eeeeea; font-weight: 400; }
 .entry-actions .text-button:disabled { opacity: .4; text-decoration: none; cursor: not-allowed; }
 .entry-note, .journal-note { margin: 12px 0 0; padding-left: 10px; border-left: 1px solid #8f8f88; font-size: 11px; line-height: 1.6; color: #b4b4ad; }
 .journal-note { margin-top: 18px; }
+
+/* Le bilan de fin de semaine et le mot d'accueil — issue #18.
+   Trois règles de mise en page seulement, et aucune couleur : les deux blocs
+   empruntent `.prompt-panel` et `.side-note`, que les deux thèmes habillent
+   déjà. Repeindre ici obligerait à le refaire dans le thème clair, et à
+   l'oublier une fois sur deux. */
+.checkin-panel, .gentle-note { margin-bottom: 20px; }
+.checkin-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.checkin-footer { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 16px; }

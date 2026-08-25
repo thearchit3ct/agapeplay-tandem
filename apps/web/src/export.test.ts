@@ -67,6 +67,18 @@ describe('assemblage de l’export', () => {
     expect({ table: section?.table, colonne: section?.colonne }).toEqual({ table: 'mesure_preferences', colonne: 'user_id' })
   })
 
+  it('emporte les bilans de fin de semaine, et le réglage de leur rappel', async () => {
+    // Deux oublis possibles à chaque nouvelle table, et le second est le plus
+    // discret : la section manquante se voit, la colonne manquante d'une
+    // section qui existe déjà ne se voit pas. Le réglage `weekly_checkin` est
+    // un choix de la personne au même titre que les quatre autres.
+    const bilans = SECTIONS.find((s) => s.clef === 'bilans_hebdomadaires')
+    expect({ table: bilans?.table, colonne: bilans?.colonne }).toEqual({ table: 'weekly_checkins', colonne: 'user_id' })
+
+    const prefs = SECTIONS.find((s) => s.clef === 'preferences_de_notification')
+    expect(prefs?.colonnes).toContain('weekly_checkin')
+  })
+
   it('n’exporte que les messages envoyés, jamais la conversation entière', async () => {
     // La section est filtrée sur `sender_id` : les mots du binôme ne sont pas
     // les données personnelles de la personne qui exporte.

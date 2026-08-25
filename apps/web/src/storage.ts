@@ -21,6 +21,10 @@ export const initialState: AppState = {
     messages: true,
     church: false,
     absence: true,
+    // `default true` côté base aussi (migration 20260825213000) : un rappel
+    // qu'il faut aller allumer est un rappel que personne ne découvre, et
+    // celui-ci se coupe d'une case.
+    weekly_checkin: true,
   },
 }
 

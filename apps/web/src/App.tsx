@@ -20,6 +20,10 @@ import { chargerInvitations, revoquerInvitation } from './invitations'
 import { appliquerConsentementDuCompte, emettre, mesureAcceptee, oublierIdentifiantDeMesure, poserConsentementLocal, premiereFois } from './mesure'
 import { trancheDuree } from '@agapeplay/domain'
 import { chargerPartagesEmis, chargerPartagesRecus, poserPartage, retirerPartage, supprimerEntree } from './partageJournal'
+import { chargerBilans, poserBilan } from './bilan'
+import type { BilanPose } from './bilan'
+import { invitationDouce, semaineDuBilan } from '@agapeplay/domain'
+import type { EtatDeSemaine, InvitationDouce } from '@agapeplay/domain'
 import type { EntreePartagee, PartageEmis } from './partageJournal'
 import type { InvitationEmise } from './invitations'
 import type { Invitation } from '@agapeplay/domain'
@@ -125,6 +129,23 @@ function App() {
   // au rendu ferait qu'une invitation change d'état au milieu d'un clic — et
   // rendrait la vue impossible à éprouver.
   const [instantLecture, setInstantLecture] = useState(() => new Date())
+  // Le bilan de fin de semaine — issue #18. Quatre états, et aucun compteur :
+  // `bilans` porte les semaines déjà répondues (pour ne pas reposer une
+  // question à laquelle on a répondu), `bilanRepondu` la réponse posée pendant
+  // cette visite (le temps de corriger un clic manqué), `bilanEnCours` désarme
+  // les cinq boutons ensemble le temps de l'aller-retour, et `bilanEcarte`
+  // retient un « une autre fois » — pour cette visite seulement, le refus
+  // durable étant l'interrupteur des réglages.
+  const [bilans, setBilans] = useState<BilanPose[]>([])
+  const [bilanRepondu, setBilanRepondu] = useState<EtatDeSemaine | null>(null)
+  const [bilanEnCours, setBilanEnCours] = useState(false)
+  const [bilanEcarte, setBilanEcarte] = useState(false)
+  // Le dernier signe de vie connu — séance terminée ou bilan posé. `null` tant
+  // que la base n'a pas répondu : sans lui, l'écran affirmerait une absence
+  // qu'il n'a pas mesurée, et accueillerait « de retour » quelqu'un qui n'est
+  // jamais parti. Il n'en sort jamais un nombre de jours : voir
+  // `packages/domain/src/bilan.ts`.
+  const [derniereActivite, setDerniereActivite] = useState<Date | null>(null)
   // Le réglage de mesure, tel que cet appareil le connaît au démarrage. Un refus
   // posé sur le compte depuis un autre appareil arrive plus tard, avec
   // `loadRemoteState`, et referme la case.
@@ -197,7 +218,7 @@ function App() {
         } else if (operation.kind === 'tandem_message') {
           error = (await client.from('tandem_messages').upsert(operation.payload as { id: string; tandem_id: string; sender_id: string; body: string })).error
         } else {
-          error = (await client.from('notification_preferences').upsert(operation.payload as { user_id: string; sessions: boolean; messages: boolean; church: boolean; absence: boolean; updated_at: string })).error
+          error = (await client.from('notification_preferences').upsert(operation.payload as { user_id: string; sessions: boolean; messages: boolean; church: boolean; absence: boolean; weekly_checkin: boolean; updated_at: string })).error
         }
         if (error) break
         removeSync(operation.id)
@@ -315,7 +336,11 @@ function App() {
 
     const loadRemoteState = async () => {
       const [progressResult, journalResult, profileResult] = await Promise.all([
-        client.from('session_progress').select('session_id').eq('user_id', authSession.user.id),
+        // `completed_at` en plus depuis le 25/08/2026 (issue #18) : c'est le
+        // seul signe de vie daté que porte la base. L'état local, lui, ne garde
+        // que des identifiants de séances — il ne peut donc rien dire d'une
+        // absence, et c'est un écart assumé du mode démonstration.
+        client.from('session_progress').select('session_id, completed_at').eq('user_id', authSession.user.id),
         client.from('journal_entries').select('id, text, mood, created_at').eq('user_id', authSession.user.id).order('created_at', { ascending: false }),
         client.from('profiles').select('display_name, age_confirmed_at, privacy_consent_at, terms_consent_at, account_status').eq('id', authSession.user.id).maybeSingle(),
       ])
@@ -359,6 +384,39 @@ function App() {
         else setPartagesEmis(partagesResult.partages)
       }
 
+      // Les bilans déjà posés, et avec eux le dernier signe de vie. Les deux
+      // lectures se rejoignent ici parce qu'elles répondent à la même question
+      // — que proposer sur l'écran d'accueil — et qu'une seule des deux
+      // laisserait l'autre décider à l'aveugle.
+      const bilansResult = await chargerBilans(client)
+      if (!cancelled) {
+        // Une lecture qui échoue laisse `bilans` vide, et l'écran repose donc
+        // la question de la semaine — peut-être à quelqu'un qui vient d'y
+        // répondre. C'est le repli choisi, pas le repli subi : le seul autre
+        // possible (tout supposer répondu) ferait disparaître le geste sans
+        // rien dire. Entre insister à tort et s'effacer à tort, on insiste,
+        // parce que c'est le seul des deux qui se corrige d'un appui. Même
+        // raisonnement, mêmes mots, dans `apps/mobile/src/bilan.ts`.
+        if (bilansResult.erreur) showNotice(t.syncError, 4200)
+        else setBilans(bilansResult.bilans)
+      }
+      if (!cancelled) {
+        // Une séance terminée ou un bilan posé comptent l'un comme l'autre :
+        // ce qu'on cherche est un signe de présence, pas un geste en
+        // particulier. Les deux sources sont des dates ISO comparables telles
+        // quelles.
+        const instants = [
+          ...(progressResult.data ?? []).map((row) => row.completed_at as string | null),
+          ...(bilansResult.erreur ? [] : bilansResult.bilans.map((bilan) => bilan.poseLe)),
+        ].filter((valeur): valeur is string => Boolean(valeur))
+        // Tri de chaînes, et c'est suffisant : les dates ISO se comparent
+        // lexicographiquement dans le bon ordre. La cible du projet n'a pas
+        // `Array.prototype.at`, d'où l'index explicite.
+        const triees = instants.sort()
+        const derniere = triees.length > 0 ? triees[triees.length - 1] : null
+        setDerniereActivite(derniere ? new Date(derniere) : null)
+      }
+
       // Jusqu'au 24/08/2026, cet upsert écrasait display_name avec « Claire »
       // à chaque chargement — le champ même que tandem_partenaire() montre au
       // partenaire. On sème depuis l'identité de connexion (Google/Microsoft,
@@ -369,7 +427,7 @@ function App() {
       const profileUpsertResult = await client.from('profiles').upsert({ id: authSession.user.id, display_name: nomAffiche, locale: state.locale })
       if (profileUpsertResult.error && !cancelled) showNotice(t.syncError, 4200)
 
-      const preferencesResult = await client.from('notification_preferences').select('sessions, messages, church, absence').eq('user_id', authSession.user.id).maybeSingle()
+      const preferencesResult = await client.from('notification_preferences').select('sessions, messages, church, absence, weekly_checkin').eq('user_id', authSession.user.id).maybeSingle()
       if (preferencesResult.data && !preferencesResult.error && !cancelled) {
         setState((previous) => ({ ...previous, notificationPrefs: { ...previous.notificationPrefs, ...preferencesResult.data } }))
       }
@@ -1018,6 +1076,70 @@ function App() {
     showNotice(t.deleteDone, 6000)
   }
 
+  /**
+   * Ce que l'écran d'accueil propose de doux, ou rien.
+   *
+   * La règle vit dans `packages/domain/src/bilan.ts`, avec ses tests, parce
+   * qu'elle porte la seule décision qui pouvait mal tourner : ce qu'on montre à
+   * quelqu'un qui revient après trois semaines et qui remplit les deux
+   * conditions à la fois.
+   *
+   * `instantLecture` plutôt que `new Date()` : c'est l'instant figé qui juge
+   * déjà la péremption des invitations, et pour la même raison — une date lue
+   * au rendu ferait basculer la carte au milieu d'un clic, un vendredi à
+   * minuit, et rendrait l'écran impossible à éprouver.
+   */
+  const invitationBrute = invitationDouce({
+    maintenant: instantLecture,
+    derniereActivite,
+    semainesFaites: bilans.map((bilan) => bilan.semaine),
+    rappelBilan: state.notificationPrefs.weekly_checkin,
+    rappelAbsence: state.notificationPrefs.absence,
+  })
+  // « Une autre fois » n'écarte que le bilan, jamais le mot d'accueil : ce sont
+  // deux gestes distincts, et écarter une question n'est pas refuser d'être
+  // accueilli.
+  const invitation: InvitationDouce =
+    bilanEcarte && invitationBrute.forme === 'bilan' ? { forme: 'aucune' } : invitationBrute
+  // Pas de bouton là où la base refuserait — la règle du journal, appliquée
+  // ici. Sans compte il n'y a pas de ligne à écrire, et hors ligne le bilan ne
+  // passe par aucune file : il n'appartient pas à la même famille que les
+  // gestes rejoués (voir `offlineQueue.ts`), parce qu'une question de fin de
+  // semaine posée hier n'a pas à être renvoyée demain.
+  const bilanNote = !authSession ? t.checkinSignedOut : !isOnline ? t.checkinOffline : ''
+
+  const repondreBilan = async (etat: EtatDeSemaine) => {
+    const client = supabase
+    if (!client || !authSession) return
+    const semaine = semaineDuBilan(instantLecture)
+    setBilanEnCours(true)
+    const pose = await poserBilan(client, authSession.user.id, semaine, etat)
+    setBilanEnCours(false)
+    // L'écriture lit sa réponse avant que l'écran ne dise quoi que ce soit :
+    // « c'est noté » sur une réponse qui n'existe pas serait le seul mensonge
+    // que cette carte puisse produire.
+    if (!pose) {
+      showNotice(t.checkinFailed, 4200)
+      return
+    }
+    setBilans((precedents) => [...precedents.filter((b) => b.semaine !== semaine), { semaine, etat, poseLe: new Date().toISOString() }])
+    setBilanRepondu(etat)
+    setDerniereActivite(new Date())
+    // L'événement est émis APRÈS la réponse de la base, jamais avant : un
+    // `weekly_checkin_completed` posé sur une écriture refusée gonflerait la
+    // seule ligne du funnel que ce chantier existe pour remplir.
+    //
+    // `week` porte la clé de la semaine couverte, pas la date d'aujourd'hui.
+    // Les deux diffèrent d'un jour à six — le bilan se répond jusqu'au vendredi
+    // suivant — et `occurred_at` ne dit donc pas quelle semaine a été
+    // accompagnée, qui est précisément la question du doc 08. Rien du contenu
+    // ne passe : la contrainte `analytics_events_metadata_sobre` refuserait
+    // toute clé hors catalogue, et il n'y a de toute façon ici ni note ni
+    // texte à laisser filer.
+    void emettre(client, 'weekly_checkin_completed', { locale: state.locale, journeyId: journey.id, proprietes: { week: semaine } })
+    showNotice(t.checkinSaved, 2600)
+  }
+
   const toggleNotification = async (key: keyof AppState['notificationPrefs'], value: boolean) => {
     const notificationPrefs = { ...state.notificationPrefs, [key]: value }
     update({ ...state, notificationPrefs })
@@ -1209,9 +1331,16 @@ function App() {
                 completedCount={completedCount}
                 partnerName={remotePartnerName}
                 t={t}
+                invitation={invitation}
+                bilanRepondu={bilanRepondu}
+                bilanEnCours={bilanEnCours}
+                bilanNote={bilanNote}
                 onStart={() => openSession(currentSession.id)}
                 onOpenJournal={() => setTab('journal')}
                 onOpenTandem={() => setTab('tandem')}
+                onRepondreBilan={(etat) => void repondreBilan(etat)}
+                onCorrigerBilan={() => setBilanRepondu(null)}
+                onEcarterBilan={() => setBilanEcarte(true)}
               />
             )}
             {activeTab === 'journey' && <JourneyView journey={journey} completedIds={state.completedSessionIds} t={t} onStart={openSession} />}
