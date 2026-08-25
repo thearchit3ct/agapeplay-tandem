@@ -1313,6 +1313,14 @@ c'est une retouche d'une ligne le jour où on la décide.
 
 ### Ce qui attend un relecteur humain — bloquant pour le pilote
 
+> **Constat du 26/08/2026 — les séances sont validées.** Le fondateur a relu et
+> validé les trente séances, versets de mémorisation compris (« les séances
+> sont valides »). La validation couvre les points 1 à 4 de la liste ci-dessous,
+> qui reste comme trace de ce qui a été soumis à relecture. Le point 5 — le test
+> sur petit groupe — n'est pas une relecture de texte : il se confond avec le
+> pilote église (#22) et y est transféré. Le paragraphe d'origine est conservé
+> ci-dessous.
+
 Le doc 07 décrit sept étapes avant publication. Seule la première est faite.
 Sont à relire, avant qu'un adolescent lise une ligne de ce parcours :
 
