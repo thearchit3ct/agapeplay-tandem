@@ -1565,8 +1565,21 @@ autorise, et il reste **affiché fermé** plutôt que retiré, comme sur le web.
 
 ### L'identité au lancement
 
-Rien n'a été inventé ni recoloré : tout vient de
-`versets-flash/assets/Logo/`, adapté aux formats Expo avec Pillow.
+**Décision du fondateur, prise pendant le chantier : l'icône et l'écran de
+démarrage définitifs porteront SON visuel — une illustration de flamme qu'il
+fournit — et non une adaptation du logo studio.** Ce qui est committé ici est
+donc **provisoire** : les chemins standard sont déclarés dans `app.json`, les
+binaires seront remplacés avant la première build, sans toucher à la
+configuration.
+
+Deux choses valent d'être sues de ce provisoire. D'abord ce ne sont **pas des
+placeholders** : ce sont de vraies pièces de marque, tirées telles quelles de
+`versets-flash/assets/Logo/` et adaptées aux formats Expo avec Pillow — le
+dépôt n'affiche donc jamais un carré gris, même si la build partait demain.
+Ensuite le fond de démarrage est déjà à `#1C2B4A`, le bleu nuit de la charte,
+comme demandé pour la flamme : le sceau à l'encre y aurait disparu, c'est donc
+la **colorway crème officielle** (`agapeplay-sceau-creme.png`) qui tient ce
+fond. Rien n'a été recoloré nulle part.
 
 - **Icône : le monogramme** (`agapeplay-monogramme.png`), sur le crème du lockup
   `#FCF4DD` échantillonné sur `agapeplay.png`. Le sceau a été écarté après essai
@@ -1575,9 +1588,14 @@ Rien n'a été inventé ni recoloré : tout vient de
 - **Icône adaptative Android** : le même monogramme sur fond transparent, tenu à
   46 % du carré pour rester dans le disque de sûreté de 66 % — vérifié sous
   masque circulaire *et* sous masque arrondi, les deux plus sévères.
-- **Écran de démarrage : le sceau** (`agapeplay-sceau.png`), à 200 points de
-  large sur le même crème. Il a ici la place d'être lu, et le démarrage reste
-  dans la même famille tonale que l'icône : pas de flash crème puis nuit.
+- **Écran de démarrage : le sceau crème** (`agapeplay-sceau-creme.png`), à 200
+  points de large sur le bleu nuit `#1C2B4A`. Il a ici la place d'être lu, là
+  où il ne l'a pas à 48 points.
+- **Écart tonal assumé, et il est temporaire** : l'icône provisoire est crème,
+  le démarrage est nuit — le lancement change donc de fond. Les deux définitifs
+  étant la même flamme, c'est au visuel du fondateur de trancher la cohérence ;
+  `adaptiveIcon.backgroundColor` (`#FCF4DD` aujourd'hui) est le réglage à
+  reprendre avec les binaires, et il est déclaré pour ça.
 - `userInterfaceStyle` passe de `"dark"` à `"light"`. L'application est crème et
   encre, elle n'a jamais eu de mode sombre, et Android tirait sa barre système
   de cette déclaration.
@@ -1637,7 +1655,11 @@ commander quatre icônes dans le trait imprimé de la marque.
 - `npx expo config --type public` : icône, icône adaptative, greffon de
   démarrage et version 0.2.1 correctement résolus.
 - Les rendus d'icône et de démarrage ont été relus à l'œil, aux tailles réelles
-  et sous les masques d'Android.
+  et sous les masques d'Android — y compris le sceau crème sur le bleu nuit,
+  après le changement de fond.
+- Le point 5 de `docs/29-BUILD-MOBILE.md` (« l'icône et l'écran de démarrage »)
+  reste ouvert **volontairement** : les chemins sont déclarés, les binaires
+  définitifs attendent le fondateur. À solder quand la flamme sera déposée.
 - **Rien n'est prouvé sur un appareil.** Le clavier, les vibrations et l'écran
   de démarrage ne se vérifient qu'après une build EAS : la checklist de recette
   au doigt est dans la PR.
