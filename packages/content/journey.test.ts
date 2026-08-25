@@ -177,3 +177,24 @@ describe('loadPublishedJourney — repli sur le cache hors ligne', () => {
     expect(await loadPublishedJourney(offline, 'fr')).toEqual(french)
   })
 })
+
+describe('loadPublishedJourney — cache injecté', () => {
+  it('écrit et relit par le cache qu’on lui donne, sans toucher au navigateur', async () => {
+    // Le cas du mobile : `localStorage` n'existe pas sous Hermes, et l'écriture
+    // du cache était sur le chemin heureux, hors de tout `try`. Un cache
+    // asynchrone qui reçoit bien l'écriture est la preuve que le module ne
+    // dépend plus du navigateur.
+    let garde: string | null = null
+    const cache = {
+      lire: async () => garde,
+      ecrire: async (valeur: string) => { garde = valeur },
+    }
+
+    const { client } = published()
+    const charge = await loadPublishedJourney(client, 'fr', cache)
+    expect(garde).not.toBeNull()
+
+    const { client: horsLigne } = published(null)
+    expect(await loadPublishedJourney(horsLigne, 'fr', cache)).toEqual(charge)
+  })
+})

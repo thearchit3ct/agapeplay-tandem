@@ -28,6 +28,9 @@ export type { StatutInvitation, EtatInvitation, Invitation, RevocationInvitation
 
 export { prochaineSeance } from './parcours'
 
+export { jetonDuLien } from './liens'
+export type { FormeDeLien, JetonRecu } from './liens'
+
 export {
   PARAM_COMMUNAUTE,
   cohorteRecevable, etatCohorte, etatLien, jetonDepuisUrl, jourUtc,
@@ -46,6 +49,11 @@ export {
   cleDeSemaine, invitationDouce, repriseApresAbsence, semaineDuBilan,
 } from './bilan'
 export type { EtatDeSemaine, InvitationDouce, ContexteInvitation } from './bilan'
+
+export {
+  HEURE_RAPPEL_BILAN, HEURE_RAPPEL_SEANCE, JOUR_RAPPEL_BILAN, rappelsAPlanifier,
+} from './notifications'
+export type { PreferencesDeRappel, RappelPlanifie } from './notifications'
 
 export {
   LONGUEUR_MAX_VALEUR, MESURE_DUREE_MAX_JOURS, NOMS_EVENEMENTS, PROPRIETES_AUTORISEES,
@@ -67,6 +75,13 @@ export type {
   StatutSignalement, CategorieSignalement, UrgenceSignalement,
   Signalement, ContexteSignale, MessageSignale, OrigineMessage, DossierModeration,
 } from './moderation'
+
+export {
+  A_PROPOS_DE_LA_MESURE, SECTIONS, nomDuFichierExport, rassemblerExport,
+} from './export'
+export type {
+  CibleExport, ExportPersonnel, Lecteur, Ligne, Reponse, SectionExport,
+} from './export'
 
 export type Locale = 'fr' | 'en'
 

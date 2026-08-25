@@ -4,15 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { copy } from '@agapeplay/content/copy/mobile-home'
-import type { EtatDeSemaine, Locale } from '@agapeplay/domain'
-import { ETATS_DE_SEMAINE, invitationDouce, semaineDuBilan } from '@agapeplay/domain'
+import type { EtatDeSemaine, Journey, Locale } from '@agapeplay/domain'
+import { ETATS_DE_SEMAINE, invitationDouce, prochaineSeance, semaineDuBilan } from '@agapeplay/domain'
 import { colors, typography } from '@/theme'
 import { flushProgressQueue } from '@/offlineQueue'
 import { supabase } from '@/supabase'
-import { readReminderPreference, setDailyReminder } from '@/notifications'
+import { synchroniserRappels } from '@/notifications'
+import type { TextesDeRappel } from '@/notifications'
 import { basculerMesure, emettre, lireConsentementDuCompte, mesureAcceptee } from '@/mesure'
-import { basculerRappelBilan, lireEtatDuBilan, poserBilan } from '@/bilan'
-import type { EtatDuBilan } from '@/bilan'
+import { chargerParcours } from '@/parcours'
+import { basculerRappel, lireEtatDuBilan, poserBilan } from '@/bilan'
+import type { ClefDeRappel, EtatDuBilan } from '@/bilan'
 
 /**
  * Les cinq réponses et leurs mots. Le domaine décide du vocabulaire, l'écran
@@ -31,8 +33,16 @@ export default function HomeScreen() {
   const [locale, setLocale] = useState<Locale>('fr')
   const [offline, setOffline] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
-  const [reminderEnabled, setReminderEnabled] = useState(false)
+  // `true` tant qu'on n'a pas constaté le contraire : la phrase « ce téléphone
+  // ne peut pas » n'apparaît qu'après une tentative réelle de planification,
+  // jamais par défaut.
+  const [rappelsPosables, setRappelsPosables] = useState(true)
   const [mesure, setMesure] = useState(true)
+  // Le parcours publié, lu depuis la base ou depuis le cache de ce téléphone.
+  // `null` tant qu'on ne sait pas : la carte affiche alors ce qu'elle sait, et
+  // rien d'inventé — elle portait jusqu'ici un verset de maquette.
+  const [parcours, setParcours] = useState<Journey | null>(null)
+  const [parcoursLu, setParcoursLu] = useState(false)
   // Le bilan de fin de semaine — issue #18. `etatBilan` reste `null` tant que
   // la base n'a pas répondu : proposer une question sans savoir si elle a déjà
   // été posée, ou accueillir « de retour » quelqu'un dont on ignore la dernière
@@ -59,11 +69,12 @@ export default function HomeScreen() {
     // ce que fait le lien magique ramassé par useAuthDeepLink. Sans cet
     // abonnement, l'en-tête resterait « Se connecter » jusqu'à une navigation.
     const { data: abonnement } = supabase?.auth.onAuthStateChange((_evenement, s) => { if (active) setSession(s) }) ?? { data: null }
-    void flushProgressQueue()
+    // Le bandeau hors ligne dit ce qui reste réellement en file, et plus un
+    // état de maquette qu'un appui allumait : une promesse de synchronisation
+    // doit être adossée à quelque chose qui attend vraiment.
+    void flushProgressQueue().then((restants) => { if (active) setOffline(restants > 0) })
     return () => { active = false; abonnement?.subscription.unsubscribe() }
   }, []))
-
-  useEffect(() => { void readReminderPreference().then(setReminderEnabled) }, [])
 
   // L'état du bilan suit le compte : il se relit quand la session change, et
   // pas au montage — sans compte il n'y a rien à lire, et la carte le dit.
@@ -79,6 +90,53 @@ export default function HomeScreen() {
     void lireEtatDuBilan(compteId).then((etat) => { if (actif) setEtatBilan(etat) })
     return () => { actif = false }
   }, [session?.user.id])
+
+  // Le contenu publié suit la langue de l'écran, et se relit à chaque
+  // changement : le cache garde les deux langues côte à côte, si bien qu'un
+  // passage à l'anglais hors ligne rend l'anglais s'il a déjà été lu.
+  useEffect(() => {
+    let actif = true
+    void chargerParcours(locale).then((lu) => {
+      if (!actif) return
+      setParcours(lu)
+      setParcoursLu(true)
+    })
+    return () => { actif = false }
+  }, [locale])
+
+  // La séance à proposer : la première non terminée, l'ordre du contenu publié
+  // faisant foi (`prochaineSeance`, domaine, testé).
+  const seance = parcours ? prochaineSeance(parcours.sessions, etatBilan?.seancesFaites ?? []) : undefined
+
+  /**
+   * Ce que diront les notifications, dans la langue de l'écran au moment où
+   * elles sont posées.
+   *
+   * Le mobile n'a pas de langue persistée — `locale` est un état d'écran — et
+   * une notification, elle, survit à la session. Le choix est donc explicite :
+   * changer de langue replanifie les rappels (voir la dépendance de l'effet
+   * ci-dessous), plutôt que de laisser une notification française arriver sur
+   * une application passée à l'anglais.
+   */
+  const textesDeRappel: TextesDeRappel = useMemo(() => ({
+    seance: { titre: t.reminderSessionNotifTitle, corps: t.reminderSessionNotifBody },
+    bilan: { titre: t.reminderCheckinNotifTitle, corps: t.reminderCheckinNotifBody },
+  }), [t])
+
+  // Les rappels de l'appareil suivent les préférences du compte, et se
+  // replanifient dès qu'elles sont lues : c'est ainsi qu'un rappel coupé
+  // depuis le navigateur cesse ici. Aucune permission n'est demandée dans cet
+  // effet — une question système surgie sans geste est le meilleur moyen
+  // d'obtenir un refus définitif ; l'interrupteur, lui, la demande.
+  useEffect(() => {
+    if (!etatBilan) return
+    let actif = true
+    void synchroniserRappels(
+      { sessions: etatBilan.rappelSeance, weekly_checkin: etatBilan.rappelBilan },
+      textesDeRappel,
+    ).then((pose) => { if (actif) setRappelsPosables(pose) })
+    return () => { actif = false }
+  }, [etatBilan?.rappelSeance, etatBilan?.rappelBilan, textesDeRappel])
 
   const invitation = etatBilan
     ? invitationDouce({
@@ -116,20 +174,31 @@ export default function HomeScreen() {
     setNotice(t.checkinSaved)
   }
 
-  const basculerLeRappel = async () => {
+  /**
+   * Les deux interrupteurs de rappel passent par ici, et par le même chemin :
+   * la préférence s'écrit sur le compte, on relit ce que la base a retenu, et
+   * l'appareil replanifie d'après cette lecture — jamais d'après ce qu'on
+   * espérait écrire. Une écriture refusée laisse donc l'interrupteur en place.
+   *
+   * La permission système est demandée ici, et seulement ici : c'est le geste
+   * qui la justifie.
+   */
+  const basculerLeRappel = async (clef: ClefDeRappel) => {
     const compteId = session?.user.id
     if (!compteId || !etatBilan) return
-    const pose = await basculerRappelBilan(compteId, !etatBilan.rappelBilan)
-    setEtatBilan({ ...etatBilan, rappelBilan: pose })
+    const avant = clef === 'sessions' ? etatBilan.rappelSeance : etatBilan.rappelBilan
+    const pose = await basculerRappel(compteId, clef, !avant)
+    if (!pose) { setNotice(t.checkinFailed); return }
+    setEtatBilan({ ...etatBilan, rappelBilan: pose.rappelBilan, rappelSeance: pose.rappelSeance })
+    setRappelsPosables(await synchroniserRappels(
+      { sessions: pose.rappelSeance, weekly_checkin: pose.rappelBilan },
+      textesDeRappel,
+      { demanderPermission: true },
+    ))
   }
 
   const basculerLaMesure = async () => {
     setMesure(await basculerMesure(!mesure, session?.user.id ?? null))
-  }
-
-  const toggleReminder = async () => {
-    const next = await setDailyReminder(!reminderEnabled)
-    setReminderEnabled(next)
   }
 
   return <SafeAreaView style={styles.safe}>
@@ -139,14 +208,21 @@ export default function HomeScreen() {
       <Text style={styles.greeting}>{t.greeting}</Text>
       <Text style={styles.subtitle}>{t.subtitle}</Text>
 
+      {/* La carte du jour dit le contenu publié, ou dit qu'elle ne l'a pas.
+          Elle portait jusqu'au 26/08/2026 un titre et un verset écrits en dur,
+          qui n'étaient ni le parcours publié ni ce que le web affiche. */}
       <View style={styles.heroCard}>
-        <View style={styles.cardHeader}><Text style={styles.kicker}>{t.dailySession}</Text><Text style={styles.duration}>06 MIN</Text></View>
-        <View style={styles.number}><Text style={styles.numberText}>01</Text></View>
-        <Text style={styles.theme}>{t.theme}</Text>
-        <Text style={styles.title}>{t.sessionTitle}</Text>
-        <Text style={styles.verse}>{t.verse}</Text>
-        <Text style={styles.prompt}>{t.prompt}</Text>
-        <Link href="/session" asChild><Pressable style={styles.primary}><Text style={styles.primaryText}>{t.start}  →</Text></Pressable></Link>
+        <View style={styles.cardHeader}><Text style={styles.kicker}>{t.dailySession}</Text>{seance && <Text style={styles.duration}>{seance.duration} {t.minutes}</Text>}</View>
+        {seance
+          ? <>
+              <View style={styles.number}><Text style={styles.numberText}>{String(seance.day).padStart(2, '0')}</Text></View>
+              <Text style={styles.theme}>{seance.theme}</Text>
+              <Text style={styles.title}>{seance.title}</Text>
+              <Text style={styles.verse}>{seance.verse}</Text>
+              <Text style={styles.prompt}>{seance.prompt}</Text>
+              <Link href={{ pathname: '/session', params: { jour: String(seance.day) } }} asChild><Pressable style={styles.primary}><Text style={styles.primaryText}>{t.start}  →</Text></Pressable></Link>
+            </>
+          : <Text style={styles.verse}>{parcoursLu ? t.sessionNotDownloaded : t.sessionLoading}</Text>}
       </View>
 
       {/* Une invitation douce au plus — la précédence est tranchée dans
@@ -179,21 +255,32 @@ export default function HomeScreen() {
       <View style={styles.navGrid}>
         <Link href="/journey" asChild><Pressable style={styles.navCard}><Text style={styles.navIndex}>01</Text><Text style={styles.navTitle}>{t.journey}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
         <Link href="/tandem" asChild><Pressable style={styles.navCard}><Text style={styles.navIndex}>02</Text><Text style={styles.navTitle}>{t.tandem}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
-        <Pressable style={styles.navCard} onPress={() => setOffline(!offline)}><Text style={styles.navIndex}>03</Text><Text style={styles.navTitle}>{t.journal}</Text><Text style={styles.navArrow}>⌁</Text></Pressable>
-        <Pressable style={styles.reminderCard} onPress={() => void toggleReminder()}><Text style={styles.navIndex}>04</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.reminder}</Text><Text style={styles.reminderStatus}>{reminderEnabled ? t.reminderOn : t.reminderOff}</Text></View><Text style={styles.navArrow}>{reminderEnabled ? '●' : '○'}</Text></Pressable>
+        <Link href="/journal" asChild><Pressable style={styles.navCard}><Text style={styles.navIndex}>03</Text><Text style={styles.navTitle}>{t.journal}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
+        <Link href="/compte" asChild><Pressable style={styles.navCard}><Text style={styles.navIndex}>04</Text><Text style={styles.navTitle}>{t.account}</Text><Text style={styles.navArrow}>↗</Text></Pressable></Link>
+        {/* Le rappel de séance écrit `notification_preferences.sessions`, sur
+            le compte — comme le bilan juste en dessous, et pour la même
+            raison : un interrupteur local serait un second endroit qui dit la
+            même chose, et le rappel coupé depuis le navigateur reviendrait
+            ici. Sans compte, il n'y a rien où l'écrire, et la carte ne
+            s'affiche pas plutôt que de promettre un réglage sans mémoire. */}
+        {session && etatBilan && <Pressable style={styles.reminderCard} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelSeance }} onPress={() => void basculerLeRappel('sessions')}><Text style={styles.navIndex}>05</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.reminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelSeance ? t.reminderOn : t.reminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelSeance ? '●' : '○'}</Text></Pressable>}
         {/* Le réglage de mesure vit ici, avec le rappel, parce que le mobile n'a
             pas d'écran de réglages — et qu'un choix qu'on ne trouve pas n'est
             pas un choix. La description tient sur deux lignes : ce qu'on compte,
             ce qu'on ne lit pas. */}
-        <Pressable style={styles.navCard} accessibilityRole="switch" accessibilityState={{ checked: mesure }} onPress={() => void basculerLaMesure()}><Text style={styles.navIndex}>05</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.measurement}</Text><Text style={styles.reminderStatus}>{mesure ? t.measurementOn : t.measurementOff}</Text></View><Text style={styles.navArrow}>{mesure ? '●' : '○'}</Text></Pressable>
+        <Pressable style={styles.navCard} accessibilityRole="switch" accessibilityState={{ checked: mesure }} onPress={() => void basculerLaMesure()}><Text style={styles.navIndex}>06</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.measurement}</Text><Text style={styles.reminderStatus}>{mesure ? t.measurementOn : t.measurementOff}</Text></View><Text style={styles.navArrow}>{mesure ? '●' : '○'}</Text></Pressable>
         {/* Le rappel du bilan se règle ici, avec la mesure, et pour la même
             raison : le mobile n'a pas d'écran de réglages, et un choix qu'on ne
             trouve pas n'est pas un choix. Il écrit dans
             `notification_preferences`, sur le compte — un interrupteur local
             serait un second endroit qui dit la même chose, et le rappel coupé
             depuis le navigateur reviendrait ici. */}
-        {session && etatBilan && <Pressable style={styles.navCard} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelBilan }} onPress={() => void basculerLeRappel()}><Text style={styles.navIndex}>06</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.checkinReminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelBilan ? t.checkinReminderOn : t.checkinReminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelBilan ? '●' : '○'}</Text></Pressable>}
+        {session && etatBilan && <Pressable style={styles.navCard} accessibilityRole="switch" accessibilityState={{ checked: etatBilan.rappelBilan }} onPress={() => void basculerLeRappel('weekly_checkin')}><Text style={styles.navIndex}>07</Text><View style={styles.reminderCopy}><Text style={styles.navTitle}>{t.checkinReminder}</Text><Text style={styles.reminderStatus}>{etatBilan.rappelBilan ? t.checkinReminderOn : t.checkinReminderOff}</Text></View><Text style={styles.navArrow}>{etatBilan.rappelBilan ? '●' : '○'}</Text></Pressable>}
       </View>
+      {/* Dit seulement quand un rappel est demandé et que l'appareil n'a pas
+          pu le poser : le réglage reste vrai sur le compte, c'est la
+          planification qui manque, et la phrase ne dit rien de plus. */}
+      {etatBilan && (etatBilan.rappelSeance || etatBilan.rappelBilan) && !rappelsPosables && <Text style={styles.measurementNote}>{t.reminderUnavailable}</Text>}
       <Text style={styles.measurementNote}>{t.measurementDescription}</Text>
     </ScrollView>
   </SafeAreaView>

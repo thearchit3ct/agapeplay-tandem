@@ -1,6 +1,7 @@
 import Constants from 'expo-constants'
 import { Stack } from 'expo-router'
 import { useAuthDeepLink } from '@/authDeepLink'
+import { useLiensDInvitation } from '@/invitations'
 import { StatusBar } from 'expo-status-bar'
 
 // Les notifications à distance sont RETIRÉES d'Expo Go depuis le SDK 53 :
@@ -22,6 +23,11 @@ if (!dansExpoGo) {
 
 export default function RootLayout() {
   useAuthDeepLink()
+  // Les liens d'invitation sont écoutés ici, à côté du retour du lien magique :
+  // c'est le seul endroit déjà monté quand l'application s'ouvre à froid sur
+  // une URL. Les deux hooks ne se marchent pas dessus — l'un lit le fragment,
+  // l'autre la requête (voir `jetonDuLien` et son test).
+  useLiensDInvitation()
   return <>
     <StatusBar style="dark" />
     <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />

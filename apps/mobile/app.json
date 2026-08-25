@@ -2,19 +2,39 @@
   "expo": {
     "name": "AgapePlay Tandem",
     "slug": "agapeplay-tandem",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "scheme": "agapeplay",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.agapeplay.tandem"
+      "bundleIdentifier": "com.agapeplay.tandem",
+      "buildNumber": "1",
+      "associatedDomains": ["applinks:tandem.agapeplay.store"]
     },
     "android": {
-      "package": "com.agapeplay.tandem"
+      "package": "com.agapeplay.tandem",
+      "versionCode": 1,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "tandem.agapeplay.store",
+              "path": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
-    "plugins": ["expo-router", "expo-notifications"],
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      "expo-sharing"
+    ],
     "experiments": {
       "typedRoutes": true
     }

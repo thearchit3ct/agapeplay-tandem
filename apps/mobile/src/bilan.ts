@@ -31,7 +31,31 @@ export type EtatDuBilan = {
   rappelBilan: boolean
   /** `notification_preferences.absence`, ou son défaut. */
   rappelAbsence: boolean
+  /**
+   * Les séances déjà terminées, par identifiant — issue #13.
+   *
+   * Lues ici parce que la progression est déjà interrogée pour connaître la
+   * dernière activité : demander deux fois la même table à deux endroits
+   * paierait deux allers-retours pour une seule question.
+   */
+  seancesFaites: string[]
+  /**
+   * `notification_preferences.sessions`, ou son défaut — issue #13.
+   *
+   * Il est lu ici, avec les deux autres, parce que c'est la même ligne et la
+   * même question : que proposer à l'ouverture de l'écran. Jusqu'au
+   * 26/08/2026 le rappel de séance vivait dans une clé locale du téléphone, et
+   * un rappel coupé depuis le navigateur revenait donc sur l'appareil.
+   */
+  rappelSeance: boolean
 }
+
+/**
+ * Les deux réglages de rappel que le mobile sait poser, par leur nom de
+ * colonne. `messages`, `church` et `absence` n'en sont pas : voir
+ * `PreferencesDeRappel` dans le domaine.
+ */
+export type ClefDeRappel = 'weekly_checkin' | 'sessions'
 
 /**
  * Ce que l'écran d'accueil a besoin de savoir, en une lecture.
@@ -50,12 +74,12 @@ export type EtatDuBilan = {
  */
 export const lireEtatDuBilan = async (compteId: string): Promise<EtatDuBilan> => {
   const client = supabase
-  if (!client) return { semainesFaites: [], derniereActivite: null, rappelBilan: true, rappelAbsence: true }
+  if (!client) return { semainesFaites: [], seancesFaites: [], derniereActivite: null, rappelBilan: true, rappelAbsence: true, rappelSeance: true }
 
   const [bilans, progression, preferences] = await Promise.all([
     client.from('weekly_checkins').select('week_key, updated_at'),
-    client.from('session_progress').select('completed_at').eq('user_id', compteId),
-    client.from('notification_preferences').select('weekly_checkin, absence').eq('user_id', compteId).maybeSingle(),
+    client.from('session_progress').select('session_id, completed_at').eq('user_id', compteId),
+    client.from('notification_preferences').select('weekly_checkin, absence, sessions').eq('user_id', compteId).maybeSingle(),
   ])
 
   const instants = [
@@ -65,12 +89,14 @@ export const lireEtatDuBilan = async (compteId: string): Promise<EtatDuBilan> =>
 
   return {
     semainesFaites: (bilans.data ?? []).map((ligne) => ligne.week_key as string),
+    seancesFaites: (progression.data ?? []).map((ligne) => ligne.session_id as string),
     // Les dates ISO se comparent lexicographiquement : le tri suffit, et la
     // dernière est la plus récente.
     derniereActivite: instants.length > 0 ? new Date(instants[instants.length - 1]) : null,
-    // Ligne absente = les défauts de la table, qui sont `true` pour les deux.
+    // Ligne absente = les défauts de la table, qui sont `true` pour les trois.
     rappelBilan: preferences.data?.weekly_checkin ?? true,
     rappelAbsence: preferences.data?.absence ?? true,
+    rappelSeance: preferences.data?.sessions ?? true,
   }
 }
 
@@ -91,19 +117,31 @@ export const poserBilan = async (compteId: string, semaine: string, etat: EtatDe
 }
 
 /**
- * Bascule le rappel du bilan, et rend **l'état réellement enregistré**.
+ * Bascule un rappel, et rend **l'état réellement enregistré des deux**.
  *
  * L'écriture lit sa réponse, comme partout : un interrupteur qui bascule à
  * l'écran sur une écriture refusée ferait croire à un réglage posé, et le
- * rappel reviendrait au prochain lancement sans que rien ne l'explique. En cas
- * d'échec on rend la valeur d'avant, l'interrupteur ne bouge pas.
+ * rappel reviendrait au prochain lancement sans que rien ne l'explique. Les
+ * deux valeurs reviennent ensemble parce que l'appelant en a besoin des deux —
+ * c'est la liste complète des rappels qu'il replanifie ensuite, jamais un
+ * delta (voir `rappelsAPlanifier`).
+ *
+ * Une seule colonne part dans la charge utile : PostgREST n'écrit à la mise à
+ * jour que ce qu'on lui donne, si bien que basculer le bilan ne peut pas
+ * effacer le réglage des séances. `null` en retour vaut « rien n'a bougé ».
  */
-export const basculerRappelBilan = async (compteId: string, actif: boolean): Promise<boolean> => {
+export const basculerRappel = async (
+  compteId: string,
+  clef: ClefDeRappel,
+  actif: boolean,
+): Promise<{ rappelBilan: boolean; rappelSeance: boolean } | null> => {
   const client = supabase
-  if (!client) return !actif
-  const { error } = await client.from('notification_preferences').upsert(
-    { user_id: compteId, weekly_checkin: actif, updated_at: new Date().toISOString() },
-    { onConflict: 'user_id' },
-  )
-  return error ? !actif : actif
+  if (!client) return null
+  const { data, error } = await client
+    .from('notification_preferences')
+    .upsert({ user_id: compteId, [clef]: actif, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+    .select('weekly_checkin, sessions')
+    .maybeSingle()
+  if (error || !data) return null
+  return { rappelBilan: data.weekly_checkin as boolean, rappelSeance: data.sessions as boolean }
 }
