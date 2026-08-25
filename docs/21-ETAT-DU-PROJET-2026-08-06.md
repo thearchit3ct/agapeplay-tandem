@@ -1860,3 +1860,78 @@ Aucun débordement horizontal n'a été trouvé, ni avant ni après — la règl
   calculée de leur `outline` ; cinq dialogues éprouvés (focus d'entrée, piège
   avant et arrière sur 40 appuis, Échap, restitution au déclencheur,
   imbrication réglages/suppression).
+## Amendement du 25 août 2026 — l'intégration continue (issue #15)
+
+*Ajouté sans rien retirer de ce qui précède. La section « Comment on teste ici »
+plus haut décrit les deux suites ; celle-ci dit ce qui les déclenche désormais,
+et ce qu'elles ne diront jamais.*
+
+Le harnais était écrit depuis le 6 août. Il ne manquait que le déclencheur :
+**rien ne tournait sur une pull request.** C'est fait —
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml), trois jobs en
+parallèle, sur `pull_request` et sur `push` vers `main`.
+
+- **Tests métier, lint, typage et fumée web** — `npm test` (238 tests),
+  `npm run lint`, `npm run build` (donc `tsc -b`), puis `npm run smoke:web`.
+- **Typage et export mobile** — `mobile:export` d'abord, `mobile:typecheck`
+  ensuite.
+- **Permissions et RLS** — la suite complète sur une pile Supabase jetable,
+  montée par `tests/rls/provision.mjs`. C'est le job qui compte : une politique
+  cassée rougit maintenant **avant** la fusion, et non plus le jour où quelqu'un
+  y repense.
+
+**Aucun secret n'est requis, et c'est un choix qui se défend :** la base est un
+conteneur monté depuis les migrations du dépôt, les deux applications se
+construisent sans variables d'environnement. Une CI qui réclamerait un secret ne
+pourrait pas tourner sur la PR d'un contributeur extérieur.
+
+### Le lint : posé, et borné
+
+Le dépôt n'en avait aucun. Il en a un, dont le périmètre a été **mesuré avant
+d'être choisi** : aucune règle de mise en forme (les commentaires français
+denses et les noms de fonctions en français sont le style de ce dépôt, pas une
+faute à corriger), seulement du code mort, les fautes de logique franches et les
+règles des hooks React. Sur l'existant : **six erreurs**, toutes du code mort
+réel — cinq imports jamais utilisés et une constante orpheline, retirés dans la
+même PR. Zéro `no-explicit-any`, zéro violation des règles des hooks.
+
+`react-hooks/exhaustive-deps` reste en **avertissement** : onze effets omettent
+délibérément des dépendances — `App.tsx` surtout, où ajouter `authSession`
+relancerait des lectures réseau à chaque rafraîchissement de session. Les
+corriger changerait le comportement de l'application ; les taire par onze
+commentaires `eslint-disable` serait du bruit posé pour faire plaisir à l'outil.
+Ils restent visibles et ne bloquent pas.
+
+### La fumée web : ce qu'elle prouve, et ce qu'elle ne prouve pas
+
+`scripts/fumee-web.mjs` sert `apps/web/dist`, vérifie que **chaque** ressource
+que la page référence répond, et cherche cinq marqueurs dans le JavaScript
+réellement servi — les deux catalogues de langue, le partage du journal, le
+signalement, le blocage.
+
+**Elle ne prouve pas que React monte.** La page est une coquille remplie par le
+navigateur, et il n'y a pas de navigateur ici : un composant qui lèverait à la
+première ligne de rendu passerait au vert. Playwright a été écarté — un
+navigateur de 300 Mo téléchargé à chaque exécution, pour un produit dont la
+logique qui peut blesser quelqu'un est déjà couverte par 238 tests unitaires et
+la suite RLS. Le jour où un parcours d'écran doit être prouvé de bout en bout,
+c'est un chantier à lui seul.
+
+### Ce que la CI ne dira jamais
+
+Le clavier, les vibrations, les icônes d'onglets Android, les feuilles natives :
+rien de tout cela ne se voit sans appareil. La recette au doigt, jusqu'ici
+dispersée dans les corps de PR #58 et #61, est consolidée dans
+[`30-RECETTE-MOBILE.md`](./30-RECETTE-MOBILE.md) — trente-trois points, dont un
+qui échoue **en silence**.
+
+### Deux mesures faites en passant, à ne pas redécouvrir
+
+- **`apps/mobile/expo-env.d.ts` et `.expo/types/` sont absents d'un checkout
+  vierge, `expo export` ne les crée pas, et `tsc --noEmit` passe quand même.**
+  Le typage des routes est donc plus permissif en CI que sur une machine où le
+  serveur de développement a tourné. Ce n'est pas une panne, c'est une limite —
+  et elle interdit de « réparer » la CI en versionnant un fichier généré.
+- `npm test` et `npm run build` tiennent chacun en moins de trois secondes sur
+  un clone vierge, une fois `npm ci` passé. Le coût de la CI, c'est la suite RLS
+  et l'export Metro, pas les tests.

@@ -19,7 +19,6 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const DOSSIER = resolve(dirname(fileURLToPath(import.meta.url)), '../supabase/migrations')
-const PARCOURS = 'repartir-avec-jesus'
 
 const CHAMPS = [
   'id', 'journey_id', 'day', 'title_fr', 'title_en', 'theme_fr', 'theme_en',

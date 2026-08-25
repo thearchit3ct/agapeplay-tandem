@@ -1,5 +1,7 @@
 # AgapePlay Tandem
 
+[![Intégration continue](https://github.com/thearchit3ct/agapeplay-tandem/actions/workflows/ci.yml/badge.svg)](https://github.com/thearchit3ct/agapeplay-tandem/actions/workflows/ci.yml)
+
 AgapePlay Tandem est une application de discipulat chrétien fondée sur l'accompagnement humain.
 
 > Grandir dans la foi en 10 minutes par jour, accompagné par une personne de confiance.
@@ -66,6 +68,25 @@ npm run mobile:typecheck
 npm run mobile:export
 ```
 
+### Vérifier avant d'ouvrir une pull request
+
+Ce que l'intégration continue exécutera de toute façon, dans l'ordre où elle le
+fait :
+
+```bash
+npm test          # tests métier, aucune base ni navigateur requis
+npm run lint      # code mort, fautes de logique, règles des hooks
+npm run build     # tsc -b puis vite build
+npm run smoke:web # sert dist/ et sonde le bundle servi
+npm run test:rls  # permissions et RLS sur une base Postgres jetable (Docker)
+```
+
+La dernière monte une pile Supabase locale et prend quelques minutes ; les
+quatre premières tiennent en quelques secondes.
+
+Ce qu'aucune de ces commandes ne peut dire se vérifie le téléphone en main :
+voir [`docs/30-RECETTE-MOBILE.md`](docs/30-RECETTE-MOBILE.md).
+
 L'application est ensuite disponible sur [http://localhost:5173](http://localhost:5173). Le bandeau « Mode démonstration » rappelle que les données sont conservées uniquement dans le `localStorage` du navigateur.
 
 Voir [`docs/15-MODE-DEVELOPPEMENT-SANS-SERVICES.md`](docs/15-MODE-DEVELOPPEMENT-SANS-SERVICES.md) pour la frontière entre ce prototype et les intégrations à venir.
@@ -92,6 +113,7 @@ Voir [`docs/21-ETAT-DU-PROJET-2026-08-06.md`](docs/21-ETAT-DU-PROJET-2026-08-06.
 - [Intégration du parcours Alpha](docs/13-INTEGRATION-ALPHA.md)
 - [Décisions produit du cadrage](docs/14-DECISIONS-PRODUIT-2026-08-04.md)
 - [État complet du projet](docs/19-ETAT-COMPLET-DU-PROJET-2026-08-05.md)
+- [Recette mobile au doigt](docs/30-RECETTE-MOBILE.md)
 
 ## Contribuer
 

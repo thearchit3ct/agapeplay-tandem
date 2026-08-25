@@ -1,0 +1,114 @@
+# Intégration continue — issue #15.
+#
+# Ce qui tourne ici tournait déjà sur les machines de développement ; ce
+# fichier est le déclencheur qui manquait. Trois jobs en parallèle, aucune
+# dépendance entre eux : une politique RLS cassée n'a pas à attendre qu'un
+# export Metro finisse pour rougir.
+#
+# **Aucun secret.** Rien de ce qui est vérifié ici n'a besoin d'un projet
+# Supabase, d'un compte Expo ou d'un jeton Vercel : la base RLS est un
+# conteneur jetable monté depuis les migrations du dépôt, et les deux
+# applications se construisent sans variables d'environnement. Une CI qui
+# réclamerait un secret serait une CI qu'on ne peut pas faire tourner sur la
+# PR d'un contributeur extérieur.
+#
+# Ce qui n'est PAS couvert, et qui ne peut pas l'être sans appareil : le
+# rendu mobile réel — clavier, vibrations, icônes d'onglets Android, feuilles
+# natives. La recette au doigt est dans `docs/30-RECETTE-MOBILE.md` et se
+# passe après une build EAS.
+name: Intégration continue
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Une PR qu'on repousse annule son run précédent : payer deux fois le même
+# verdict n'apprend rien.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qualite:
+    name: Tests métier, lint, typage et fumée web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # Les 238 tests du domaine, du contenu (parité fr/en) et du web. Ils
+      # n'ouvrent ni base ni navigateur : quelques secondes.
+      - name: Tests métier
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      # `npm run build` enchaîne `tsc -b` puis `vite build` : le typage strict
+      # du web et le bundle de production, en une commande.
+      - name: Typage et build du web
+        run: npm run build
+
+      - name: Fumée web
+        run: npm run smoke:web
+
+  mobile:
+    name: Typage et export mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # L'export d'abord : c'est notre seule garde Metro réelle — elle attrape
+      # ce que `tsc` ne voit pas (un module natif introuvable, un greffon mal
+      # déclaré). Et si Expo se met un jour à régénérer les types de routes
+      # ignorés par git, le typage en profitera.
+      #
+      # Mesuré sur un clone vierge le 25/08/2026 : `apps/mobile/expo-env.d.ts`
+      # et `.expo/types/` sont absents d'un checkout, l'export ne les crée pas,
+      # et `tsc --noEmit` passe quand même. Le typage des routes est donc plus
+      # permissif en CI que sur une machine où le serveur de développement a
+      # tourné — c'est une limite connue, pas une panne.
+      - name: Export web (garde Metro)
+        run: npm run mobile:export
+
+      - name: Typage mobile
+        run: npm run mobile:typecheck
+
+  rls:
+    name: Permissions et RLS
+    runs-on: ubuntu-latest
+    # La pile Supabase locale tire ses images Docker avant de démarrer ; le
+    # cycle complet provision → suite → arrêt tient largement dans ce délai.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # `tests/rls/provision.mjs` fait tout : `supabase init` dans un dossier
+      # jetable, copie des migrations du dépôt, `supabase start` sans les
+      # services inutiles. Le CLI vient de npx, épinglé dans le script — pas
+      # d'action tierce à maintenir en plus.
+      #
+      # Pas de `RLS_REUSE_STACK` ici : le runner est neuf à chaque fois, et
+      # réutiliser une base est un raccourci de développeur, pas de CI.
+      - name: Suite RLS complète
+        run: npm run test:rls
