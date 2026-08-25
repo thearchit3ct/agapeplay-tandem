@@ -1248,8 +1248,9 @@ le critère de droits que le doc 07 laissait ouvert et que l'issue #4 n'a pas
 tranché. Les trois `verse_fr` du 04/08 ont été vérifiés dans la même passe :
 ils étaient déjà Segond au mot près.
 
-Le test refuse le retour des deux formulations NIV. Ce n'est pas une précaution
-théorique : elles étaient arrivées par copier-coller une première fois.
+Le test refuse le retour des deux formulations NIV. Ce qu'on observe est le
+texte, pas la manière dont il est arrivé là : les deux tournures sont celles de
+la NIV mot pour mot, et cela suffit à les écarter.
 
 ### Comment les citations ont été vérifiées
 
@@ -1297,6 +1298,18 @@ Elle n'y est pas. La mémorisation se fait avec le journal et le binôme, et rie
 d'une séance ne doit dépendre d'une autre application. Le pont reste une
 décision d'écosystème à prendre ailleurs ; ce qui est écrit ici tient sans lui.
 Divergence assumée avec le doc 24, datée du 26/08.
+
+### Écart de forme : la semaine 1 ne se lit pas comme les cinq autres
+
+Les séances des jours 1 à 3 portent des thèmes d'auteur — « Une foi qui
+respire », « La grâce au quotidien », « Une foi incarnée » — là où les semaines
+2 à 6 prennent pour thème l'objectif du doc 07. La semaine 1 mélange donc trois
+thèmes d'auteur, un « Faire le point » et un « La discussion de la semaine ».
+
+C'est la conséquence directe de la borne du chantier : seuls les `verse_en` des
+trois séances existantes pouvaient être retouchés. Réécrire leurs thèmes aurait
+dépassé le périmètre. C'est la première chose qu'un relecteur remarquera, et
+c'est une retouche d'une ligne le jour où on la décide.
 
 ### Ce qui attend un relecteur humain — bloquant pour le pilote
 
