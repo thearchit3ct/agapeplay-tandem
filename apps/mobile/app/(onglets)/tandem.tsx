@@ -95,12 +95,22 @@ export default function TandemScreen() {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
-  // Qu'un envoi de signalement soit en vol. La feuille désarme son propre bouton
-  // de son côté ; cette garde-ci empêche un second envoi quoi qu'il arrive.
-  const [signalement, setSignalement] = useState(false)
   const [notice, setNotice] = useState('')
   const [rafraichissement, setRafraichissement] = useState(false)
   const refDefilement = useRef<ScrollView>(null)
+  /**
+   * Qu'un envoi de signalement soit en vol.
+   *
+   * Une `ref` et non un état, pour une raison qui n'est pas de commodité : la
+   * fonction appelée depuis la feuille lit ce qu'elle a fermé au rendu où elle a
+   * été armée. Un état posé juste avant l'`await` ne serait donc **pas** vu par
+   * un second appel arrivé entre-temps — la garde ne garderait rien. Une `ref`
+   * est lue et écrite au même instant, par tous les appelants.
+   *
+   * La feuille désarme son bouton de son côté ; celle-ci est la garde de
+   * dernier ressort, du côté où l'écriture se fait.
+   */
+  const signalementEnVol = useRef(false)
   const t = copy[locale]
 
   /**
@@ -301,8 +311,8 @@ export default function TandemScreen() {
    * panneau restait affiché quand l'insert échouait.
    */
   const signaler = async ({ categorie, motLibre }: ChargesDeFeuille['signalement']): Promise<boolean> => {
-    if (signalement || !categorie || !supabase || !session || !tandem) return false
-    setSignalement(true)
+    if (signalementEnVol.current || !categorie || !supabase || !session || !tandem) return false
+    signalementEnVol.current = true
     // Ce qui part est un **code** — `malaise`, `secret`, `danger`… — et non le
     // libellé affiché : la donnée que lit la modération ne doit pas dépendre de
     // la langue de l'écran. C'est ce que l'ancien littéral français protégeait
@@ -328,7 +338,7 @@ export default function TandemScreen() {
       })
       .select('id')
       .maybeSingle()
-    setSignalement(false)
+    signalementEnVol.current = false
     // Un insert refusé par un `with check` lève, contrairement à l'UPDATE — mais
     // on lit quand même la ligne rendue : sans elle, on annoncerait « transmis »
     // sur la foi d'une absence d'erreur.

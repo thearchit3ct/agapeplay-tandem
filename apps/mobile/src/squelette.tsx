@@ -146,8 +146,9 @@ const styles = StyleSheet.create({
   // des filets et des bordures de cartes, si bien qu'un squelette a exactement
   // la valeur de ce qu'il annonce.
   bloc: { backgroundColor: colors.line },
-  // Sur la carte du jour, qui est à l'encre : le même geste, une valeur plus
-  // claire, sinon le fantôme disparaîtrait dans le fond.
-  blocSombre: { backgroundColor: '#3a3a37' },
+  // Sur les fonds d'encre — la carte du jour, les bulles envoyées : le même
+  // geste, dans la valeur que la carte du jour utilise déjà pour son filet.
+  // Plus sombre, le fantôme se perdrait dans le fond.
+  blocSombre: { backgroundColor: '#454540' },
   paragraphe: { gap: 9 },
 })
