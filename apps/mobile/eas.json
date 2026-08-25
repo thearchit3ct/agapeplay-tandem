@@ -38,7 +38,7 @@
       "android": {
         "serviceAccountKeyPath": "/home/admin/.play-service-account.json",
         "track": "internal",
-        "releaseStatus": "draft"
+        "releaseStatus": "completed"
       }
     }
   }
