@@ -9,6 +9,67 @@ Dépôt `thearchit3ct/agapeplay-tandem`, branche `main`.
 
 ---
 
+## Amendement du 25 août 2026 — trois études de conception (issues #25, #26, #27)
+
+*Ajouté sans rien retirer de ce qui précède. Les trois amendements plus bas
+restent valables. Celui-ci ne rapporte **aucun code** : les trois issues
+appelaient des décisions, pas une implémentation, et ce qui a été produit est
+trois documents.*
+
+**Ce que ces trois études ont en commun.** Chacune touche à une frontière du
+produit — une marque tierce, un modèle de langue, une autre application du
+studio — et chacune se termine par une liste « Ce qui attend une décision
+humaine » qui ne se contourne pas.
+
+**[`13-INTEGRATION-ALPHA.md`](./13-INTEGRATION-ALPHA.md) passe en version 2**
+(issue #27), la version 1 conservée intégralement dessous. Elle réconcilie deux
+découpages qui coexistaient sans se recouvrir — trois « niveaux » 1/2/3 et trois
+niveaux A/B/C — en séparant le **niveau de licence** (A, B, C) de l'**usage
+produit** (compagnon, après-parcours). La décision est **Niveau A**,
+c'est-à-dire référencement sans licence de contenu ; le Niveau B est ce que
+demande le premier contact, et le Niveau C reste hors périmètre jusqu'à licence
+signée. Le mode compagnon est conçu comme une grille de semaines vides que
+l'Église remplit de pointeurs : il n'y a pas de contenu Alpha à ne pas copier
+parce qu'il n'y a pas de contenu du tout. Le canal de premier contact est
+vérifié et un courriel est rédigé, à envoyer par un humain. Deux écarts nommés :
+le nombre de sessions d'Alpha n'est pas vérifié et ne doit pas être codé en dur,
+et l'issue est jalonnée M3 quand le doc 09 range le sujet en Phase 5.
+
+**[`23-IA-EDITORIALE.md`](./23-IA-EDITORIALE.md) est nouveau** (issue #26).
+L'outil sert un auteur pendant qu'il écrit un parcours, et n'est jamais présent
+quand un participant le lit. Trois usages fermés — questions de réflexion,
+reformulation, niveau de langue — et une liste de ce qu'il ne fait pas, dont la
+section `context` d'une séance, le choix du passage et la traduction. La
+garantie sur les journaux privés est écrite comme structurelle et vérifiée dans
+ce dépôt : `supabase/` ne contient que `config.toml` et `migrations`, donc
+**aucun composant serveur n'existe** d'où un journal pourrait être lu ;
+`journal_entries` porte quatre politiques own-only et un `grant` à
+`authenticated` seul. Le document nomme ce que cette garantie ne couvre pas —
+un auteur qui recopie un extrait de journal dans l'outil, qu'aucune RLS
+n'arrête — et le renvoie à une clause de provenance et à l'étape 4 du workflow
+du doc 07. Huit cas de test, dont un témoin négatif et une escalade progressive.
+
+**[`24-ECOSYSTEME-AGAPEPLAY.md`](./24-ECOSYSTEME-AGAPEPLAY.md) est nouveau**
+(issue #25). Il relie Tandem à Versets Flash et à Alléluia! sans jamais rendre
+l'un nécessaire à l'autre : le défi de mémorisation est validé par
+auto-déclaration dans Tandem, et Versets Flash n'en est qu'un accélérateur
+facultatif. La mesure d'usage croisé compte deux événements de part et d'autre
+et **ne les rapproche jamais par personne** : aucun identifiant ne voyage dans
+un lien, pas même haché — un identifiant haché reste une clé de jointure, et
+c'est la jointure que le doc 08 interdit.
+
+Un fait relevé dans l'autre dépôt a changé une décision de conception, et mérite
+d'être consigné ici : **Versets Flash intercepte les liens profonds sur un
+appareil neuf**. Tant que son état local d'accueil n'est pas posé et que
+personne n'est connecté, il affiche son écran d'accueil à la place de la route
+demandée, sauf pour une liste fermée de chemins publics ; et son parcours
+d'installation termine sur l'écran de session, sans conserver la destination
+d'origine. Un lien précis fonctionne donc pour qui a déjà l'application, et se
+dissout pour tous les autres — c'est-à-dire pour ceux à qui Tandem le propose.
+Le lien retenu pointe vers la racine, et la séance ne promet rien de plus.
+
+---
+
 ## Amendement du 25 août 2026 — catégories, urgence et escalade (issue #19)
 
 *Ajouté sans rien retirer de ce qui précède. Les deux amendements plus bas
