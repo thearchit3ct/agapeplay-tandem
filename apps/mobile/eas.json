@@ -35,10 +35,34 @@
       "ios": {
         "simulator": false
       }
+    },
+    "production": {
+      "distribution": "store",
+      "channel": "production",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false,
+        "credentialsSource": "local"
+      }
     }
   },
   "submit": {
     "internal": {
+      "android": {
+        "serviceAccountKeyPath": "/home/admin/.play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "completed"
+      }
+    },
+    "production": {
+      "ios": {
+        "ascApiKeyPath": "/home/admin/.appstore-connect-key.p8",
+        "ascApiKeyId": "7RJ9XPB9LP",
+        "ascApiKeyIssuerId": "30751f6a-e60a-4e9b-a4b7-a14b39a1f428"
+      },
       "android": {
         "serviceAccountKeyPath": "/home/admin/.play-service-account.json",
         "track": "internal",
