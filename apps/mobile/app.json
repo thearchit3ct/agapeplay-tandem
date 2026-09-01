@@ -19,7 +19,10 @@
       "associatedDomains": [
         "applinks:tandem.agapeplay.store"
       ],
-      "icon": "./assets/icon.png"
+      "icon": "./assets/icon.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.agapeplay.tandem",
